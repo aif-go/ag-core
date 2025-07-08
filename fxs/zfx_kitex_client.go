@@ -4,36 +4,44 @@ import (
 	agkc "ag-core/ag/ag_kitex/client"
 
 	"github.com/cloudwego/kitex/client"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+	"github.com/cloudwego/kitex/pkg/discovery"
 	"go.uber.org/fx"
 )
 
 var FxKitexClientBaseModule = fx.Module(
 	"fx_kitex_Client_base",
 	fx.Provide(
+		agkc.FxInitKitexClientProperties,
+		agkc.BuildKitexResolver,
 		FxBuilderKitexClientSuite,
 	),
 )
 
-var FxKitexAgClientBizErrorMiddlewareOption = fx.Provide(
+var FxKitexAgClientBizErrorOption = fx.Provide(
 	fx.Annotate(
 		agkc.NewAgBizErrorMiddlewareOption,
 		fx.ResultTags(`group:"kitex_client_options"`),
 	),
+	// fx.Annotate(
+	// 	agkc.NewAgBizErrorHandler,
+	// 	fx.ResultTags(`group:"kitex_client_options"`),
+	// ),
 )
 
 type FxInKitexClientParams struct {
 	fx.In
 
+	KCProps     *agkc.KitexClientProperties
 	CustOptions []*client.Option `group:"kitex_client_options",optional:"true"`
 
-	NamingClient naming_client.INamingClient `optional:"true"`
+	Resolver discovery.Resolver
 }
 
 // func FxBuilderKitexClientSuite(params FxInKitexServerParams) (server.Suite, error) {
 func FxBuilderKitexClientSuite(params FxInKitexClientParams) (*agkc.KitexClientSuite, error) {
 	build := &agkc.KitexSuiteBuilder{
-		NamingClient: params.NamingClient,
+		Resolver: params.Resolver,
+		KCProps:  params.KCProps,
 	}
 	// CustOptions:  params.CustOptions,
 	custOpt := make([]client.Option, 0)

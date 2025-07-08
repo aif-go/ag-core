@@ -20,6 +20,8 @@ import (
 	kregistry "github.com/cloudwego/kitex/pkg/registry"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/spf13/cast"
+
+	_ "github.com/cloudwego/kitex/pkg/remote/codec/protobuf/encoding/gzip"
 )
 
 type Server struct {
@@ -230,7 +232,9 @@ func (builder *KitexSuiteBuilder) BuildSuite() (server.Suite, error) {
 	suite.Opts = append(suite.Opts, server.WithServerBasicInfo(info))
 
 	// 自定义注册信息
-	regInfo := &kregistry.Info{}
+	regInfo := &kregistry.Info{
+		Tags: map[string]string{},
+	}
 	regInfo.Weight = 1
 	if kconf.EnableIPRange != "" {
 		ipranger, err := ip.NewIPRanger(kconf.EnableIPRange)
@@ -249,6 +253,9 @@ func (builder *KitexSuiteBuilder) BuildSuite() (server.Suite, error) {
 				return nil, err
 			}
 		}
+		// 兼容https://github.com/grpc-ecosystem/grpc-spring项目的服务发现实现
+		regInfo.Tags["gRPC_port"] = fmt.Sprintf("%d", port)
+
 	}
 	suite.Opts = append(suite.Opts, server.WithRegistryInfo(regInfo))
 

@@ -1,11 +1,14 @@
 package client
 
 import (
-	"ag-core/ag/ag_ext"
+	"fmt"
+	"time"
 
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/transport"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+
+	"github.com/cloudwego/kitex/pkg/discovery"
+	_ "github.com/cloudwego/kitex/pkg/remote/codec/protobuf/encoding/gzip"
 )
 
 type KitexClientSuite struct {
@@ -19,22 +22,39 @@ func (s *KitexClientSuite) Options() []client.Option {
 type KitexSuiteBuilder struct {
 	CustOptions []client.Option
 
-	NamingClient naming_client.INamingClient
+	KCProps  *KitexClientProperties
+	Resolver discovery.Resolver
 }
 
 // func (builder *KitexSuiteBuilder) BuildSuite() (client.Suite, error) {
 func (builder *KitexSuiteBuilder) BuildSuite() (*KitexClientSuite, error) {
+
+	p := builder.KCProps
+
 	opts := make([]client.Option, 0)
 
 	// 自定义的配置项
 	opts = append(opts, builder.CustOptions...)
 
-	// 指定传输协议，否则默认使用http1.1
-	opts = append(opts, client.WithTransportProtocol(transport.GRPC))
+	// 指定传输协议 TODO 某个client若要单独配置怎么办？
+	switch p.TransportType {
+	case "grpc":
+		opts = append(opts, client.WithTransportProtocol(transport.GRPC))
+	case "grpcstream":
+		opts = append(opts, client.WithTransportProtocol(transport.GRPCStreaming))
+	default:
+		// opts = append(opts, client.WithTransportProtocol(transport.GRPC))
+		return nil, fmt.Errorf("invalid transport type: %s", p.TransportType)
+	}
 
 	// 注册中心配置
-	if builder.NamingClient != nil {
-		opts = append(opts, client.WithResolver(ag_ext.NewNacosResolver(builder.NamingClient)))
+	if builder.Resolver != nil {
+		opts = append(opts, client.WithResolver(builder.Resolver))
+	}
+
+	// RPC超时时间参数设置
+	if p.RpcTimeout > 0 {
+		opts = append(opts, client.WithRPCTimeout(p.RpcTimeout*time.Second))
 	}
 
 	// opts = append(opts, client.WithLoadBalancer())
