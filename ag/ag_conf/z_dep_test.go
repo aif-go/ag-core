@@ -69,7 +69,6 @@ var _MapPropertySource *MapPropertySource
 var _PropertiesPropertySource *PropertiesPropertySource
 var _SystemEnvironmentPropertySource *SystemEnvironmentPropertySource
 
-
 func TestSourcesCheck(t *testing.T) {
 	if false {
 		// MutablePropertySources 实现 IPropertySources

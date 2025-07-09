@@ -9,7 +9,7 @@ import (
 // Deprecated: xxx
 type IAbstractEnvironment interface {
 	IConfigurableEnvironment
-	customizePropertySources(ps *MutablePropertySources)
+	customizePropertySources(ps *MutablePropertySources) error
 }
 
 // AbstractEnvironment 实现ConfigurableEnvironment接口

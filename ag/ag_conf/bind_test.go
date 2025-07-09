@@ -63,7 +63,7 @@ func TestConfBind(t *testing.T) {
 		"mapV0.a":        "1",
 		"mapV2.a":        "2",
 	}
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	env.GetPropertySources().AddFirst(hzwps)
 
 	binder := ag_conf.NewConfigurationPropertiesBinder(env)
@@ -115,7 +115,7 @@ func TestConfBindSlice(t *testing.T) {
 		"ext[1].string": "22",
 		"ext[2].string": "33",
 	}
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	env.GetPropertySources().AddFirst(hzwps)
 
 	binder := ag_conf.NewConfigurationPropertiesBinder(env)
@@ -150,7 +150,7 @@ func TestConfBindMap(t *testing.T) {
 		"map2.aa":          "AA",
 		"map2.bb":          "BB",
 	}
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	env.GetPropertySources().AddFirst(hzwps)
 
 	binder := ag_conf.NewConfigurationPropertiesBinder(env)

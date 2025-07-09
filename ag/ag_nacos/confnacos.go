@@ -299,8 +299,8 @@ func addOrRefresh(env ag_conf.IConfigurableEnvironment, context string, dataidin
 		return err
 	}
 	if refresh {
-		env.GetPropertySources().Replace(keyname, NewNacosPropertySource(keyname, res))
-		return nil
+		err := env.GetPropertySources().Replace(keyname, NewNacosPropertySource(keyname, res))
+		return err
 	}
 	// 对于扩展的配置就是要在原来配置的后面添加
 	env.GetPropertySources().AddLast(NewNacosPropertySource(keyname, res))

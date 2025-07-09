@@ -98,7 +98,7 @@ func newZap3() *zap.Logger {
 	// conf.SetDefault("log.log_level", "debug")
 	// conf.SetDefault("log.encoding", "console")
 	//conf.SetDefault("env", "prod")
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	mpp := &ag_conf.MapPropertySource{
 		NamedPropertySource: ag_conf.NamedPropertySource{
 			Name: "logtest",

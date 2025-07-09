@@ -35,7 +35,7 @@ func loadEnv() {
 	nacosconfig["nacos.config.log.cache_dir"] = "./storage/nacos/cache"
 	nacosconfig["nacos.config.log.log_level"] = "info"
 
-	Env := ag_conf.NewStandardEnvironment()
+	Env, _ := ag_conf.NewStandardEnvironment()
 	Env.GetPropertySources().AddLast(&ag_conf.MapPropertySource{
 		NamedPropertySource: ag_conf.NamedPropertySource{
 			Name: "nacos",

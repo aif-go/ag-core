@@ -24,7 +24,7 @@ func TestNacosPropertiesBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	// 如果localProperties已经存在,此时需要将yaml添加到它之前
 	env.GetPropertySources().AddLast(&ag_conf.MapPropertySource{
 		NamedPropertySource: ag_conf.NamedPropertySource{

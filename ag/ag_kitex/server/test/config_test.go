@@ -35,7 +35,7 @@ func TestConfBind(t *testing.T) {
 	source.Name = "hzw"
 	source.Source = rr
 
-	env := ag_conf.NewStandardEnvironment()
+	env, _ := ag_conf.NewStandardEnvironment()
 	env.GetPropertySources().AddFirst(source)
 
 	binder := ag_conf.NewConfigurationPropertiesBinder(env)
