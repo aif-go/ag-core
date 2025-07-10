@@ -2,6 +2,8 @@ package fxs
 
 import (
 	"ag-core/ag/ag_nacos"
+	"ag-core/ag/ag_nacos/config"
+	"ag-core/ag/ag_nacos/naming"
 
 	"go.uber.org/fx"
 )
@@ -18,4 +20,27 @@ var FxConfNacoMode = fx.Module(
 		ag_nacos.NewNacosConfigClient,
 	),
 	fx.Invoke(ag_nacos.NewNacosRemoteConfig),
+)
+
+var FxNacosConfigMode = fx.Module(
+	"fx_nacos_config",
+	fx.Provide(
+		config.NewNacosConfigProperties,
+		config.NewNacosConfigClient,
+	),
+)
+
+var FxNacosNamingMode = fx.Module(
+	"fx_nacos_naming",
+	fx.Provide(
+		naming.NewNacosNamingProperties,
+		naming.NewNacosNamingClient,
+	),
+)
+
+var FxEnableNacosRemoteConfigMode = fx.Module(
+	"fx_nacos_remote_configenable",
+	fx.Invoke(
+		config.EnableNacosRemoteConfig,
+	),
 )

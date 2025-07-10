@@ -7,14 +7,17 @@ const (
 
 // NacosConfigProperties nacos config properties
 type NacosConfigProperties struct {
-	EnableConfig bool   `value:"${enableconfig:true}"`
-	EnableNaming bool   `value:"${enablenaming:true}"`
-	Schema       string `value:"${schema:http}"`
-	ContextPath  string `value:"${contextpath:/nacos}"`
-	ServerAddr   string `value:"${serveraddr}"`
-	NameSpace    string `value:"${namespace}"`
-	UserName     string `value:"${username}"`
-	Password     string `value:"${password}"`
+	EnableConfig bool `value:"${enableconfig:true}"`
+	EnableNaming bool `value:"${enablenaming:true}"`
+	// server
+	Schema      string `value:"${schema:http}"`
+	ContextPath string `value:"${contextpath:/nacos}"`
+	ServerAddr  string `value:"${serveraddr}"`
+
+	// client
+	NameSpace string `value:"${namespace}"`
+	UserName  string `value:"${username}"`
+	Password  string `value:"${password}"`
 
 	DataIDs []DataIDInfo `value:"${dataids}"`
 }

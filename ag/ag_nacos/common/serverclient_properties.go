@@ -1,0 +1,79 @@
+package common
+
+import (
+	"fmt"
+
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+)
+
+type SCProperties struct {
+	// server
+	Schema      string `value:"${schema:http}"`
+	ContextPath string `value:"${contextpath:/nacos}"`
+
+	// client
+	ServerAddr string `value:"${serveraddr}"`
+	NameSpace  string `value:"${namespace}"`
+	UserName   string `value:"${username}"`
+	Password   string `value:"${password}"`
+}
+
+func BuildServerConfig(p SCProperties) ([]constant.ServerConfig, error) {
+	adds := p.ServerAddr
+	if adds == "" {
+		return nil, fmt.Errorf("nacos server addr is empty")
+	}
+	// ipports, err := ag_nacos.parseIPPort(adds)
+	ipports, err := ParseIPPort(adds)
+	if err != nil {
+		return nil, err
+	}
+
+	schema := p.Schema
+	contextPath := p.ContextPath
+
+	opts := []constant.ServerOption{}
+	if schema != "" {
+		opts = append(opts, constant.WithScheme(schema))
+	}
+	if contextPath != "" {
+		opts = append(opts, constant.WithContextPath(contextPath))
+	}
+
+	sc := []constant.ServerConfig{}
+
+	for _, ipport := range ipports {
+		sc = append(sc, *constant.NewServerConfig(ipport.Ip, ipport.Port, opts...))
+	}
+
+	return sc, nil
+}
+
+// NewNacosClientConfig 初始化nacos client配置
+// func namingClientConfig(p *NacosNamingProperties) (*constant.ClientConfig, error) {
+func BuildClientConfig(p SCProperties) (*constant.ClientConfig, error) {
+	namespace := p.NameSpace
+	username := p.UserName
+	password := p.Password
+
+	opts := []constant.ClientOption{}
+
+	// namespace
+	if namespace != "" {
+		opts = append(opts, constant.WithNamespaceId(namespace))
+	}
+	// username
+	if username != "" {
+		opts = append(opts, constant.WithUsername(username))
+	}
+	// password
+	if password != "" {
+		opts = append(opts, constant.WithPassword(password))
+	}
+
+	// TODO 其他配置
+
+	clientConfig := constant.NewClientConfig(opts...)
+
+	return clientConfig, nil
+}
