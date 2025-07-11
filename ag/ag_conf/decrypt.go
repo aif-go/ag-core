@@ -99,3 +99,57 @@ func DecryptLocalConfig(env IConfigurableEnvironment) error {
 	return nil
 
 }
+
+func DecryptOtherConfig(env IConfigurableEnvironment) error {
+	pss := env.GetPropertySources()
+
+	// 此处的遍历中修改pss是否安全?
+	err := pss.RangePropertySourceHandlerReverse(func(ps IPropertySource) (bool, error) {
+		psname := ps.GetName()
+
+		// 判断propertySource不是LOCAL、SYS、DECRYPT开头的
+		if !strings.HasPrefix(psname, SourceKeyLocalPrefix) && !strings.HasPrefix(psname, SourceKeySysPrefix) && !strings.HasPrefix(psname, SourceKeyDecryptPrefix) { // LOCAL 配置
+			source := ps.GetSource()
+
+			decryptSource := make(map[string]any)
+			var err error
+			for key, value := range source {
+				ciphertext, ok := value.(string)
+				if ok && strings.HasPrefix(ciphertext, ConstEncryptKeyWords) {
+					ciphertext = ciphertext[len(ConstEncryptKeyWords):]
+					plaintext, derr := ag_crypto.GetEncrytorPrimary().Decrypt(ciphertext)
+					if derr != nil {
+						err = fmt.Errorf("decrypt config err source:%s, key:%s, err:%w", psname, key, derr)
+						break // 异常中断当前source遍历
+						// return true, err
+					}
+					decryptSource[key] = plaintext
+				}
+			}
+			if err != nil {
+				slog.Error(fmt.Sprintf("decrypt config err source:%s, err:%w", psname, err))
+				// return false, nil // 当前ps跳过，继续遍历
+				return true, err // 中断并抛出异常
+			}
+
+			if len(decryptSource) > 0 {
+				dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
+				dps := &MapPropertySource{
+					NamedPropertySource: NamedPropertySource{
+						Name: dname,
+					},
+					Source: decryptSource,
+				}
+				pss.RemoveIfPresent(dname) // 移除旧的解密source
+				pss.AddBefore(psname, dps) // 新的解密source添加到原source前面，优先级增加
+			}
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

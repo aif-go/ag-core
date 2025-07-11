@@ -23,6 +23,13 @@ var FxAgConfModule = fx.Module("ag_conf",
 	),
 )
 
+var FxAgConfigDecryptModule = fx.Module(
+	"ag_conf_decrypt",
+	fx.Invoke(
+		ag_conf.DecryptOtherConfig,
+	),
+)
+
 // var FxConfLocMode = fx.Module(
 // 	"fx_conf_local",
 // 	// LoadLocalConfig 构造使用了 embed.FS,目前需要应用main提前使用Supply等方式提供依赖
