@@ -13,6 +13,8 @@ var _IAbstractEnvironment IAbstractEnvironment // Deprecated: 精简移除IAbstr
 var _AbstractEnvironment *AbstractEnvironment
 var _StandardEnvironment *StandardEnvironment
 var _AbstractPropertyResolver *AbstractPropertyResolver
+
+// var _PropertySourcesPropertyResolver *PropertySourcesPropertyResolver
 var _PropertySourcesPropertyResolver *PropertySourcesPropertyResolver
 
 func TestResoverApiCheck(t *testing.T) {

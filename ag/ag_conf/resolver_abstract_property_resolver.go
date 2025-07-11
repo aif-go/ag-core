@@ -2,6 +2,7 @@ package ag_conf
 
 import (
 	"fmt"
+	"sync"
 )
 
 // AbstractPropertyResolver 属性解析器抽象实现
@@ -13,7 +14,14 @@ type AbstractPropertyResolver struct {
 	// 必须的属性key集合
 	RequiredProperties []string
 
-	GetProperty func(key string) string // 由具体实现提供
+	GetProperty            func(key string) string // 由具体实现提供
+	GetPropertyAsRawString func(key string) string // 由具体实现提供
+
+	rrpOnce sync.Once
+	rrp     *PropertyPlaceholderHelper
+
+	rpOnce sync.Once
+	rp     *PropertyPlaceholderHelper
 }
 
 /*
@@ -47,13 +55,23 @@ func (apr *AbstractPropertyResolver) GetRequiredProperty(key string) (string, er
 // ResolvePlaceholders impl IPropertyResolver.ResolvePlaceholders
 func (apr *AbstractPropertyResolver) ResolvePlaceholders(text string) string {
 	//TODO 需要实现PropertyPlaceholderHelper，以支持占位符解析
-	return ""
+	apr.rrpOnce.Do(
+		func() {
+			apr.rrp = NewPropertyPlaceholderHelper(apr.PlaceholderPrefix, apr.PlaceholderSuffix, apr.ValueSeparator, true)
+		},
+	)
+	v, _ := apr.rrp.ReplacePlaceholders(text, apr.GetPropertyAsRawString)
+	return v
 }
 
 // ResolveRequiredPlaceholders impl IPropertyResolver.ResolveRequiredPlaceholders
 func (apr *AbstractPropertyResolver) ResolveRequiredPlaceholders(text string) (string, error) {
-	//TODO 需要实现PropertyPlaceholderHelper，以支持占位符解析
-	return "", nil
+	apr.rrpOnce.Do(
+		func() {
+			apr.rrp = NewPropertyPlaceholderHelper(apr.PlaceholderPrefix, apr.PlaceholderSuffix, apr.ValueSeparator, false)
+		},
+	)
+	return apr.rrp.ReplacePlaceholders(text, apr.GetPropertyAsRawString)
 }
 
 /*
@@ -82,23 +100,31 @@ func (apr *AbstractPropertyResolver) SetIgnoreUnresolvableNestedPlaceholders(ign
 
 // SetRequiredProperties 设置必须的属性key集合
 func (apr *AbstractPropertyResolver) SetRequiredProperties(requiredProperties ...string) {
-	for _, key := range requiredProperties {
-		apr.RequiredProperties = append(apr.RequiredProperties, key)
-	}
+	apr.RequiredProperties = append(apr.RequiredProperties, requiredProperties...)
 }
 
 // ValidateRequiredProperties 校验必须的属性是否存在，如果不存在则返回错误
 func (apr *AbstractPropertyResolver) ValidateRequiredProperties() error {
 	missingKeys := []string{}
 	for _, key := range apr.RequiredProperties {
-		if apr.GetProperty(key) == "" {
+		if !apr.ContainsProperty(key) {
+			// if apr.GetProperty(key) == "" {
 			missingKeys = append(missingKeys, key)
 		}
 	}
 
 	if len(missingKeys) > 0 {
-		return fmt.Errorf("The following properties were declared as required but could not be resolved: %v", missingKeys)
+		return fmt.Errorf("the following properties were declared as required but could not be resolved: %v", missingKeys)
 	}
 
 	return nil
+}
+
+/* #### 自定义实现 #### */
+func (apr *AbstractPropertyResolver) ResolveNestedPlaceholders(value string) (string, error) {
+	if apr.IgnoreUnresolvableNestedPlaceholders { // 是否忽略未解析的占位符
+		return apr.ResolvePlaceholders(value), nil
+	} else {
+		return apr.ResolveRequiredPlaceholders(value)
+	}
 }
