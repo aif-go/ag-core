@@ -5,10 +5,11 @@ import (
 	"ag-core/ag/ag_ext/ip"
 	"context"
 	"fmt"
-	kitex "github.com/cloudwego/kitex/pkg/serviceinfo"
 	"log/slog"
 	"net"
 	"time"
+
+	kitex "github.com/cloudwego/kitex/pkg/serviceinfo"
 
 	"github.com/cloudwego/kitex/pkg/remote/trans/nphttp2/grpc"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
@@ -205,7 +206,12 @@ func (builder *KitexSuiteBuilder) BuildSuite() (server.Suite, error) {
 	// 注册中心配置
 	if builder.NamingClient != nil {
 		slog.Info("kitex server enable nacos naming")
-		suite.Opts = append(suite.Opts, server.WithRegistry(registry.NewNacosRegistry(builder.NamingClient)))
+		suite.Opts = append(suite.Opts, server.WithRegistry(
+			registry.NewNacosRegistry(
+				builder.NamingClient,
+				// registry.WithCluster("hhh"), // TODO 集群信息支持
+			),
+		))
 	}
 
 	// 服务地址配置

@@ -24,7 +24,7 @@ type Grpc struct {
 
 type ResolverProperties struct {
 	Enable bool
-	Type   string
+	Type   string `value:"${type:agnacos}"`
 
 	Nacos NacosGC `value:"${Nacos}"`
 }
