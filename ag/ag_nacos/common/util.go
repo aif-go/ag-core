@@ -10,8 +10,8 @@ import (
 )
 
 // ParseIPPort 解析IP:端口格式的字符串，返回IP和端口的集合
-func ParseIPPort(input string) ([]ipPort, error) {
-	var result []ipPort
+func ParseIPPort(input string) ([]IpPort, error) {
+	var result []IpPort
 
 	// 按逗号分割输入字符串
 	entries := strings.Split(input, ",")
@@ -51,7 +51,7 @@ func ParseIPPort(input string) ([]ipPort, error) {
 			return nil, errors.New("格式错误，应为IP:端口或IP")
 		}
 
-		result = append(result, ipPort{
+		result = append(result, IpPort{
 			Ip:   ip.String(),
 			Port: port,
 		})
@@ -60,7 +60,7 @@ func ParseIPPort(input string) ([]ipPort, error) {
 	return result, nil
 }
 
-type ipPort struct {
+type IpPort struct {
 	Ip   string
 	Port uint64
 }
