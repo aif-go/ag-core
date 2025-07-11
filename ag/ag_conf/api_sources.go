@@ -10,5 +10,5 @@ type IPropertySources interface {
 	GetPropertySources() []IPropertySource
 	// RangePropertySourceHandler 遍历处理属性源集合 end:是否结束遍历, err:错误
 	RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error)) error
+	RangePropertySourceHandlerReverse(func(ps IPropertySource) (end bool, err error)) error
 }
-

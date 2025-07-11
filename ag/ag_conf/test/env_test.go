@@ -74,3 +74,90 @@ func TestEnvironment(t *testing.T) {
 	fmt.Println(v)
 
 }
+
+func TestPropertySource(t *testing.T) {
+	t.Run("测试属性源初始添加", func(t *testing.T) {
+		env, _ := ag_conf.NewStandardEnvironment()
+		pss := env.GetPropertySources()
+
+		// 初始添加属性源
+		hzwps := &ag_conf.MapPropertySource{}
+		hzwps.Name = "hzw"
+		hzwps.Source = map[string]any{
+			"h": "1",
+		}
+		env.GetPropertySources().AddFirst(hzwps)
+		sourceSlice := pss.GetPropertySources()
+
+		// 验证初始值
+		s1 := sourceSlice[0]
+		vh := s1.GetProperty("h")
+		fmt.Printf("初始h值:%v \n", vh)
+		if vh != "1" {
+			t.Errorf("期望初始h值为1，实际得到:%v", vh)
+		}
+	})
+
+	t.Run("测试属性源替换", func(t *testing.T) {
+		env, _ := ag_conf.NewStandardEnvironment()
+		pss := env.GetPropertySources()
+
+		// 初始属性源
+		hzwps := &ag_conf.MapPropertySource{}
+		hzwps.Name = "hzw"
+		hzwps.Source = map[string]any{
+			"h": "1",
+		}
+		env.GetPropertySources().AddFirst(hzwps)
+		sourceSlice := pss.GetPropertySources()
+
+		// 替换属性源
+		hzwps2 := &ag_conf.MapPropertySource{}
+		hzwps2.Name = "hzw"
+		hzwps2.Source = map[string]any{
+			"h": "2",
+		}
+		env.GetPropertySources().ReplaceSource(hzwps2)
+
+		// 验证旧切片不变
+		s1 := sourceSlice[0]
+		vh := s1.GetProperty("h")
+		fmt.Printf("替换后旧切片h值:%v \n", vh)
+		if vh != "1" {
+			t.Errorf("期望旧切片h值保持1，实际得到:%v", vh)
+		}
+
+		// 验证新切片已更新
+		s1 = pss.GetPropertySources()[0]
+		vh = s1.GetProperty("h")
+		fmt.Printf("替换后新切片h值:%v \n", vh)
+		if vh != "2" {
+			t.Errorf("期望新切片h值更新为2，实际得到:%v", vh)
+		}
+	})
+
+	t.Run("测试属性源直接修改", func(t *testing.T) {
+		env, _ := ag_conf.NewStandardEnvironment()
+		pss := env.GetPropertySources()
+
+		// 初始属性源
+		hzwps := &ag_conf.MapPropertySource{}
+		hzwps.Name = "hzw"
+		hzwps.Source = map[string]any{
+			"h": "1",
+		}
+		env.GetPropertySources().AddFirst(hzwps)
+		sourceSlice := pss.GetPropertySources()
+
+		// 直接修改源数据
+		hzwps.Source["h"] = "11"
+
+		// 验证修改后的值
+		s1 := sourceSlice[0]
+		vh := s1.GetProperty("h")
+		fmt.Printf("直接修改后h值:%v \n", vh)
+		if vh != "11" {
+			t.Errorf("期望直接修改后h值为11，实际得到:%v", vh)
+		}
+	})
+}
