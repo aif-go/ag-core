@@ -1,6 +1,7 @@
 package ag_conf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -29,7 +30,7 @@ var Binder IBinder
 type IBinder interface {
 	GetEnv() IConfigurableEnvironment
 	Bind(i any, name ...string) error
-	BindValue(v reflect.Value, param BindParam) error
+	// BindValue(ctx context.Context, v reflect.Value, param BindParam) error
 }
 
 // ConfigurationPropertiesBinder 配置属性绑定器
@@ -102,11 +103,13 @@ func (cpb *ConfigurationPropertiesBinder) Bind(i any, name ...string) error {
 	}
 	rootparam.Path = typeName
 
-	return cpb.BindValue(v, rootparam)
+	bindcontext := context.Background()
+
+	return cpb.BindValue(bindcontext, v, rootparam)
 }
 
 // BindValue 绑定值
-func (cpb *ConfigurationPropertiesBinder) BindValue(v reflect.Value, param BindParam) (rterr error) {
+func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v reflect.Value, param BindParam) (rterr error) {
 	slog.Debug("bind value", "key", param.Key)
 	defer func() {
 		if rterr != nil {
@@ -126,91 +129,29 @@ func (cpb *ConfigurationPropertiesBinder) BindValue(v reflect.Value, param BindP
 	// 需要进一步解析的类型
 	switch v.Kind() {
 	case reflect.Pointer: // 此处的value需要解引用
-		return cpb.BindValue(v.Elem(), param)
+		return cpb.BindValue(bctx, v.Elem(), param)
 		// err := errors.New("reflect.Value shoud be ptr.Elem()")
 		// return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
 	case reflect.Array:
 		err := errors.New("use slice instead of array")
 		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
 	case reflect.Slice:
-		err := cpb.bindSlice(v, param)
+		err := cpb.bindSlice(bctx, v, param)
 		return err
 	case reflect.Map:
-		err := cpb.bindMap(v, param)
+		err := cpb.bindMap(bctx, v, param)
 		return err
 	case reflect.Struct:
-		err := cpb.bindStruct(v, param)
+		err := cpb.bindStruct(bctx, v, param)
 		return err
 	default:
 		// do continue
 	}
 
-	// 需要获取参数的类型
-	value := cpb.env.GetProperty(param.Key) // TODO value中的占位符按设计需要在env中完成解析，是否需要在此处处理？
-	// cpb.env.ContainsProperty(param.Key)
-
-	if value == "" {
-		// 没有找到配置，则使用默认值
-		if param.PTag.HasDef {
-			// TODO 告警日志，使用默认值
-			slog.Warn(fmt.Sprintf("bind path=%s type=%s use default value=%s\n", param.Path, v.Type().String(), param.PTag.Def))
-			value = param.PTag.Def
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrNotExist)
-		}
-	}
-	// TODO 默认值可能也有占位符 默认值暂不支持占位符
-
-	// 将string 类型的value，按照reflect.Value的类型进行转换，并赋值给v
-	switch v.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		// 解析为int类型
-		if i, err := strconv.ParseInt(value, 0, 0); err == nil {
-			v.SetInt(i)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		// 解析为uint类型
-		if i, err := strconv.ParseUint(value, 0, 0); err == nil {
-			v.SetUint(i)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.Float32, reflect.Float64:
-		// 解析为float类型
-		if f, err := strconv.ParseFloat(value, 0); err == nil {
-			v.SetFloat(f)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-
-	case reflect.Bool:
-		// 解析为bool类型
-		if b, err := cast.ToBoolE(value); err == nil {
-			// if b, err := strconv.ParseBool(value); err == nil { // TODO
-			v.SetBool(b)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.String:
-		// 解析为string类型
-		v.SetString(value)
-		return nil
-	default:
-		// 其他类型无法解析
-		// err := errors.New("unsupported type")
-		err := ErrUnsupportedType
-		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-
-	}
+	return cpb.doBindValue(bctx, cpb.env, v, param)
 }
 
-func (cpb *ConfigurationPropertiesBinder) bindStruct(v reflect.Value, param BindParam) error {
+func (cpb *ConfigurationPropertiesBinder) bindStruct(bctx context.Context, v reflect.Value, param BindParam) error {
 	t := v.Type()
 
 	// Struct 类型的默认值不允许有非空的默认值
@@ -242,7 +183,7 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(v reflect.Value, param Bind
 				slog.Warn(fmt.Sprintf("bind path=%s type=%s anonymous field:[%s] must be a struct", param.Path, v.Type().String(), ft.Name))
 				continue
 			} // 递归调用 bindStruct 方法绑定匿名结构体
-			if err := cpb.bindStruct(fv, subParam); err != nil {
+			if err := cpb.bindStruct(bctx, fv, subParam); err != nil {
 				return err // no wrap
 			}
 			continue
@@ -269,7 +210,7 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(v reflect.Value, param Bind
 		// 	subParam.Key = fmt.Sprintf("%s.%s", param.Key, fname)
 		// }
 
-		if err := cpb.BindValue(fv, subParam); err != nil {
+		if err := cpb.BindValue(bctx, fv, subParam); err != nil {
 			return err // no wrap
 		}
 
@@ -279,7 +220,13 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(v reflect.Value, param Bind
 	return nil
 }
 
-func (cpb *ConfigurationPropertiesBinder) bindSlice(v reflect.Value, param BindParam) error {
+func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v reflect.Value, param BindParam) error {
+	// TODO 如果为直接属性 且 param autorefresh 添加自动参数刷新
+	// vsetfunc := func() {
+	// 	vsctx := context.WithValue(context.Background(), "canautorefresh", false)
+	// 	cpb.bindSlice(vsctx, v, param)
+	// }
+
 	t := v.Type()
 
 	et := t.Elem() // 获取切片元素类型，若t不是Array, Chan, Map, Pointer, Slice类型，会panic
@@ -312,7 +259,7 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(v reflect.Value, param BindP
 		if !cpb.containsDescendantOfName(subParam.Key) {
 			break
 		}
-		err := cpb.BindValue(ev, subParam) // TODO 待优化
+		err := cpb.BindValue(bctx, ev, subParam) // TODO 待优化
 		// if errors.Is(err, ErrNotExist) {   // 按此处未找到判断，不严谨，若切片类型为struct，配置时，某个元素的属性确实没配置，此处存在误处理的情况
 		// 	break
 		// }
@@ -325,7 +272,7 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(v reflect.Value, param BindP
 	return nil
 }
 
-func (cpb *ConfigurationPropertiesBinder) bindMap(v reflect.Value, param BindParam) error {
+func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflect.Value, param BindParam) error {
 	if param.PTag.HasDef && param.PTag.Def != "" {
 		err := errors.New("map can't have a non-empty default value")
 		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
@@ -373,7 +320,7 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(v reflect.Value, param BindPar
 			Key:  subKey,
 			Path: param.Path,
 		}
-		if err := cpb.BindValue(e, subParam); err != nil {
+		if err := cpb.BindValue(bctx, e, subParam); err != nil {
 			return err
 		}
 
@@ -637,4 +584,71 @@ func IsBindableType(t reflect.Type) bool {
 	default:
 		return false
 	}
+}
+
+func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env IConfigurableEnvironment, v reflect.Value, param BindParam) error {
+	// 需要获取参数的类型
+	value := env.GetProperty(param.Key) // TODO value中的占位符按设计需要在env中完成解析，是否需要在此处处理？
+	// cpb.env.ContainsProperty(param.Key)
+
+	if value == "" {
+		// 没有找到配置，则使用默认值
+		if param.PTag.HasDef {
+			// TODO 告警日志，使用默认值
+			slog.Warn(fmt.Sprintf("bind path=%s type=%s use default value=%s\n", param.Path, v.Type().String(), param.PTag.Def))
+			value = param.PTag.Def
+		} else {
+			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrNotExist)
+		}
+	}
+	// TODO 默认值可能也有占位符 默认值暂不支持占位符
+
+	// 将string 类型的value，按照reflect.Value的类型进行转换，并赋值给v
+	switch v.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		// 解析为int类型
+		if i, err := strconv.ParseInt(value, 0, 0); err == nil {
+			v.SetInt(i)
+			return nil
+		} else {
+			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		// 解析为uint类型
+		if i, err := strconv.ParseUint(value, 0, 0); err == nil {
+			v.SetUint(i)
+			return nil
+		} else {
+			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		}
+	case reflect.Float32, reflect.Float64:
+		// 解析为float类型
+		if f, err := strconv.ParseFloat(value, 0); err == nil {
+			v.SetFloat(f)
+			return nil
+		} else {
+			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		}
+
+	case reflect.Bool:
+		// 解析为bool类型
+		if b, err := cast.ToBoolE(value); err == nil {
+			// if b, err := strconv.ParseBool(value); err == nil { // TODO
+			v.SetBool(b)
+			return nil
+		} else {
+			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		}
+	case reflect.String:
+		// 解析为string类型
+		v.SetString(value)
+		return nil
+	default:
+		// 其他类型无法解析
+		// err := errors.New("unsupported type")
+		err := ErrUnsupportedType
+		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+
+	}
+
 }

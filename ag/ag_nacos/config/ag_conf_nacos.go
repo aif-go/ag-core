@@ -79,7 +79,8 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 			}
 		} else {
 			slog.Info(fmt.Sprintf("nacos config add last, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
-			ps.AddLast(nacosSource)
+			// ps.AddLast(nacosSource)
+			ps.AddFirst(nacosSource)
 		}
 
 		// TODO Watch
