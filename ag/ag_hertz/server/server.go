@@ -149,23 +149,20 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 
 		regInfo := &registry.Info{}
 		regInfo.Weight = 1
-		// 服务ip范围配置
-		if hconf.EnableIPRange != "" {
-			ipranger, err := ip.NewIPRanger(hconf.EnableIPRange)
-			if err != nil {
-				return nil, err
-			}
+		ipranger, err := ip.NewIPRanger(hconf.EnableIPRange)
+		if err != nil {
+			return nil, err
+		}
 
-			host, ok, err := ipranger.GetLocalIP()
+		host, ok, err := ipranger.GetLocalIP()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			slog.Info("hertz server enable ip range", "regAddr", fmt.Sprintf("%s:%d", host, port))
+			regInfo.Addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
 			if err != nil {
 				return nil, err
-			}
-			if ok {
-				slog.Info("hertz server enable ip range", "regAddr", fmt.Sprintf("%s:%d", host, port))
-				regInfo.Addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
-				if err != nil {
-					return nil, err
-				}
 			}
 		}
 
