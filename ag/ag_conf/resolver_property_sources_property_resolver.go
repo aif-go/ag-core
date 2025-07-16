@@ -33,7 +33,7 @@ func NewPropertySourcesPropertyResolver(propertySources IPropertySources) *Prope
 	return apr
 }
 
-// GetProperty impl IPropertyResolver.GetProperty 具体实现，支持el表达式的使用,el表达式的纵向深度目前限制3,超过3不会解析到值
+// GetProperty impl IPropertyResolver.GetProperty
 // 实例化时要重写赋值给AbstractPropertyResolver.GetProperty
 // TODO 需要对外抛出error
 func (pspr *PropertySourcesPropertyResolver) GetProperty(key string) string {
@@ -42,6 +42,12 @@ func (pspr *PropertySourcesPropertyResolver) GetProperty(key string) string {
 		slog.Error("Error resolving property for key '"+key+"'", "err", err)
 	}
 	return v
+}
+
+// GetRequiredProperty impl IPropertyResolver.GetRequiredProperty
+func (pspr *PropertySourcesPropertyResolver) GetRequiredProperty(key string) (string, error) {
+	v, err := pspr.getProperty(key, true)
+	return v, err
 }
 
 /*

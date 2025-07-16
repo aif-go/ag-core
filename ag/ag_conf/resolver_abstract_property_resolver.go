@@ -55,12 +55,12 @@ func (apr *AbstractPropertyResolver) GetRequiredProperty(key string) (string, er
 // ResolvePlaceholders impl IPropertyResolver.ResolvePlaceholders
 func (apr *AbstractPropertyResolver) ResolvePlaceholders(text string) string {
 	//TODO 需要实现PropertyPlaceholderHelper，以支持占位符解析
-	apr.rrpOnce.Do(
+	apr.rpOnce.Do(
 		func() {
-			apr.rrp = NewPropertyPlaceholderHelper(apr.PlaceholderPrefix, apr.PlaceholderSuffix, apr.ValueSeparator, true)
+			apr.rp = NewPropertyPlaceholderHelper(apr.PlaceholderPrefix, apr.PlaceholderSuffix, apr.ValueSeparator, true)
 		},
 	)
-	v, _ := apr.rrp.ReplacePlaceholders(text, apr.GetPropertyAsRawString)
+	v, _ := apr.rp.ReplacePlaceholders(text, apr.GetPropertyAsRawString)
 	return v
 }
 
