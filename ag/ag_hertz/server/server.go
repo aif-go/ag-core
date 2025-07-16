@@ -1,4 +1,4 @@
-package hertz
+package server
 
 import (
 	"ag-core/ag/ag_conf"
