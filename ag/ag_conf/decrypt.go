@@ -132,16 +132,18 @@ func DecryptOtherConfig(env IConfigurableEnvironment) error {
 				return true, err // 中断并抛出异常
 			}
 
+			dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
 			if len(decryptSource) > 0 {
-				dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
 				dps := &MapPropertySource{
 					NamedPropertySource: NamedPropertySource{
 						Name: dname,
 					},
 					Source: decryptSource,
 				}
-				pss.RemoveIfPresent(dname) // 移除旧的解密source
 				pss.AddBefore(psname, dps) // 新的解密source添加到原source前面，优先级增加
+			} else {
+				// 若为空则说明当前没有加密数据，遂移除原解密source
+				pss.RemoveIfPresent(dname) // 移除旧的解密source
 			}
 		}
 		return false, nil

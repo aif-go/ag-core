@@ -30,6 +30,7 @@ func FxApp(params FxAppParams, lc fx.Lifecycle) *ag_app.App {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			err := app.Start(ctx)
+			// 此ctx会自动done，可以通过fx.StartTimeout选项延长启动超时
 			return err
 		},
 		OnStop: func(ctx context.Context) error {

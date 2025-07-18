@@ -2,21 +2,26 @@ package ag_conf
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 )
 
 var WatcherM *WatcherManager
-var global_watcherChan = make(chan Watcher, 1024)
+var global_watcherChan = make(chan Watcher, 512) // TODO 评估该缓存方式的可行性
 
 // RegisterWatcher 注册watcher
 func RegisterWatcher(w Watcher) {
 	global_watcherChan <- w
 }
 
+type ConfigChangeListener func(k, v string)
+type ChangePropertySources func(propertySources []IPropertySource)
+
 type Watcher interface {
-	Start(context.Context, chan []IPropertySource)
+	// Start(context.Context, chan []IPropertySource)
+	Start(context.Context, ChangePropertySources)
 	Stop()
 }
 
@@ -54,7 +59,7 @@ func NewConfigWatcherManager(env IConfigurableEnvironment) *WatcherManager {
 	return watcher
 }
 
-func (wm *WatcherManager) AddConfigChangeListener(key string, listener func(k, v string)) {
+func (wm *WatcherManager) AddConfigChangeListener(key string, listener ConfigChangeListener) {
 	wm.refreshMapLock.Lock()
 	defer wm.refreshMapLock.Unlock()
 
@@ -69,6 +74,10 @@ func (wm *WatcherManager) RegisterWatcher(w Watcher) {
 }
 
 func (wm *WatcherManager) run(ctx context.Context) {
+	defer func() {
+		slog.Info("watcherManager run stoped")
+	}()
+
 	for {
 		select {
 		case watcher := <-wm.watcherChan:
@@ -78,12 +87,14 @@ func (wm *WatcherManager) run(ctx context.Context) {
 			// 参数刷新
 			wm.refreshPropertySources(propertySources)
 		// watcherManager超时轮询，用于watcher自检
-		case <-time.After(3 * time.Second):
+		case <-time.After(60 * time.Second):
 			// TODO 自检
 			slog.Info("watcherManager check")
 		case <-wm.ctx.Done():
+			slog.Info("watcherManager ctx done")
 			return
 		case <-ctx.Done(): // 外部ctx关闭，关闭watcherManager
+			slog.Info("parent ctx done")
 			wm.close()
 			return
 		}
@@ -92,6 +103,7 @@ func (wm *WatcherManager) run(ctx context.Context) {
 
 func (wm *WatcherManager) close() {
 	wm.closeOnce.Do(func() {
+		slog.Info("watcherManager close")
 
 		wm.watchersLock.Lock()
 		defer func() {
@@ -100,6 +112,7 @@ func (wm *WatcherManager) close() {
 		}()
 
 		for _, watcher := range wm.watchers {
+			slog.Info(fmt.Sprintf("stop watcher %T", watcher))
 			watcher.Stop()
 		}
 	})
@@ -117,12 +130,12 @@ func (wm *WatcherManager) startWatcher(w Watcher) {
 	wm.watchers = append(wm.watchers, w)
 	go func() {
 		// 启动watcher
-		w.Start(wm.ctx, wm.refreshChan)
+		w.Start(wm.ctx, wm.changePropertySources)
 	}()
 }
 
-func (wm *WatcherManager) refreshPropertySources(propertySources []IPropertySource) {
-	// TODO 参数刷新处理
+func (wm *WatcherManager) changePropertySources(propertySources []IPropertySource) {
+	wm.refreshChan <- propertySources
 }
 
 type WatcherServer struct {

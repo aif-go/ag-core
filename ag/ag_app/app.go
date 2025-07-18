@@ -113,7 +113,9 @@ func (a *App) Run(ctx context.Context) error {
 // }
 
 func (a *App) Start(ctx context.Context) error {
-	vctx := context.WithValue(ctx, AppNameKey, a.name)
+	// fx 方式启动时此ctx是有超时控制的，其只控制Start的时长，其生命周期只在Start这一个步骤中，不可做为应用服务的整个声明周期使用
+	// vctx := context.WithValue(ctx, AppNameKey, a.name)
+	vctx := context.WithValue(context.Background(), AppNameKey, a.name)
 
 	cctx, cancel := context.WithCancel(vctx)
 	a.cancel = cancel
@@ -141,7 +143,7 @@ func (a *App) Stop(ctx context.Context) error {
 	var rerr error
 	// Gracefully stop the servers
 	for _, srv := range a.Servers {
-		err := srv.Stop(a.ctx) // TODO 此处的 ctx 应该用哪个
+		err := srv.Stop(a.ctx)
 		if err != nil {
 			rerr = fmt.Errorf("%w,%w", rerr, err)
 			//log.Printf("Server stop err: %v", err)
@@ -149,6 +151,7 @@ func (a *App) Stop(ctx context.Context) error {
 			slog.Info(fmt.Sprintf("Server stop err: %v", err))
 		}
 	}
+	// TODO stop超时测试
 
 	return rerr
 }

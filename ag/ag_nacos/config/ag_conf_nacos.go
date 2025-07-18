@@ -35,11 +35,8 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 			return fmt.Errorf("nacos configmust config group value")
 		}
 
-		key := getSourceKey(&dataidinfo)
-		cty := dataidinfo.Type
-
-		var context string
-		context, err := iClient.GetConfig(vo.ConfigParam{
+		var content string
+		content, err := iClient.GetConfig(vo.ConfigParam{
 			DataId: dataidinfo.DataID,
 			Group:  dataidinfo.Group,
 			// Content: context,
@@ -48,29 +45,35 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 		if err != nil {
 			return fmt.Errorf("dataId:%s Group:%s get config error: %w", dataidinfo.DataID, dataidinfo.Group, err)
 		}
-		if context == "" {
+		if content == "" {
 			slog.Info("nacos config is empty", "dataId:", dataidinfo.DataID, "Group:", dataidinfo.Group)
 			continue
 		}
 
-		reader, ok := reader.Readers[cty]
-		if !ok {
-			return fmt.Errorf("fileType:%s not be supported", cty)
-		}
-
-		contextMap, err := reader([]byte(context))
-		if err != nil {
-			return fmt.Errorf("dataId:%s Group:%s read error: %w", dataidinfo.DataID, dataidinfo.Group, err)
-		}
-
-		flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
+		nacosSource, err := BuildNacosConfigPropertySource(&dataidinfo, content)
 		if err != nil {
 			return err
 		}
+		// key := getSourceKey(&dataidinfo)
+		// cty := dataidinfo.Type
+		// reader, ok := reader.Readers[cty]
+		// if !ok {
+		// 	return fmt.Errorf("fileType:%s not be supported", cty)
+		// }
+
+		// contextMap, err := reader([]byte(content))
+		// if err != nil {
+		// 	return fmt.Errorf("dataId:%s Group:%s read error: %w", dataidinfo.DataID, dataidinfo.Group, err)
+		// }
+
+		// flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// nacosSource := NewNacosPropertySource(key, flatmapcontext)
 
 		ps := env.GetPropertySources()
-		nacosSource := NewNacosPropertySource(key, flatmapcontext)
-
 		if ps.ContainsSource(nacosSource) {
 			slog.Info(fmt.Sprintf("nacos config already exists, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
 			err = ps.ReplaceSource(nacosSource)
@@ -78,17 +81,19 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 				return fmt.Errorf("dataId:%s Group:%s replace error: %w", dataidinfo.DataID, dataidinfo.Group, err)
 			}
 		} else {
-			slog.Info(fmt.Sprintf("nacos config add last, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
+			slog.Info(fmt.Sprintf("nacos config, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
 			// ps.AddLast(nacosSource)
 			ps.AddFirst(nacosSource)
 		}
+
+		registerNacosWatcherIfNeed(dataidinfo, iClient)
 
 		// TODO Watch
 		// // 只要获取nacos的内容不返回error，就可以添加对应的监听
 		// iClient.ListenConfig(vo.ConfigParam{
 		// 	DataId: dataidinfo.DataID,
 		// 	Group:  dataidinfo.Group,
-		// 	Type:   vo.ConfigType(dataidinfo.Type), // 不指定类型能拿到吗
+		// Type:   vo.ConfigType(dataidinfo.Type), // 不指定类型能拿到吗
 		// 	OnChange: func(namespace string, group string, dataId string, data string) {
 		// 		// TODO dataId 和 group 是否可能不一致？
 		// 		err := addOrRefresh(env, data, &dataidinfo, true)
@@ -122,4 +127,47 @@ func NewNacosPropertySource(name string, source map[string]any) *NacosPropertySo
 
 func getSourceKey(dataidinfo *DataIDInfo) string {
 	return fmt.Sprintf("%s-%s_%s", SourceKeyNacosPrefix, dataidinfo.Group, dataidinfo.DataID)
+}
+
+// 若需要添加watcher
+func registerNacosWatcherIfNeed(info DataIDInfo, iClient config_client.IConfigClient) {
+	if !info.AutoRefresh {
+		slog.Info("nacos config not auto refresh", "dataId:", info.DataID, "Group:", info.Group)
+		return
+	}
+
+	slog.Info("nacos config auto refresh", "dataId:", info.DataID, "Group:", info.Group)
+
+	// 复制一份,防止被修改
+	winfo := &DataIDInfo{
+		DataID:      info.DataID,
+		Group:       info.Group,
+		Type:        info.Type,
+		AutoRefresh: info.AutoRefresh,
+	}
+	watcher := NewNacosConfigWatcher(winfo, iClient)
+
+	ag_conf.RegisterWatcher(watcher)
+}
+
+func BuildNacosConfigPropertySource(dataidinfo *DataIDInfo, content string) (*NacosPropertySource, error) {
+	key := getSourceKey(dataidinfo)
+	cty := dataidinfo.Type
+	reader, ok := reader.Readers[cty]
+	if !ok {
+		return nil, fmt.Errorf("fileType:%s not be supported", cty)
+	}
+
+	contextMap, err := reader([]byte(content))
+	if err != nil {
+		return nil, fmt.Errorf("dataId:%s Group:%s read error: %w", dataidinfo.DataID, dataidinfo.Group, err)
+	}
+
+	flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
+	if err != nil {
+		return nil, err
+	}
+
+	nacosSource := NewNacosPropertySource(key, flatmapcontext)
+	return nacosSource, nil
 }
