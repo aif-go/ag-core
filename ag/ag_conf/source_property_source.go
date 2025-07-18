@@ -1,6 +1,8 @@
 package ag_conf
 
-import "sync"
+import (
+	"sync"
+)
 
 /* *** NamedPropertySource *** */
 // NamedPropertySource 命名属性源，主要用于支持属性源根据名字比对的功能，便于PropertySources对source的维护

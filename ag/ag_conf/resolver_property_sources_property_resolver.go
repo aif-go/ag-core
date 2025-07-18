@@ -3,6 +3,7 @@ package ag_conf
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // PropertySourcesPropertyResolver 属性解析器
@@ -85,7 +86,8 @@ func (pspr *PropertySourcesPropertyResolver) getProperty(key string, resolveNest
 				slog.Debug("Searching for key '" + key + "' in PropertySource '" + ps.GetName() + "'")
 			}
 
-			v := ps.GetProperty(key) // TODO v是否存在非string场景
+			// v := ps.GetProperty(key) // TODO v是否存在非string场景
+			v := getPropertyFold(key, ps) // 忽略key的大小写
 			if v != nil {
 				v2, ok := v.(string) // TODO  v 目前都是string
 				if ok && resolveNestedPlaceholders {
@@ -123,4 +125,14 @@ func logKeyFound(key string, ps IPropertySource, value any) {
 func (pspr *PropertySourcesPropertyResolver) GetPropertyAsRawString(key string) string {
 	v, _ := pspr.getProperty(key, false)
 	return v
+}
+
+func getPropertyFold(key string, ps IPropertySource) any {
+	source := ps.GetSource()
+	for k := range source {
+		if strings.EqualFold(k, key) {
+			return source[k]
+		}
+	}
+	return nil
 }

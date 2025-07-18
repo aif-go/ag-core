@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 func (wm *WatcherManager) refreshPropertySources(propertySources []IPropertySource) {
@@ -22,7 +23,8 @@ func (wm *WatcherManager) refreshPropertySources(propertySources []IPropertySour
 func (wm *WatcherManager) doRefreshPropertySource(pss []IPropertySource) {
 	env := wm.env
 	// 1. 获取所有有变化的key
-	changeskv := make(map[string]interface{})
+	// changeskv := make(map[string]interface{})
+	changeskeys := make([]string, 0)
 	for _, ps := range pss {
 		psbefor := env.GetPropertySources().Get(ps.GetName())
 		if psbefor == nil {
@@ -32,12 +34,13 @@ func (wm *WatcherManager) doRefreshPropertySource(pss []IPropertySource) {
 		befor := psbefor.GetSource()
 		after := ps.GetSource()
 		changs := changes(befor, after)
-		for key, val := range changs {
-			changeskv[key] = val
+		for key, _ := range changs {
+			// changeskv[key] = val
+			changeskeys = append(changeskeys, key)
 		}
 		env.GetPropertySources().ReplaceSource(ps) // 更新配置源
 	}
-	cjson, _ := json.MarshalIndent(changeskv, "", " ")
+	cjson, _ := json.MarshalIndent(changeskeys, "", " ")
 	slog.Info(fmt.Sprintf("doRefreshPropertySource changes:\n%s", cjson))
 
 	// 2. 获取所有变化的key的listener
@@ -47,8 +50,14 @@ func (wm *WatcherManager) doRefreshPropertySource(pss []IPropertySource) {
 
 	for key, listeners := range wm.refreshMap {
 		// TODO key的比对要考虑slice类型的key识别
-		if _, ok := changeskv[key]; ok {
-			invokListeners[key] = listeners
+		// if _, ok := changeskv[key]; ok {
+		// 	invokListeners[key] = listeners
+		// }
+		for _, changekey := range changeskeys {
+			// strings.EqualFold(changekey, key)
+			if strings.HasPrefix(changekey, key) {
+				invokListeners[key] = listeners
+			}
 		}
 	}
 

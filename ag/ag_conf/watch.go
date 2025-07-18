@@ -9,15 +9,28 @@ import (
 )
 
 var WatcherM *WatcherManager
-var global_watcherChan = make(chan Watcher, 512) // TODO 评估该缓存方式的可行性
 
-// RegisterWatcher 注册watcher
-func RegisterWatcher(w Watcher) {
-	global_watcherChan <- w
-}
+// var global_watcherChan = make(chan Watcher, 512) // TODO 评估该缓存方式的可行性
 
 type ConfigChangeListener func(k, v string)
 type ChangePropertySources func(propertySources []IPropertySource)
+
+// RegisterWatcher 注册watcher
+func RegisterWatcher(w Watcher) {
+	// global_watcherChan <- w
+	WatcherM.watcherChan <- w
+}
+
+func init() {
+	WatcherM = &WatcherManager{
+		refreshMap:     make(map[string][]func(k, v string)),
+		refreshChan:    make(chan []IPropertySource, 50),
+		watcherChan:    make(chan Watcher, 512),
+		watchers:       make([]Watcher, 0),
+		refreshMapLock: sync.RWMutex{},
+		watchersLock:   sync.RWMutex{},
+	}
+}
 
 type Watcher interface {
 	// Start(context.Context, chan []IPropertySource)
@@ -39,27 +52,33 @@ type WatcherManager struct {
 	refreshMapLock sync.RWMutex
 	watchersLock   sync.RWMutex
 	closeOnce      sync.Once
+
+	readyed bool
 }
 
 func NewConfigWatcherManager(env IConfigurableEnvironment) *WatcherManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	watcher := &WatcherManager{
-		ctx:            ctx,
-		cancel:         cancel,
-		env:            env,
-		refreshMap:     make(map[string][]func(k, v string)),
-		refreshChan:    make(chan []IPropertySource, 50),
-		watcherChan:    global_watcherChan,
-		watchers:       make([]Watcher, 0),
-		refreshMapLock: sync.RWMutex{},
-		watchersLock:   sync.RWMutex{},
-	}
-	WatcherM = watcher
-	return watcher
+	// watcher := &WatcherManager{
+	// 	ctx:            ctx,
+	// 	cancel:         cancel,
+	// 	env:            env,
+	// 	refreshMap:     make(map[string][]func(k, v string)),
+	// 	refreshChan:    make(chan []IPropertySource, 50),
+	// 	watcherChan:    global_watcherChan,
+	// 	watchers:       make([]Watcher, 0),
+	// 	refreshMapLock: sync.RWMutex{},
+	// 	watchersLock:   sync.RWMutex{},
+	// }
+	// WatcherM = watcher
+	WatcherM.ctx = ctx
+	WatcherM.cancel = cancel
+	WatcherM.env = env
+	WatcherM.readyed = true
+	return WatcherM
 }
 
-func (wm *WatcherManager) AddConfigChangeListener(key string, listener ConfigChangeListener) {
+func (wm *WatcherManager) RegChangeListener(key string, listener ConfigChangeListener) {
 	wm.refreshMapLock.Lock()
 	defer wm.refreshMapLock.Unlock()
 
@@ -73,7 +92,11 @@ func (wm *WatcherManager) RegisterWatcher(w Watcher) {
 	wm.watcherChan <- w
 }
 
-func (wm *WatcherManager) run(ctx context.Context) {
+func (wm *WatcherManager) run(ctx context.Context) error {
+	if !wm.readyed {
+		return fmt.Errorf("watcherManager not ready")
+	}
+
 	defer func() {
 		slog.Info("watcherManager run stoped")
 	}()
@@ -92,11 +115,11 @@ func (wm *WatcherManager) run(ctx context.Context) {
 			slog.Info("watcherManager check")
 		case <-wm.ctx.Done():
 			slog.Info("watcherManager ctx done")
-			return
+			return nil
 		case <-ctx.Done(): // 外部ctx关闭，关闭watcherManager
 			slog.Info("parent ctx done")
 			wm.close()
-			return
+			return nil
 		}
 	}
 }
@@ -149,8 +172,7 @@ func NewWatcherServer(wm *WatcherManager) *WatcherServer {
 }
 
 func (ws *WatcherServer) Start(ctx context.Context) error {
-	ws.wm.run(ctx)
-	return nil
+	return ws.wm.run(ctx)
 }
 
 func (ws *WatcherServer) Stop(ctx context.Context) error {
