@@ -109,41 +109,44 @@ func DecryptOtherConfig(env IConfigurableEnvironment) error {
 
 		// 判断propertySource不是LOCAL、SYS、DECRYPT开头的
 		if !strings.HasPrefix(psname, SourceKeyLocalPrefix) && !strings.HasPrefix(psname, SourceKeySysPrefix) && !strings.HasPrefix(psname, SourceKeyDecryptPrefix) { // LOCAL 配置
-			source := ps.GetSource()
+			// source := ps.GetSource()
 
-			decryptSource := make(map[string]any)
-			var err error
-			for key, value := range source {
-				ciphertext, ok := value.(string)
-				if ok && strings.HasPrefix(ciphertext, ConstEncryptKeyWords) {
-					ciphertext = ciphertext[len(ConstEncryptKeyWords):]
-					plaintext, derr := ag_crypto.GetEncrytorPrimary().Decrypt(ciphertext)
-					if derr != nil {
-						err = fmt.Errorf("decrypt config err source:%s, key:%s, err:%w", psname, key, derr)
-						break // 异常中断当前source遍历
-						// return true, err
-					}
-					decryptSource[key] = plaintext
-				}
-			}
-			if err != nil {
-				slog.Error(fmt.Sprintf("decrypt config err source:%s, err:%w", psname, err))
-				// return false, nil // 当前ps跳过，继续遍历
-				return true, err // 中断并抛出异常
-			}
+			// decryptSource := make(map[string]any)
+			// var err error
+			// for key, value := range source {
+			// 	ciphertext, ok := value.(string)
+			// 	if ok && strings.HasPrefix(ciphertext, ConstEncryptKeyWords) {
+			// 		ciphertext = ciphertext[len(ConstEncryptKeyWords):]
+			// 		plaintext, derr := ag_crypto.GetEncrytorPrimary().Decrypt(ciphertext)
+			// 		if derr != nil {
+			// 			err = fmt.Errorf("decrypt config err source:%s, key:%s, err:%w", psname, key, derr)
+			// 			break // 异常中断当前source遍历
+			// 			// return true, err
+			// 		}
+			// 		decryptSource[key] = plaintext
+			// 	}
+			// }
+			// if err != nil {
+			// 	slog.Error(fmt.Sprintf("decrypt config err source:%s, err:%w", psname, err))
+			// 	// return false, nil // 当前ps跳过，继续遍历
+			// 	return true, err // 中断并抛出异常
+			// }
 
-			dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
-			if len(decryptSource) > 0 {
-				dps := &MapPropertySource{
-					NamedPropertySource: NamedPropertySource{
-						Name: dname,
-					},
-					Source: decryptSource,
-				}
-				pss.AddBefore(psname, dps) // 新的解密source添加到原source前面，优先级增加
-			} else {
-				// 若为空则说明当前没有加密数据，遂移除原解密source
-				pss.RemoveIfPresent(dname) // 移除旧的解密source
+			// dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
+			// if len(decryptSource) > 0 {
+			// 	dps := &MapPropertySource{
+			// 		NamedPropertySource: NamedPropertySource{
+			// 			Name: dname,
+			// 		},
+			// 		Source: decryptSource,
+			// 	}
+			// 	pss.AddBefore(psname, dps) // 新的解密source添加到原source前面，优先级增加
+			// } else {
+			// 	// 若为空则说明当前没有加密数据，遂移除原解密source
+			// 	pss.RemoveIfPresent(dname) // 移除旧的解密source
+			// }
+			if err := DecryptConfigSource(env, ps); err != nil {
+				return true, err
 			}
 		}
 		return false, nil
@@ -153,5 +156,47 @@ func DecryptOtherConfig(env IConfigurableEnvironment) error {
 		return err
 	}
 
+	return nil
+}
+
+func DecryptConfigSource(env IConfigurableEnvironment, ps IPropertySource) error {
+	pss := env.GetPropertySources()
+	psname := ps.GetName()
+	source := ps.GetSource()
+
+	decryptSource := make(map[string]any)
+	var err error
+	for key, value := range source {
+		ciphertext, ok := value.(string)
+		if ok && strings.HasPrefix(ciphertext, ConstEncryptKeyWords) {
+			ciphertext = ciphertext[len(ConstEncryptKeyWords):]
+			plaintext, derr := ag_crypto.GetEncrytorPrimary().Decrypt(ciphertext)
+			if derr != nil {
+				err = fmt.Errorf("decrypt config err source:%s, key:%s, err:%w", psname, key, derr)
+				break // 异常中断当前source遍历
+				// return true, err
+			}
+			decryptSource[key] = plaintext
+		}
+	}
+	if err != nil {
+		slog.Error(fmt.Sprintf("decrypt config err source:%s, err:%v", psname, err))
+		// return false, nil // 当前ps跳过，继续遍历
+		return err // 中断并抛出异常
+	}
+
+	dname := fmt.Sprintf("%s_%s", SourceKeyDecryptPrefix, psname)
+	if len(decryptSource) > 0 {
+		dps := &MapPropertySource{
+			NamedPropertySource: NamedPropertySource{
+				Name: dname,
+			},
+			Source: decryptSource,
+		}
+		return pss.AddBefore(psname, dps) // 新的解密source添加到原source前面，优先级增加
+	} else {
+		// 若为空则说明当前没有加密数据，遂移除原解密source
+		pss.RemoveIfPresent(dname) // 移除旧的解密source
+	}
 	return nil
 }
