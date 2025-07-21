@@ -1,7 +1,6 @@
 package ag_netty
 
 import (
-	"github.com/cloudwego/netpoll"
 	"io"
 	"net"
 	"sync"
@@ -9,7 +8,7 @@ import (
 
 // Channel 网络通道
 type Channel struct {
-	conn      netpoll.Connection
+	conn      Connection
 	looper    EventLooper // 使用接口类型
 	Pipeline  *Pipeline
 	active    bool
@@ -18,7 +17,7 @@ type Channel struct {
 }
 
 // NewChannel 创建新通道
-func NewChannel(conn netpoll.Connection, looper EventLooper) *Channel {
+func NewChannel(conn Connection, looper EventLooper) *Channel {
 	ch := &Channel{
 		conn:   conn,
 		looper: looper,
