@@ -3,7 +3,6 @@ package ag_conf
 import (
 	"ag-core/ag/ag_conf/reader"
 	"ag-core/ag/ag_ext"
-	"embed"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,8 +16,8 @@ type LocalConfigLoded string
 var localConfLoadOnce sync.Once
 
 // LoadLocalConfigToState 加载本地配置并返回一个标志，用于其他组件控制初始化顺序
-func LoadLocalConfigToState(env IConfigurableEnvironment, localEmbed embed.FS) (LocalConfigLoded, error) {
-	err := LoadLocalConfig(env, localEmbed)
+func LoadLocalConfigToState(env IConfigurableEnvironment) (LocalConfigLoded, error) {
+	err := LoadLocalConfig(env)
 	return LocalConfigLoded("localConfigLoaded"), err
 }
 
@@ -26,7 +25,7 @@ func LoadLocalConfigToState(env IConfigurableEnvironment, localEmbed embed.FS) (
 // 1. 先判断环境变量或者进程变量中是否配置app.conf对应的key的值,未配置取执行二进制文件中的app.suffix文件
 // 2. 获取app.profile的环境的设置,例如dev,sit,uat等
 // 3. 如果1的场景未配置，则按照app.suffix app_profile.suffix的顺序加载,后续的内容会覆盖前者
-func LoadLocalConfig(env IConfigurableEnvironment, localEmbed embed.FS) (rerr error) {
+func LoadLocalConfig(env IConfigurableEnvironment) (rerr error) {
 	localConfLoadOnce.Do(
 		func() {
 			// 加载本地配置文件
@@ -52,10 +51,12 @@ func doLoadLocalConfig(env IConfigurableEnvironment) error {
 	appConf := env.GetProperty("app.conf")
 	if appConf == "" {
 		// 获取当前main.go的目录
-		dir, err := os.Getwd()
+		// dir, err := os.Getwd()
+		dir, err := os.Executable()
 		if err != nil {
 			return err
 		}
+		dir = filepath.Dir(dir)
 		appConf = filepath.Join(dir, "app.yml")
 		// slog.Warn("app.conf not found, will use default value:", appConf)
 		slog.Warn(fmt.Sprintf("app.conf not found, will use default value: %s", appConf))
@@ -70,11 +71,18 @@ func doLoadLocalConfig(env IConfigurableEnvironment) error {
 		return LoadConfigDir(env, appConf)
 	}
 
-	return LoadConfigFile2(env, appConf)
+	// 获取文件的路径
+	appConfFile, err := filepath.Abs(appConf)
+	if err != nil {
+		return err
+	}
+	slog.Info(fmt.Sprintf("config file: %s", appConfFile))
+
+	return LoadConfigFile(env, appConfFile)
 
 }
 
-func LoadConfigFile2(env IConfigurableEnvironment, appConfFile string) error {
+func LoadConfigFile(env IConfigurableEnvironment, appConfFile string) error {
 	context, err := os.ReadFile(appConfFile)
 	if err != nil {
 		return err
@@ -108,7 +116,9 @@ func LoadConfigFile2(env IConfigurableEnvironment, appConfFile string) error {
 
 func LoadConfigDir(env IConfigurableEnvironment, appConfFile string) error {
 	// TODO loadDir
-	return fmt.Errorf("app.conf is a directory")
+	err := fmt.Errorf("app.conf is a directory")
+	slog.Error("loadConfigDir", "err", err)
+	return err
 }
 
 func format(name string) string {
