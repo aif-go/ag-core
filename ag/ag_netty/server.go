@@ -7,9 +7,10 @@ import (
 
 // Server 服务器
 type Server struct {
-	group    *EventLoopGroup
-	listener net.Listener
-	shutdown chan struct{}
+	loop          *EventLoop
+	numEventLoops int
+	listener      net.Listener
+	shutdown      chan struct{}
 }
 
 // NewServer 创建新服务器
@@ -19,31 +20,28 @@ func NewServer(addr string, initFunc func(ch *Channel)) (*Server, error) {
 		return nil, err
 	}
 
-	// 创建事件循环组
-	group, err := NewEventLoopGroup(4, initFunc)
+	loop, err := NewEventLoop(initFunc)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Server{
-		group:    group,
-		listener: listener,
-		shutdown: make(chan struct{}),
+		loop:          loop,
+		numEventLoops: 4,
+		listener:      listener,
+		shutdown:      make(chan struct{}),
 	}, nil
 }
 
 // Start 启动服务器
 func (s *Server) Start() {
-	// 为每个事件循环创建监听器
-	for _, loop := range s.group.loops {
-		go func(l *EventLoop) {
-			if err := l.Run(s.listener); err != nil {
-				slog.Error("EventLoop exited: ", "error", err)
-			}
-		}(loop)
-	}
+	go func() {
+		if err := s.loop.Run(s.listener, s.numEventLoops); err != nil {
+			slog.Error("EventLoop exited: ", "error", err)
+		}
+	}()
 
-	slog.Info("Server started!", "port", s.listener.Addr())
+	slog.Info("Server started!", "port", s.listener.Addr(), "eventLoops", s.numEventLoops)
 
 	// 等待关闭信号
 	select {
@@ -55,6 +53,6 @@ func (s *Server) Start() {
 // Shutdown 关闭服务器
 func (s *Server) Shutdown() {
 	close(s.shutdown)
-	s.group.Shutdown()
+	s.loop.Shutdown()
 	s.listener.Close()
 }

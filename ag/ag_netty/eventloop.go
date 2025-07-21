@@ -2,8 +2,7 @@ package ag_netty
 
 import (
 	"context"
-	"errors"
-	"github.com/cloudwego/netpoll"
+	"github.com/panjf2000/gnet"
 	"net"
 	"sync"
 	"time"
@@ -11,12 +10,17 @@ import (
 
 // EventLoop 事件循环
 type EventLoop struct {
-	loop      netpoll.EventLoop
+	server    *gnet.Server
+	handler   *gnetServerHandler
 	taskQueue chan func()
 	quit      chan struct{}
 	wg        sync.WaitGroup
 	connMap   sync.Map // 存储连接的映射
 	initFunc  func(ch *Channel)
+}
+
+type gnetServerHandler struct {
+	el *EventLoop
 }
 
 // NewEventLoop 创建新事件循环
@@ -27,18 +31,7 @@ func NewEventLoop(initFunc func(ch *Channel)) (*EventLoop, error) {
 		initFunc:  initFunc,
 	}
 
-	// 使用闭包捕获 EventLoop 实例
-	loop, err := netpoll.NewEventLoop(
-		el.handleRequest,
-		netpoll.WithOnPrepare(el.handlePrepare),
-		netpoll.WithOnDisconnect(el.handleDisconnect),
-		netpoll.WithIdleTimeout(time.Hour),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	el.loop = loop
+	el.handler = &gnetServerHandler{el: el}
 
 	// 启动任务处理协程
 	el.wg.Add(1)
@@ -47,54 +40,60 @@ func NewEventLoop(initFunc func(ch *Channel)) (*EventLoop, error) {
 	return el, nil
 }
 
-// handlePrepare 处理新连接准备
-func (el *EventLoop) handlePrepare(conn netpoll.Connection) context.Context {
-	// 创建新通道
-	channel := NewChannel(conn, el)
-	el.connMap.Store(conn, channel)
+func (h *gnetServerHandler) OnInitComplete(server gnet.Server) (action gnet.Action) {
+	h.el.server = &server
+	return gnet.None
+}
 
-	if el.initFunc != nil {
-		el.initFunc(channel)
+func (h *gnetServerHandler) OnOpened(c gnet.Conn) (out []byte, action gnet.Action) {
+	conn := NewGnetConnAdapter(c)
+	channel := NewChannel(conn, h.el)
+
+	h.el.connMap.Store(c, channel)
+
+	if h.el.initFunc != nil {
+		h.el.initFunc(channel)
 	}
-	// 触发激活事件
+
 	channel.Pipeline.FireActive()
 
-	return context.WithValue(context.Background(), "channel", channel)
+	return nil, gnet.None
 }
 
-func (el *EventLoop) handleDisconnect(ctx context.Context, conn netpoll.Connection) {
-	c, ok := el.connMap.LoadAndDelete(conn)
-	if !ok {
-		return
+func (h *gnetServerHandler) OnClosed(c gnet.Conn, err error) (action gnet.Action) {
+	if ch, ok := h.el.connMap.LoadAndDelete(c); ok {
+		channel := ch.(*Channel)
+		channel.Close()
 	}
-	context.WithValue(ctx, "channel", nil)
-	c.(*Channel).Close()
+	return gnet.None
 }
 
-// handleRequest 处理请求
-func (el *EventLoop) handleRequest(ctx context.Context, conn netpoll.Connection) error {
-	// 从上下文中获取通道
-	channel, ok := ctx.Value("channel").(*Channel)
-	if !ok || channel == nil {
-		return errors.New("channel not found in context")
-	}
+func (h *gnetServerHandler) React(packet []byte, c gnet.Conn) (out []byte, action gnet.Action) {
+	if ch, ok := h.el.connMap.Load(c); ok {
+		channel := ch.(*Channel)
 
-	// 读取数据
-	reader := conn.Reader()
-	n := reader.Len()
-	if n == 0 {
-		return nil
-	}
+		data := make([]byte, len(packet))
+		copy(data, packet)
 
-	data, err := reader.ReadBinary(n)
-	if err != nil {
-		channel.Pipeline.FireError(err)
-		return err
+		channel.Pipeline.FireRead(data)
 	}
+	return nil, gnet.None
+}
 
-	// 触发读事件
-	channel.Pipeline.FireRead(data)
-	return nil
+func (h *gnetServerHandler) PreWrite(c gnet.Conn) {
+	// No-op
+}
+
+func (h *gnetServerHandler) AfterWrite(c gnet.Conn, b []byte) {
+	// No-op
+}
+
+func (h *gnetServerHandler) Tick() (delay time.Duration, action gnet.Action) {
+	return time.Hour, gnet.None // Long delay as we don't use ticking
+}
+
+func (h *gnetServerHandler) OnShutdown(server gnet.Server) {
+	// No-op
 }
 
 // runTaskLoop 运行任务处理循环
@@ -111,6 +110,7 @@ func (el *EventLoop) runTaskLoop() {
 	}
 }
 
+// IsShutdown 检查是否已关闭
 func (el *EventLoop) IsShutdown() bool {
 	select {
 	case <-el.quit:
@@ -136,17 +136,26 @@ func (el *EventLoop) Schedule(delay time.Duration, task func()) {
 }
 
 // Run 运行事件循环
-func (el *EventLoop) Run(listener net.Listener) error {
-	return el.loop.Serve(listener)
+func (el *EventLoop) Run(listener net.Listener, numEventLoops int) error {
+	network := "tcp"
+	addr := listener.Addr().String()
+
+	listener.Close()
+
+	return gnet.Serve(el.handler, network+"://"+addr, gnet.WithNumEventLoop(numEventLoops))
 }
 
 // Shutdown 关闭事件循环
 func (el *EventLoop) Shutdown() {
 	close(el.quit)
 	el.wg.Wait()
-	el.loop.Shutdown(context.Background())
 
-	// 关闭所有连接
+	if el.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		gnet.Stop(ctx, el.server.Addr.String())
+	}
+
 	el.connMap.Range(func(key, value interface{}) bool {
 		if ch, ok := value.(*Channel); ok {
 			ch.Close()

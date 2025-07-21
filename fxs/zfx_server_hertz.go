@@ -2,8 +2,8 @@ package fxs
 
 import (
 	"ag-core/ag/ag_conf"
+	hertz "ag-core/ag/ag_hertz/server"
 	"ag-core/ag/ag_server"
-	"ag-core/ag/ag_server/hertz"
 	"github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"go.uber.org/fx"

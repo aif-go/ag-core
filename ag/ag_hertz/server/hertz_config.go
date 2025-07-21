@@ -1,4 +1,4 @@
-package hertz
+package server
 
 const (
 	hertzServerPropertiesPrefix = "hertz.server"
