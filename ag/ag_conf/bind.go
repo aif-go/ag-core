@@ -113,9 +113,8 @@ func (cpb *ConfigurationPropertiesBinder) Bind(i any, name ...string) error {
 
 // BindValue 绑定值
 func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v reflect.Value, param BindParam) (rterr error) {
-
 	// 默认所有Binder对象都自动刷新 TODO 刷新续精确控制，添加autorefresh标签功能
-	if bctx.Value(KEY_BindWatched) == nil {
+	if bctx.Value(KEY_BindWatched) == nil && v.Kind() != reflect.Pointer {
 		bctx = context.WithValue(bctx, KEY_BindWatched, true)
 		WatcherM.RegChangeListener(param.Key, func(ck, cv string) {
 			rbctx := context.WithValue(context.Background(), KEY_BindWatched, true)
