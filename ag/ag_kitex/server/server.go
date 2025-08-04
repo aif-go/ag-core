@@ -274,7 +274,7 @@ func (builder *KitexSuiteBuilder) BuildSuite() (server.Suite, error) {
 		}
 		suite.Opts = append(suite.Opts, server.WithGRPCKeepaliveParams(gskeep))
 
-		server.WithMetaHandler(transmeta.ClientHTTP2Handler)
+		suite.Opts = append(suite.Opts, server.WithMetaHandler(transmeta.ServerHTTP2Handler))
 	}
 
 	// options := []server.Option{

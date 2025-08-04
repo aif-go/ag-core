@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/cloudwego/kitex/client"
@@ -44,7 +45,8 @@ func (builder *KitexSuiteBuilder) BuildSuite() (*KitexClientSuite, error) {
 		opts = append(opts, client.WithTransportProtocol(transport.GRPCStreaming))
 	default:
 		// opts = append(opts, client.WithTransportProtocol(transport.GRPC))
-		return nil, fmt.Errorf("invalid transport type: %s", p.TransportType)
+		slog.Warn(fmt.Sprintf("invalid transport type: [%s]", p.TransportType))
+		// return nil, fmt.Errorf("invalid transport type: %s", p.TransportType)
 	}
 
 	// 注册中心配置

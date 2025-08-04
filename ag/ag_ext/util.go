@@ -94,12 +94,12 @@ func buildFlattenedMap(result map[string]interface{}, source interface{}, path s
 }
 
 // MergeMap 合并map
-func MergeMap(src map[string]interface{}, target map[string]interface{}) {
-	if src != nil {
-		for key, value := range src {
-			// target中存在就覆盖
-			target[key] = value
-		}
-	}
+// func MergeMap(src map[string]interface{}, target map[string]interface{}) {
+// 	if src != nil {
+// 		for key, value := range src {
+// 			// target中存在就覆盖
+// 			target[key] = value
+// 		}
+// 	}
 
-}
+// }
