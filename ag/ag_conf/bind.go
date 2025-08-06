@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/spf13/cast"
 )
 
 const (
@@ -285,6 +283,7 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v refl
 }
 
 func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflect.Value, param BindParam) error {
+	// map 类型的默认值不允许有非空的默认值
 	if param.PTag.HasDef && param.PTag.Def != "" {
 		err := errors.New("map can't have a non-empty default value")
 		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
@@ -295,13 +294,6 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 	ret := reflect.MakeMap(t)
 	defer func() { v.Set(ret) }()
 
-	if param.PTag.Key == "" {
-		if param.PTag.HasDef {
-			return nil
-		}
-		return fmt.Errorf("tag for %s requires a default value", param.Path)
-	}
-
 	// if !cpb.env.ContainsProperty(param.Key) {
 	if !cpb.containsDescendantOfName(param.Key) {
 		if param.PTag.HasDef {
@@ -311,15 +303,7 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 	}
 
 	// 1. 获取所有子键
-	// keys := cpb.getDescendantKeysOfName(param.Key)
 	keys := cpb.getDescendantSubKeysOfName(param.Key)
-	// keys := make([]string, 0)
-	// keys = append(keys, "hzw1")
-	// keys = append(keys, "hzw2")
-	// keys, err := p.SubKeys(param.Key)
-	// if err != nil {
-	// 	return errutil.WrapError(err, "bind path=%s type=%s error", param.Path, v.Type().String())
-	// }
 
 	// 2. 遍历子键，构建子value
 	for _, key := range keys {
@@ -336,25 +320,23 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 			return err
 		}
 
-		// if err = BindValue(p, e, et, subParam, filter); err != nil {
-		// 	return err // no wrap
-		// }
 		ret.SetMapIndex(reflect.ValueOf(key), e)
 	}
 	return nil
 
 }
 
+// containsDescendantOfName 检查是否包含后代键
 func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) bool {
 	found := false
 	prefix := name + "."
 
-	// cpb.propertySources.RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 	cpb.env.GetPropertySources().RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 		// 检查属性源内容是否包含后代
 		source := ps.GetSource()
 		for k := range source {
-			if k == name || strings.HasPrefix(k, prefix) {
+			// if k == name || strings.HasPrefix(k, prefix) {
+			if k == name || hasPrefixIgnoreCase(k, prefix) { //	忽略大小写
 				found = true
 				return true, nil
 			}
@@ -365,6 +347,7 @@ func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) 
 	return found
 }
 
+// getDescendantKeysOfName 获取所有后代键
 func (cpb *ConfigurationPropertiesBinder) getDescendantKeysOfName(name string) []string {
 	dkeys := []string{}
 	prefix := name + "."
@@ -373,7 +356,8 @@ func (cpb *ConfigurationPropertiesBinder) getDescendantKeysOfName(name string) [
 		// 检查属性源内容是否包含后代
 		source := ps.GetSource()
 		for k := range source {
-			if k == name || strings.HasPrefix(k, prefix) {
+			// if k == name || strings.HasPrefix(k, prefix) { // TODO 忽略大小写
+			if k == name || hasPrefixIgnoreCase(k, prefix) { //	忽略大小写
 				dkeys = append(dkeys, k)
 			}
 		}
@@ -384,6 +368,7 @@ func (cpb *ConfigurationPropertiesBinder) getDescendantKeysOfName(name string) [
 	return dkeys
 }
 
+// getDescendantSubKeysOfName 获取所有后代子键
 func (cpb *ConfigurationPropertiesBinder) getDescendantSubKeysOfName(name string) []string {
 	keys := cpb.getDescendantKeysOfName(name)
 	subKeys := make([]string, 0, len(keys))
@@ -397,7 +382,8 @@ func (cpb *ConfigurationPropertiesBinder) getDescendantSubKeysOfName(name string
 		if k == name {
 			continue
 		}
-		subKey := strings.TrimPrefix(k, prefix)
+		// subKey := strings.TrimPrefix(k, prefix) // TODO 忽略大小写
+		subKey := trimPrefixIgnoreCase(k, prefix)
 		// 只取第一级子键
 		if dot := strings.Index(subKey, "."); dot > 0 {
 			subKey = subKey[:dot]
@@ -564,6 +550,7 @@ func ParseTag(tag string) (ret ParsedTag, err error) {
 // 	return strings.TrimSpace(content), "", false, nil
 // }
 
+// IsBindableType 判断类型是否可绑定
 func IsBindableType(t reflect.Type) bool {
 	switch t.Kind() {
 	case reflect.Map, reflect.Slice:
@@ -598,6 +585,7 @@ func IsBindableType(t reflect.Type) bool {
 	}
 }
 
+// doBindValue 绑定配置值到目标结构体字段
 func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env IConfigurableEnvironment, v reflect.Value, param BindParam) error {
 	// 需要获取参数的类型
 	value := env.GetProperty(param.Key) // TODO value中的占位符按设计需要在env中完成解析，是否需要在此处处理？
@@ -614,53 +602,110 @@ func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env I
 		}
 	}
 	// TODO 默认值可能也有占位符 默认值暂不支持占位符
+	return parseValue(value, v, param)
+}
 
-	// 将string 类型的value，按照reflect.Value的类型进行转换，并赋值给v
-	switch v.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		// 解析为int类型
-		if i, err := strconv.ParseInt(value, 0, 0); err == nil {
-			v.SetInt(i)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		// 解析为uint类型
-		if i, err := strconv.ParseUint(value, 0, 0); err == nil {
-			v.SetUint(i)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.Float32, reflect.Float64:
-		// 解析为float类型
-		if f, err := strconv.ParseFloat(value, 0); err == nil {
-			v.SetFloat(f)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-
-	case reflect.Bool:
-		// 解析为bool类型
-		if b, err := cast.ToBoolE(value); err == nil {
-			// if b, err := strconv.ParseBool(value); err == nil { // TODO
-			v.SetBool(b)
-			return nil
-		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-		}
-	case reflect.String:
-		// 解析为string类型
-		v.SetString(value)
-		return nil
-	default:
-		// 其他类型无法解析
-		// err := errors.New("unsupported type")
-		err := ErrUnsupportedType
-		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
-
+// parseValue 将string类型的value按照reflect.Value的类型进行转换，并赋值给v
+func parseValue(value string, v reflect.Value, param BindParam) error {
+	// 检查目标值是否可设置，避免panic
+	if !v.CanSet() {
+		return fmt.Errorf("bind path=%s type=%s error: value is not settable", param.Path, v.Type().String())
 	}
 
+	// 封装错误处理，减少重复代码
+	wrapError := func(err error) error {
+		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+	}
+
+	switch v.Kind() {
+	case reflect.Int:
+		i, err := strconv.ParseInt(value, 0, 64) // int位数与平台相关，用64兼容大部分场景
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetInt(i)
+	case reflect.Int8:
+		i, err := strconv.ParseInt(value, 0, 8)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetInt(i)
+	case reflect.Int16:
+		i, err := strconv.ParseInt(value, 0, 16)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetInt(i)
+	case reflect.Int32:
+		i, err := strconv.ParseInt(value, 0, 32)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetInt(i)
+	case reflect.Int64:
+		i, err := strconv.ParseInt(value, 0, 64)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetInt(i)
+
+	case reflect.Uint:
+		i, err := strconv.ParseUint(value, 0, 64)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetUint(i)
+	case reflect.Uint8:
+		i, err := strconv.ParseUint(value, 0, 8)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetUint(i)
+	case reflect.Uint16:
+		i, err := strconv.ParseUint(value, 0, 16)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetUint(i)
+	case reflect.Uint32:
+		i, err := strconv.ParseUint(value, 0, 32)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetUint(i)
+	case reflect.Uint64:
+		i, err := strconv.ParseUint(value, 0, 64)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetUint(i)
+
+	case reflect.Float32:
+		f, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetFloat(f)
+	case reflect.Float64:
+		f, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetFloat(f)
+
+	case reflect.Bool:
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return wrapError(err)
+		}
+		v.SetBool(b)
+
+	case reflect.String:
+		v.SetString(value)
+
+	default:
+		return wrapError(ErrUnsupportedType)
+	}
+
+	return nil
 }
