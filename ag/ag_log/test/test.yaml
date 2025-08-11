@@ -23,4 +23,28 @@ log:
     max_size: 1024
     compress: true
     log_type: heartbeat
-    
+
+aglog:
+  group: "rootgroup"
+  fanout:
+    group: "fanoutgroup"
+    handlers:
+      - zap1
+      - zap2
+  failover:
+    group: "failovergroup"
+    handlers:
+      - zap2
+  zap:
+    logs:
+      zap1:
+        loglevel: "debug"
+      zap2:
+        loglevel: "info"
+  slog:
+    logs:
+      slog1:
+        level: "debug"
+  aglogp:
+    aglog1:
+      level: "debug"

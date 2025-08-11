@@ -1,0 +1,16 @@
+aglog:
+  topHandler: [zap1,zap2,fanout1]
+  
+  fanout:
+    fanout1:
+      handlers:
+        - "zap1"
+        - "zap2"
+  route:
+    route1:
+      condition: "handler_name == 'zap1'"
+      handler: "zap1"
+  zap:
+    logs2:
+      zap1:
+        level: info
