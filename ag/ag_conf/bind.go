@@ -336,7 +336,7 @@ func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) 
 		source := ps.GetSource()
 		for k := range source {
 			// if k == name || strings.HasPrefix(k, prefix) {
-			if k == name || hasPrefixIgnoreCase(k, prefix) { //	忽略大小写
+			if strings.EqualFold(k, name) || hasPrefixIgnoreCase(k, prefix) { //	忽略大小写
 				found = true
 				return true, nil
 			}

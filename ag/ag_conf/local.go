@@ -104,7 +104,7 @@ func LoadConfigFile(env IConfigurableEnvironment, appConfFile string) error {
 		return err
 	}
 
-	env.GetPropertySources().AddLast(&MapPropertySource{
+	env.GetPropertySources().AddLast(&MapPropertySource{ // TODO 本地配置文件是否应该比SYS优先级高？ FIXME 应该SYS < localfile < nacos < -D
 		NamedPropertySource: NamedPropertySource{
 			Name: fmt.Sprintf("%s-%s", SourceKeyLocalPrefix, appConfFile), // "[LOCAL]-xxxx"
 		},
