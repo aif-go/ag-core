@@ -152,6 +152,7 @@ func (ph *PropertyPlaceholderHelper) parseStringValueWithVisited(
 	return builder.String(), nil
 }
 
+// findPlaceholderEndIndex 查找占位符的结束索引
 func (ph *PropertyPlaceholderHelper) findPlaceholderEndIndex(buf string, startIndex int) int {
 	index := startIndex + len(ph.PlaceholderPrefix)
 	withinNestedPlaceholder := 0

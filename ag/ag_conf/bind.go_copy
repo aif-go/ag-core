@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -133,10 +132,9 @@ func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v refl
 		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
 	}
 	// 检查Value的类型范围，只允许指定范围的类型
-	if !IsBindableType(v.Type()) { // 此处的判断要保障下面代码的正确性
-		slog.Error("bind value error", "key", param.Key, "type", v.Type().String(), "err", ErrUnBindableType)
-		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrUnBindableType)
-	}
+	// if !IsBindableType(v.Type()) { // 此处的判断要保障下面代码的正确性
+	// 	return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrUnBindableType)
+	// }
 
 	// 需要进一步解析的类型
 	switch v.Kind() {
@@ -238,14 +236,15 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(bctx context.Context, v ref
 }
 
 func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v reflect.Value, param BindParam) error {
+	// TODO 如果为直接属性 且 param autorefresh 添加自动参数刷新
+	// vsetfunc := func() {
+	// 	vsctx := context.WithValue(context.Background(), "canautorefresh", false)
+	// 	cpb.bindSlice(vsctx, v, param)
+	// }
+
 	t := v.Type()
 
 	et := t.Elem() // 获取切片元素类型，若t不是Array, Chan, Map, Pointer, Slice类型，会panic
-	// et 可能是个指针类型
-	if et.Kind() == reflect.Pointer { // 切片的子元素不能是指针
-		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrUnBindableType)
-		// et = et.Elem()
-	}
 	// fmt.Printf("%v\n", et.Kind())
 
 	// 创建指定类型的新切片
@@ -253,6 +252,14 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v refl
 	defer func() {
 		v.Set(slice)
 	}() // 当函数返回时，将切片设置为值 v
+	// ============ TEST ==========
+
+	// for i := 0; i < 5; i++ {
+	// 	ev := reflect.New(et).Elem()
+	// 	ev.FieldByName("String").SetString(fmt.Sprintf("value-%d", i))
+	// 	slice = reflect.Append(slice, ev)
+	// }
+	// ============ TEST END =======
 
 	for i := 0; ; i++ {
 		ev := reflect.New(et).Elem()
@@ -260,12 +267,20 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v refl
 			Key:  fmt.Sprintf("%s[%d]", param.Key, i),
 			Path: fmt.Sprintf("%s[%d]", param.Path, i),
 		}
+		// subParam.BindTag("tag string", "")
+
+		// TODO 判断下标不存在则中断循环
+		// if !cpb.env.ContainsProperty(subParam.Key) { // TODO 暂未实现a.b[0].c:123 情况的判断
 		if !cpb.containsDescendantOfName(subParam.Key) {
 			break
 		}
-		err := cpb.BindValue(bctx, ev, subParam)
+		err := cpb.BindValue(bctx, ev, subParam) // TODO 待优化
+		// if errors.Is(err, ErrNotExist) {   // 按此处未找到判断，不严谨，若切片类型为struct，配置时，某个元素的属性确实没配置，此处存在误处理的情况
+		// 	break
+		// }
 		if err != nil {
 			return fmt.Errorf("bind path=%s type=%s error << %w", param.Path, v.Type().String(), err)
+			// return errutil.WrapError(err, "bind path=%s type=%s error", param.Path, v.Type().String())
 		}
 		slice = reflect.Append(slice, ev)
 	}
@@ -293,46 +308,40 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 	}
 
 	// 1. 获取所有子键
-	subKeys := cpb.getDescendantSubKeysOfName(param.Key)
+	keys := cpb.getDescendantSubKeysOfName(param.Key)
 
 	// 2. 遍历子键，构建子value
-	for _, subKey := range subKeys {
+	for _, key := range keys {
 		e := reflect.New(et).Elem()
-		key := param.Key
-		if key != "" {
-			key = param.Key + "." + subKey
+		subKey := key
+		if param.Key != "" {
+			subKey = param.Key + "." + key
 		}
 		subParam := BindParam{
-			Key:  key,
+			Key:  subKey,
 			Path: param.Path,
 		}
 		if err := cpb.BindValue(bctx, e, subParam); err != nil {
 			return err
 		}
 
-		ret.SetMapIndex(reflect.ValueOf(subKey), e)
+		ret.SetMapIndex(reflect.ValueOf(key), e)
 	}
 	return nil
 
 }
 
 // containsDescendantOfName 检查是否包含后代键
-// 子键检查包含切片类型key
 func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) bool {
 	found := false
 	prefix := name + "."
-	prefix2 := name + "[" // 切片类型
-
-	isArray := isArryKey(name)
 
 	cpb.env.GetPropertySources().RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 		// 检查属性源内容是否包含后代
 		source := ps.GetSource()
 		for k := range source {
 			// if k == name || strings.HasPrefix(k, prefix) {
-			if strings.EqualFold(k, name) || // 完全匹配
-				hasPrefixIgnoreCase(k, prefix) || // .前缀匹配
-				(isArray && hasPrefixIgnoreCase(k, prefix2)) {
+			if strings.EqualFold(k, name) || hasPrefixIgnoreCase(k, prefix) { //	忽略大小写
 				found = true
 				return true, nil
 			}
@@ -343,23 +352,18 @@ func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) 
 	return found
 }
 
-func isArryKey(key string) bool {
-	// 正则表达式匹配
-	pattern := `^.+\[\d+\]$`
-	re := regexp.MustCompile(pattern)
-	return re.MatchString(key)
-}
-
-// getDescendantKeysOfName 获取所有后代键，包含自身
-// FIXME: 此处目前只有bindMap使用，暂不考虑slice的子键解析，slice在bindSlice中自行处理
+// getDescendantKeysOfName 获取所有后代键
 func (cpb *ConfigurationPropertiesBinder) getDescendantKeysOfName(name string) []string {
 	dkeys := []string{}
 	prefix := name + "."
+	prefix2 := name + "[" // 切片类型
+	// cpb.propertySources.RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 	cpb.env.GetPropertySources().RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 		// 检查属性源内容是否包含后代
 		source := ps.GetSource()
 		for k := range source {
-			if k == name || hasPrefixIgnoreCase(k, prefix) {
+			// if k == name || strings.HasPrefix(k, prefix) { // TODO 忽略大小写
+			if k == name || hasPrefixIgnoreCase(k, prefix) || hasPrefixIgnoreCase(k, prefix2) { //	忽略大小写
 				dkeys = append(dkeys, k)
 			}
 		}
@@ -372,57 +376,39 @@ func (cpb *ConfigurationPropertiesBinder) getDescendantKeysOfName(name string) [
 
 // getDescendantSubKeysOfName 获取所有后代子键
 func (cpb *ConfigurationPropertiesBinder) getDescendantSubKeysOfName(name string) []string {
-	// 获取包含name的所有键
 	keys := cpb.getDescendantKeysOfName(name)
-	// 解析所有键的name子键
-	return getDescendantSubKeysOfName(name, keys)
-}
-
-// getDescendantSubKeysOfName 获取所有后代子键
-// FIXME: 此处目前只有bindMap使用，暂不考虑slice的子键解析，slice在bindSlice中自行处理
-// FIXME: bindMap情况下不存在子键起始为[的情况==
-func getDescendantSubKeysOfName(name string, keys []string) []string {
 	subKeys := make([]string, 0, len(keys))
 	prefix := name
+	prefix2 := name
 	if name != "" {
-		prefix += "."
+		prefix += "." // TODO 若key:KMAP.k1[0][1]，怎么处理
+		prefix2 += "["
 	}
 
 	seen := make(map[string]bool)
 	for _, k := range keys {
-		if k == name { // 自身没有子键，跳过
+		if k == name {
 			continue
 		}
-
-		var subKey string
 		if hasPrefixIgnoreCase(k, prefix) {
-			subKey = trimPrefixIgnoreCase(k, prefix)
-		} else {
-			continue
+			// k='a.b.c'
+			//   name='a'   sub='b'
+			//   name='a.b' sub='c'
 		}
-
-		// 截取有效子键
-		// 处理子健 1. 点分隔的情况 2.数组索引情况
-		// .的索引位置
-		dotIndex := strings.Index(subKey, ".") // 子键是key的情况
-		// 第一个中括号的位置
-		bracketIndex := strings.Index(subKey, "[") // 子键是数组的情况
-
-		// 找到最小的有效索引
-		minIndex := len(subKey)
-		if dotIndex > 0 && dotIndex < minIndex {
-			minIndex = dotIndex
+		if hasPrefixIgnoreCase(k, prefix2) {
+			// k = 'a.b[0]'
+			//   name='a'      sub='b[0]'
+			// k = 'a.b[0][0]'
+			//   name='a'      sub='b[0]'
+			//   name='a.b[0]' sub='[0]'
 		}
-		if bracketIndex > 0 && bracketIndex < minIndex {
-			minIndex = bracketIndex
+		// subKey := strings.TrimPrefix(k, prefix) // TODO 忽略大小写
+		subKey := trimPrefixIgnoreCase(k, prefix)
+		// 只取第一级子键
+		if dot := strings.Index(subKey, "."); dot > 0 {
+			subKey = subKey[:dot]
 		}
-
-		// 如果找到有效索引则截取，否则保持原字符串
-		if minIndex < len(subKey) {
-			subKey = subKey[:minIndex]
-		}
-
-		if subKey != "" && !seen[subKey] { // 扁平的map，可能包含多个子键情况，如：[a.b.c, a.b.d] 对于a来说只有个子键：b
+		if !seen[subKey] {
 			seen[subKey] = true
 			subKeys = append(subKeys, subKey)
 		}
@@ -611,10 +597,8 @@ func IsBindableType(t reflect.Type) bool {
 		return true
 	case reflect.Struct:
 		return true
-	case reflect.Map, reflect.Slice: // 集合元素可以是集合
-		return true
 	case reflect.Pointer:
-		// return IsBindableType(t.Elem()) // FIXME 是否允许集合元素为指针类型，当前不支持
+		// return IsBindableType(t.Elem()) // TODO 是否允许集合元素为指针类型
 		return false
 	default:
 		return false

@@ -2,6 +2,8 @@ package ag_conf_test
 
 import (
 	"ag-core/ag/ag_conf"
+	"ag-core/ag/ag_conf/reader/yaml"
+	"ag-core/ag/ag_ext"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -122,6 +124,9 @@ func TestConfBindSlice(t *testing.T) {
 
 	var slice1 []Hzw
 	err := binder.Bind(&slice1, "hzw")
+	if err != nil {
+		t.Errorf("err: %v\n", err)
+	}
 	fmt.Printf("slice1=%v\n", slice1)
 
 	slice2 := make([]Hzw, 0)
@@ -162,6 +167,72 @@ func TestConfBindMap(t *testing.T) {
 	map2 := make(map[string]string)
 	binder.Bind(&map2, "map2")
 	fmt.Printf("err:%v map2=%v\n", err, map2)
+
+}
+
+func TestConfBindMapSlice(t *testing.T) {
+	content := `
+HZW:
+  KMAP:
+    k1:
+      -
+        - "k1s1-1"
+        - "k1s1-2"
+      -
+        - "k1s2-1"
+        - "k1s2-2"
+    k2:
+      -
+        - "k2s1-1"
+      - 
+  
+`
+
+	type K struct {
+		KMAP map[string][][]string
+	}
+	// type K2 struct {
+	// 	KMAP map[string]map[string][]string
+	// }
+
+	cm, err := yaml.Read([]byte(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	flatmapcontext, err := ag_ext.GetFlattenedMap(cm)
+	fjson, _ := json.MarshalIndent(flatmapcontext, " ", " ")
+	fmt.Printf("fjson=%s\n\n", fjson)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, _ := ag_conf.NewStandardEnvironment()
+
+	env.GetPropertySources().AddLast(&ag_conf.MapPropertySource{
+		NamedPropertySource: ag_conf.NamedPropertySource{
+			Name: "TEST-HZW",
+		},
+		Source: flatmapcontext,
+	})
+	binder := ag_conf.NewConfigurationPropertiesBinder(env)
+
+	var k K
+	binder.Bind(&k, "HZW")
+	jsonk, _ := json.MarshalIndent(&k, " ", " ")
+	fmt.Printf("k=%s\n\n", jsonk)
+
+	// var k2 K2
+	// binder.Bind(&k2, "HZW")
+	// jsonk2, _ := json.MarshalIndent(&k2, " ", " ")
+	// fmt.Printf("k2=%s\n\n", jsonk2)
+	// k2k1_0, ok := k2.KMAP["k1"]["[0]"]
+	// if !ok {
+	// 	t.Error("k2k1l not found")
+	// }
+	// if len(k2k1_0) != 2 {
+	// 	t.Error("k2k1_0 len not 2")
+	// }
 
 }
 
