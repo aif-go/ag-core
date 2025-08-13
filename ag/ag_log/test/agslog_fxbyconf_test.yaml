@@ -1,16 +1,36 @@
 aglog:
-  topHandler: [zap1,zap2,fanout1]
+  # topHandler: [zap1,zap2,fanout1]
+  topHandler: 
+    - "zap1"
+    - "zap2"
+    - "f1"
   
   fanout:
-    fanout1:
-      handlers:
-        - "zap1"
-        - "zap2"
-  route:
-    route1:
-      condition: "handler_name == 'zap1'"
-      handler: "zap1"
+    logs:
+      f1: ["zap1","zap2"]
+      f2: ["f1"]
+      f3: ["f2"]
   zap:
-    logs2:
+    logs:
       zap1:
-        level: info
+        log_level: info
+        encoding: console           # json or console
+        # log_file_name: "logs/hhhzzzwww.log"
+        # max_backups: 30
+        # max_age: 7
+        # max_size: 1024
+        compress: true
+        console: true
+      zap2:
+        log_level: debug
+        encoding: console           # json or console
+        # log_file_name: "logs/hhhzzzwww2.log"
+        # max_backups: 30
+        # max_age: 7
+        # max_size: 1024
+        compress: true
+        console: true
+  # route:
+  #   route1:
+  #     condition: "handler_name == 'zap1'"
+  #     handler: "zap1"

@@ -8,3 +8,6 @@ ag_log通过基础的slogmulti进行封装，slogmulti提供了fanout、failover
 ag_log通过NamedHandler实现对handler的命名，通过名称实现对handler的多模式组织。
 
 
+### FUTURE
+- 动态日志级别支持
+- 自定义日志服务支持

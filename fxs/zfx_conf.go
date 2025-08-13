@@ -18,7 +18,9 @@ var FxAgConfModule = fx.Module("ag_conf",
 		// 加载本地配置
 		ag_conf.LoadLocalConfigToState, // 在provide阶段解析初始化本地配置，并返回一个本地初始化完成的标志，方便其他要依赖本地配置的组件控制初始化顺序
 		fx.Annotate(
-			ag_conf.NewConfigurationPropertiesBinder,
+			func(env ag_conf.IConfigurableEnvironment, lcled ag_conf.LocalConfigLoded) ag_conf.IBinder { // 添加LocalConfigLoded依赖，控制本地配置先加载
+				return ag_conf.NewConfigurationPropertiesBinder(env)
+			},
 			fx.As(new(ag_conf.IBinder)),
 		),
 	),

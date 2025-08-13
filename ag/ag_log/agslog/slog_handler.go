@@ -7,10 +7,10 @@ import (
 	"sync"
 )
 
-type HandlerNameCtxValue []string
+// type HandlerNameCtxValue []string
 
 const (
-	HandlerNameKey = "handler_name"
+	HandlerNameKey = "agslog.handler"
 )
 
 type INamedHandler interface {
@@ -52,15 +52,16 @@ func (n *NamedHandler) Enabled(ctx context.Context, l slog.Level) bool {
 
 // Handle 处理日志
 func (n *NamedHandler) Handle(ctx context.Context, r slog.Record) error {
-	// handlerNames, ok := ctx.Value(HandlerNameKey).(HandlerNameCtxValue)
-	// if !ok {
-	// 	handlerNames = HandlerNameCtxValue{}
-	// }
-	// handlerNames = append(handlerNames, n.name)
-	// // 附加数据到context中
-	// ctx = context.WithValue(ctx, HandlerNameKey, handlerNames)
-	// 附加数据到record中
-	r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(n.name)})
+	handlerName := ctx.Value(HandlerNameKey)
+	if handlerName == nil {
+		handlerName = n.name
+	} else {
+		handlerName = fmt.Sprintf("%s.%s", handlerName, n.name)
+	}
+
+	ctx = context.WithValue(ctx, HandlerNameKey, handlerName)
+	r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(handlerName.(string))})
+
 	return n.Handler.Handle(ctx, r)
 }
 
@@ -116,8 +117,16 @@ func (f *HandlerFactory) GetHandler(resolveHandler func(handlerName string) (slo
 	}
 
 	if f.DoGetHandler == nil {
-		return nil, fmt.Errorf("handler factory %s do build handler is nil", f.Name)
+		return nil, fmt.Errorf("handler factory [%s] do build handler is nil", f.Name)
 	}
 
-	return f.DoGetHandler(resolveHandler)
+	handler, err := f.DoGetHandler(resolveHandler)
+	if err != nil {
+		return nil, fmt.Errorf("handler factory [%s] get handler failed, err:\n >>> %w", f.Name, err)
+	}
+
+	if f.Name != "" {
+		return NewNamedHandler(f.Name, handler), nil
+	}
+	return handler, nil
 }

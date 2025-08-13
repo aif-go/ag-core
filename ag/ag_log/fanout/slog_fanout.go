@@ -1,6 +1,7 @@
 package fanout
 
 import (
+	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_log/agslog"
 	"fmt"
 	"log/slog"
@@ -14,12 +15,23 @@ const (
 
 // AgSlogFanoutProperties 日志分发给多个handler
 type AgSlogFanoutProperties struct {
-	FanoutHandler map[string][]string
+	Logs map[string][]string
+}
+
+// BindAgSLogFanoutProperties 绑定slogfanout配置
+func BindAgSLogFanoutProperties(binder ag_conf.IBinder) (*AgSlogFanoutProperties, error) {
+	prop := &AgSlogFanoutProperties{}
+	err := binder.Bind(prop, AgSlogFanoutPropertiesKeyPrefix)
+	if err != nil {
+		fmt.Printf("BindSlogZapProperties err: %v", err)
+		return nil, nil
+	}
+	return prop, nil
 }
 
 func NewFanoutHandlerFactorys(props *AgSlogFanoutProperties) ([]*agslog.HandlerFactory, error) {
 	factories := make([]*agslog.HandlerFactory, 0)
-	for name, handlers := range props.FanoutHandler {
+	for name, handlers := range props.Logs {
 		// 创建fanout handler工厂
 		// 创建局部变量副本
 		handlerscopy := handlers

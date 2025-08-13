@@ -140,6 +140,8 @@ func (b *Builder) Build() (*slog.Logger, error) {
 	// 中间件（作用与顶层handler前）
 	if len(b.middlewares) > 0 {
 		rhandler = slogmulti.Pipe(b.middlewares...).Handler(rhandler)
+		// FIXME
+		// future: 动态日志级别支持
 	}
 
 	logger := slog.New(rhandler)
@@ -186,7 +188,7 @@ func (b *Builder) resolveTopHandlers() ([]slog.Handler, error) {
 	for _, name := range b.props.TopHandler {
 		handler, err := b.resolveHandler(name) // 解析指定名称的handler
 		if err != nil {
-			fmt.Printf("agslog: resolveHandler[%s] fail:%v\n", name, err)
+			fmt.Printf("agslog[error]: resolveHandler[%s] fail:%v\n", name, err)
 			continue
 			// return nil, err
 		}

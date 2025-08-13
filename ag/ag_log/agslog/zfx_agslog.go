@@ -21,13 +21,18 @@ type FxInAgSlogBuilderParams struct {
 	Middlewares []slogmulti.Middleware `group:"agslog.middleware",optional:"true"`
 }
 
-var FxAgSlogMode = fx.Module("ag_log.agslog",
-	fx.Provide(
-		BindAgSlogProperties,
-		FxBuildAgSlogBuilder,
-		// BuildAgSlog,
-	),
+var FxAgSlogProvide = fx.Provide(
+	BindAgSlogProperties,
+	FxBuildAgSlogBuilder,
 )
+
+// var FxAgSlogMode = fx.Module("ag_log.agslog",
+// 	fx.Provide(
+// 		BindAgSlogProperties,
+// 		FxBuildAgSlogBuilder,
+// 		// BuildAgSlog,
+// 	),
+// )
 
 func FxBuildAgSlogBuilder(params FxInAgSlogBuilderParams) (*slog.Logger, error) {
 	builder := NewBuilder()

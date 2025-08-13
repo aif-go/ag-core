@@ -3,6 +3,7 @@ package test
 import (
 	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_log/agslog"
+	"ag-core/ag/ag_log/fanout"
 	"ag-core/ag/ag_log/slogzap"
 	"context"
 	"log/slog"
@@ -22,19 +23,21 @@ func TestAgSlogFx2(t *testing.T) {
 			},
 		),
 
-		slogzap.FxAgSlogZapMode,
+		slogzap.FxAgSlogZapProvide,
 
-		agslog.FxAgSlogMode,
+		fanout.FxAgSlogFanoutProvide,
+
+		agslog.FxAgSlogProvide,
 
 		fx.Invoke(func(logger *slog.Logger) {
 			log := logger
 
-			log = log.With("k1", "v1")
+			// log = log.With("k1", "v1")
 			_ag_log_fx_log(log)
 
-			log = log.WithGroup("hzw")
-			log = log.With("k2", "v2")
-			_ag_log_fx_log(log)
+			// log = log.WithGroup("hzw")
+			// log = log.With("k2", "v2")
+			// _ag_log_fx_log(log)
 		}),
 	)
 
