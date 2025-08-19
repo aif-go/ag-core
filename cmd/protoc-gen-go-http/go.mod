@@ -1,4 +1,4 @@
-module github.com/frochyzhang/ag-core/cmd/protoc-gen-go-http
+module ag-core/cmd/protoc-gen-go-http
 
 go 1.22
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/base"
+	"ag-core/cmd/aif-go/internal/base"
 )
 
 // CmdUpgrade represents the upgrade command.
@@ -19,9 +19,9 @@ var CmdUpgrade = &cobra.Command{
 // Run upgrade the kratos tools.
 func Run(_ *cobra.Command, _ []string) {
 	err := base.GoInstall(
-		"github.com/frochyzhang/ag-core/cmd/aif-go@latest",
-		"github.com/frochyzhang/ag-core/cmd/protoc-gen-go-http/v2@latest",
-		"github.com/frochyzhang/ag-core/cmd/protoc-gen-go-errors/v2@latest",
+		"ag-core/cmd/aif-go@latest",
+		"ag-core/cmd/protoc-gen-go-http/v2@latest",
+		"ag-core/cmd/protoc-gen-go-errors/v2@latest",
 		"google.golang.org/protobuf/cmd/protoc-gen-go@latest",
 		"google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest",
 		"github.com/google/gnostic/cmd/protoc-gen-openapi@latest",

@@ -4,7 +4,7 @@ import ({{ range .Packages }}
 	"{{.}}"
 	{{- end }}
 	"go.uber.org/fx"
-	mw "github.com/frochyzhang/ag-core/ag/ag_ext"
+	mw "ag-core/ag/ag_ext"
 )
 
 var FxServiceModule = fx.Module("fx-service",

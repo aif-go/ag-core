@@ -1,4 +1,4 @@
-module github.com/frochyzhang/ag-core/cmd/aif-go
+module ag-core/cmd/aif-go
 
 go 1.23.6
 

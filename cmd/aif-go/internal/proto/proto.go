@@ -1,12 +1,12 @@
 package proto
 
 import (
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/proto/service"
+	"ag-core/cmd/aif-go/internal/proto/service"
 	"github.com/spf13/cobra"
 
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/proto/add"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/proto/client"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/proto/server"
+	"ag-core/cmd/aif-go/internal/proto/add"
+	"ag-core/cmd/aif-go/internal/proto/client"
+	"ag-core/cmd/aif-go/internal/proto/server"
 )
 
 // CmdProto represents the proto command.

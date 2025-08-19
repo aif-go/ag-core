@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/db/dao"
+	"ag-core/cmd/aif-go/internal/db/dao"
 	"github.com/spf13/cobra"
 )
 

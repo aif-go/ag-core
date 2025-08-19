@@ -7,7 +7,7 @@ import (
 	"time"
 
 	pb "{{.PbPkg}}"
-	mw "github.com/frochyzhang/ag-core/ag/ag_ext"
+	mw "ag-core/ag/ag_ext"
 )
 
 // ===================== 代理实现 =====================

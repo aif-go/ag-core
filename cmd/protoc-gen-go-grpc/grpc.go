@@ -15,7 +15,7 @@ const (
 	streamingPackage = protogen.GoImportPath("github.com/cloudwego/kitex/pkg/streaming")
 	fxPackage        = protogen.GoImportPath("go.uber.org/fx")
 	kitextPackage    = protogen.GoImportPath("github.com/cloudwego/kitex/pkg/serviceinfo")
-	agksPackage      = protogen.GoImportPath("github.com/frochyzhang/ag-core/ag/ag_kitex/server")
+	agksPackage      = protogen.GoImportPath("ag-core/ag/ag_kitex/server")
 )
 
 // generateFile generates a _grpc.pb.go file containing kratos errors definitions.
@@ -77,7 +77,7 @@ func genService(_ *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFi
 	pkgInfo := PkgInfo{
 		PkgName:    string(file.GoPackageName),
 		PkgRefName: string(file.GoPackageName),
-		//ImportPath: "github.com/frochyzhang/ag-core/hertz/hello",
+		//ImportPath: "ag-core/hertz/hello",
 	}
 	si := &ServiceInfo{
 		PkgInfo:        pkgInfo,

@@ -1,4 +1,4 @@
-module github.com/frochyzhang/ag-core/cmd/protoc-gen-go-grpc
+module ag-core/cmd/protoc-gen-go-grpc
 
 go 1.22
 
