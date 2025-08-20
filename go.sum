@@ -124,6 +124,8 @@ github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm4
 github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 h1:EGx4pi6eqNxGaHF6qqu48+N2wcFQ5qg5FXgOdqsJ5d8=
 github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1/go.mod h1:wJfORRmW1u3UXTncJ5qlYoELFm8eSnnEO6hX4iZ3EWY=
 github.com/gordonklaus/ineffassign v0.0.0-20200309095847-7953dde2c7bf/go.mod h1:cuNKsD1zp2v6XfE/orVX2QE1LC+i254ceGcVeDT3pTU=
+github.com/hertz-contrib/http2 v0.1.8 h1:kjfCGkUxJZHgfPsnRjx1FLJBG55KvtvSQD214guBQLw=
+github.com/hertz-contrib/http2 v0.1.8/go.mod h1:m42hrl8fiTwE4p8c7JdRUZpkePEthvV89q3elL2GeD0=
 github.com/hertz-contrib/registry/nacos v0.0.0-20250319055937-8a220332e808 h1:2QKHeu5S/Yk9rVn7vJRwkDYzYQmD6nTe4uAhHlobu+c=
 github.com/hertz-contrib/registry/nacos v0.0.0-20250319055937-8a220332e808/go.mod h1:Xv5mM5QGo52en/iNwxFvc66C1HpVCI+Q25yuhVuGNxY=
 github.com/iancoleman/strcase v0.3.0 h1:nTXanmYxhfFAMjZL34Ov6gkzEsSJZ5DbhxWjvSASxEI=

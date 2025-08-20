@@ -101,5 +101,4 @@ func buildFlattenedMap(result map[string]interface{}, source interface{}, path s
 // 			target[key] = value
 // 		}
 // 	}
-
 // }

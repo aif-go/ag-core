@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/db"
+	"ag-core/cmd/aif-go/internal/db"
 	"log"
 
 	"github.com/spf13/cobra"
 
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/change"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/project"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/proto"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/run"
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/upgrade"
+	"ag-core/cmd/aif-go/internal/change"
+	"ag-core/cmd/aif-go/internal/project"
+	"ag-core/cmd/aif-go/internal/proto"
+	"ag-core/cmd/aif-go/internal/run"
+	"ag-core/cmd/aif-go/internal/upgrade"
 )
 
 var rootCmd = &cobra.Command{

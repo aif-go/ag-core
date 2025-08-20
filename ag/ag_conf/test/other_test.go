@@ -12,6 +12,4 @@ func TestStringsEqual(t *testing.T) {
 	b := "aBc"
 
 	fmt.Println(strings.EqualFold(a, b))
-	
-
 }

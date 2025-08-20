@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/base"
+	"ag-core/cmd/aif-go/internal/base"
 )
 
 // TestCmdNew tests the `kratos new` command.

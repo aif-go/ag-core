@@ -1,7 +1,6 @@
 package server
 
 import (
-	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_ext/ip"
 	"ag-core/ag/ag_netty"
 	"context"
@@ -77,7 +76,7 @@ type NettyOptionSuite struct {
 func (s *NettyOptionSuite) Options() []Option { return s.Opts }
 
 type NettySuiteBuilder struct {
-	Binder        ag_conf.IBinder
+	NSP           *NettyServerProperties
 	CustomOptions []Option
 }
 
@@ -88,15 +87,7 @@ func (builder *NettySuiteBuilder) BuildSuite() (*NettyOptionSuite, error) {
 
 	suite.Opts = append(suite.Opts, builder.CustomOptions...)
 
-	var conf NettyServerProperties
-	err := builder.Binder.Bind(&conf, nettyServerPropertiesPrefix)
-
-	if err != nil {
-		slog.Error("ag_netty server config error", "error", err)
-		return nil, err
-	}
-
-	host, port, err := findHostPort(conf)
+	host, port, err := findHostPort(builder.NSP)
 	if err != nil {
 		panic(err)
 	}
@@ -127,7 +118,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-func findHostPort(conf NettyServerProperties) (host string, port int, rerr error) {
+func findHostPort(conf *NettyServerProperties) (host string, port int, rerr error) {
 	// 服务ip、端口配置
 	host = conf.Host
 	if host == "" {

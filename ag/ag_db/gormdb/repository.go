@@ -24,7 +24,7 @@ func NewRepository(
 	logger *slog.Logger,
 	//	logger *log.Logger,
 	db *gorm.DB,
-	//tm TransactionManager, // 循环注入
+	// tm TransactionManager, // 循环注入
 ) *Repository {
 
 	rep := &Repository{

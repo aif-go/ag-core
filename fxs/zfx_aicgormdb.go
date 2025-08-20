@@ -13,5 +13,6 @@ var FxAicGromdbModule = fx.Module(
 		gormdb.NewRepository,
 		gormdb.NewTransactionManager, // TODO db模块,还需进一步进行抽象设计
 		gormdb.NewZapGormLog,
+		gormdb.NewTmMiddlewareContext,
 	),
 )

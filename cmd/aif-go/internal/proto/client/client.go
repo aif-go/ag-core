@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/frochyzhang/ag-core/cmd/aif-go/internal/base"
+	"ag-core/cmd/aif-go/internal/base"
 )
 
 // CmdClient represents the source command.
