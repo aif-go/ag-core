@@ -3,7 +3,7 @@ package service
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	pb "{{.PbPkg}}"
@@ -41,10 +41,10 @@ func (p *{{$ifcName}}Proxy) {{.Name}}(ctx context.Context, in *pb.{{.Request}}) 
     // 执行调用链
     res, err := handler(ctx, in)
     if err != nil {
-        log.Printf("[%s] failed in %v: %v", methodName, time.Since(start), err)
+		slog.Error("failed to handle request!", "method", methodName, "error", err, "duration", time.Since(start))
         return nil, err
     }
 
-    log.Printf("[%s] success in %v", methodName, time.Since(start))
+	slog.Info("request handled success!", "method", methodName, "duration", time.Since(start))
     return res.(*pb.{{.Reply}}), nil
 }{{end}}
