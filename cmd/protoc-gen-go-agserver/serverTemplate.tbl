@@ -1,0 +1,37 @@
+{{- range .ServiceDescs}}
+
+{{- if .Deprected}}
+// Deprected: Do not use.
+//
+{{- end}}
+{{- with .Comment}}
+{{- if .LeadingDetacheds}}
+{{- range .LeadingDetacheds}}
+// {{.}}
+//
+{{- end}}
+{{- end}}
+{{- if .Leading}}
+// {{.Leading}}
+//
+{{- end}}
+{{- end}}
+// {{.GoName}}Server defines the server interface for the {{.GoName}} service.
+type {{.GoName}}Server interface { 
+{{- range .Methods}}
+{{- with .Comment}}
+{{- if .LeadingDetacheds}}
+{{- range .LeadingDetacheds}}
+// {{.}}
+//
+{{- end}}
+{{- end}}
+{{- if .Leading}}
+// {{.Leading}}
+//
+{{- end}}
+{{- end}}
+{{.GoName}}(context.Context, *{{.InputQualifiedString}}) (*{{.OutputQualifiedString}}, error)
+{{- end}}
+}
+{{- end}}
