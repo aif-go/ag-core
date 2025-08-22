@@ -1,21 +1,19 @@
 package server
 
 import (
-	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_ext/ip"
 	"context"
 	"fmt"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/route"
-	"log/slog"
-	"net"
-	"time"
-
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/app/server/registry"
 	"github.com/cloudwego/hertz/pkg/common/config"
+	"github.com/cloudwego/hertz/pkg/route"
+	"github.com/hertz-contrib/http2/factory"
 	"github.com/hertz-contrib/registry/nacos"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
+	"log/slog"
+	"net"
 )
 
 type Route struct {
@@ -58,12 +56,16 @@ func rootMw() []app.HandlerFunc {
 // logger: 日志记录器
 // 返回一个Server实例
 func NewHertzServerWithSuit(
+	p *HertzServerProperties,
 	suite *HertzOptionSuite,
 	logger *slog.Logger,
 ) *Server {
+	hertz := server.Default(suite.Options()...)
+	if p.EnableH2C {
+		hertz.AddProtocol("h2", factory.NewServerFactory())
+	}
 	return NewServer(
-		server.Default(
-			suite.Options()...),
+		hertz,
 		logger,
 		suite.Routers()...,
 	)
@@ -78,16 +80,7 @@ func (s *Server) Start(context.Context) error {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	s.logger.Info("Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := s.Hertz.Shutdown(ctx); err != nil {
-		s.logger.Error("Failed to shutdown hertz server", "error", err)
-	}
-
-	s.logger.Info("Shutting down hertz server...")
-	return nil
+	return s.Hertz.Shutdown(ctx)
 }
 
 // HertzOptionSuite 定义了Hertz服务的配置套件
@@ -106,8 +99,7 @@ func (s *HertzOptionSuite) Routers() []Option {
 
 // HertzSuiteBuilder 定义了Hertz服务配置套件的构建器
 type HertzSuiteBuilder struct {
-	Env           ag_conf.IConfigurableEnvironment
-	Binder        ag_conf.IBinder
+	HCP           *HertzServerProperties
 	CustOptions   []config.Option
 	RouterOptions []Option
 	NamingClient  naming_client.INamingClient
@@ -120,15 +112,8 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 		routers: builder.RouterOptions,
 	}
 
-	var hconf HertzServerProperties
-	err := builder.Binder.Bind(&hconf, hertzServerPropertiesPrefix)
-	if err != nil {
-		slog.Error("hertz server config error", "error", err)
-		return nil, err
-	}
-
 	// 服务信息配置
-	host, port, err := findHertzHostPort(hconf)
+	host, port, err := findHertzHostPort(builder.HCP)
 	if err != nil {
 		return nil, err
 	}
@@ -143,13 +128,13 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 		slog.Info("hertz server enable nacos naming")
 		nacosRegistry = nacos.NewNacosRegistry(
 			builder.NamingClient,
-			nacos.WithRegistryCluster(hconf.Cluster),
-			nacos.WithRegistryGroup(hconf.Group),
+			nacos.WithRegistryCluster(builder.HCP.Cluster),
+			nacos.WithRegistryGroup(builder.HCP.Group),
 		)
 
 		regInfo := &registry.Info{}
 		regInfo.Weight = 1
-		ipranger, err := ip.NewIPRanger(hconf.EnableIPRange)
+		ipranger, err := ip.NewIPRanger(builder.HCP.EnableIPRange)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +151,7 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 			}
 		}
 
-		sname := hconf.ServiceName
+		sname := builder.HCP.ServiceName
 		if sname == "" {
 			sname = "hertz-server"
 		}
@@ -174,8 +159,8 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 
 		// 服务元信息配置，可在配置中配置，兼容并行阶段的spring-grpc网关调用
 		tags := make(map[string]string)
-		if hconf.Tags != nil {
-			tags = hconf.Tags
+		if builder.HCP.Tags != nil {
+			tags = builder.HCP.Tags
 		}
 		tags["ag_core"] = "All rights reserved"
 		tags["lang_type"] = "Golang"
@@ -192,7 +177,7 @@ func (builder *HertzSuiteBuilder) BuildSuite() (*HertzOptionSuite, error) {
 	return suite, nil
 }
 
-func findHertzHostPort(hconf HertzServerProperties) (host string, port int, rerr error) {
+func findHertzHostPort(hconf *HertzServerProperties) (host string, port int, rerr error) {
 	// 服务ip、端口配置
 	host = hconf.Host
 	if host == "" {

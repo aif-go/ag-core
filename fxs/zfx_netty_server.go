@@ -1,7 +1,6 @@
 package fxs
 
 import (
-	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_netty"
 	"ag-core/ag/ag_netty/server"
 	"ag-core/ag/ag_server"
@@ -12,6 +11,7 @@ import (
 var FxNettyServerBaseModule = fx.Module("fx_mini_netty_server_base",
 
 	fx.Provide(
+		server.NewNettyServerProperties,
 		FxNewNettyServerSuite,
 		fx.Annotate(
 			server.NewNettyServerWithSuite,
@@ -36,13 +36,13 @@ var FxNettyServerBaseModule = fx.Module("fx_mini_netty_server_base",
 type FxNettyServerInParam struct {
 	fx.In
 
-	Binder      ag_conf.IBinder
-	CustOptions []server.Option `group:"ag_netty_server_options" ,optional:"true"`
+	NettyServerProperties *server.NettyServerProperties
+	CustOptions           []server.Option `group:"ag_netty_server_options" ,optional:"true"`
 }
 
 func FxNewNettyServerSuite(params FxNettyServerInParam) (*server.NettyOptionSuite, error) {
 	builder := &server.NettySuiteBuilder{
-		Binder:        params.Binder,
+		NSP:           params.NettyServerProperties,
 		CustomOptions: params.CustOptions,
 	}
 
