@@ -28,8 +28,7 @@ func main() {
 			if !f.Generate {
 				continue
 			}
-			generateFile(gen, f, *omitempty, *omitemptyPrefix, "http")
-			generateFile(gen, f, *omitempty, *omitemptyPrefix, "server")
+			generateFile(gen, f, *omitempty, *omitemptyPrefix)
 		}
 
 		return nil
