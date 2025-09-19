@@ -39,7 +39,7 @@ func (ggi *GlobalInfo) AddPackageInfo(pkg *PackageInfo) error {
 	} else {
 		// 约束：所有PackageInfo的 PkgName 和 ImportPath 必须相同，否则解析应该报错
 		if pkg.PkgInfo.ImportPath != pkgGroup.PkgInfo.ImportPath {
-			return fmt.Errorf("package %s import path not same", pkg.PkgInfo.PkgName)
+			return fmt.Errorf("package %s import path not same. expect: %s, got: %s", pkg.PkgInfo.PkgName, pkgGroup.PkgInfo.ImportPath, pkg.PkgInfo.ImportPath)
 		}
 		pkgGroup.PackageInfos = append(pkgGroup.PackageInfos, pkg)
 	}

@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sort"
 	"time"
+
+	"go.uber.org/fx"
 )
 
 type HandlerFunc func(ctx context.Context, req interface{}) (interface{}, error)
@@ -92,4 +94,11 @@ func loggingMiddleware(
 		slog.Info("request handled completed!", "method", method, "duration", time.Since(start))
 	}
 	return res, err
+}
+
+// TODO 暂且从service移动到这，后续重构再行调整
+type BaseFxMiddlewareParams struct {
+	fx.In
+	// GlobalMws []mw.PrioritizedMiddleware `group:"fx_global_service_middleware" ,optional:"true"`
+	GlobalMws []PrioritizedMiddleware `group:"fx_global_service_middleware" ,optional:"true"`
 }

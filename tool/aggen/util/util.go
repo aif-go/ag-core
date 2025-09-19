@@ -99,8 +99,8 @@ func TestLog(msg string, obj any) {
 	pijson, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		msgstring := config.Sdump(obj)
-		slog.Error(fmt.Sprintf("%s:%s", msg, msgstring))
+		slog.Info(fmt.Sprintf("%s:%s", msg, msgstring))
 	} else {
-		slog.Error(fmt.Sprintf("%s:%s", msg, pijson))
+		slog.Info(fmt.Sprintf("%s:%s", msg, pijson))
 	}
 }

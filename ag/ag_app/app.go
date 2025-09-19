@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"reflect"
 	"syscall"
 	"time"
 )
@@ -126,7 +127,10 @@ func (a *App) Start(ctx context.Context) error {
 		go func() {
 			err := srv.Start(a.ctx)
 			if err != nil {
-				a.Logger.Error("Server start failed", "error", err)
+				srvE := reflect.TypeOf(srv).Elem()
+				srvname := fmt.Sprintf("%s/%s", srvE.PkgPath(), srvE.Name())
+				slog.Error(fmt.Sprintf("Server start failed, server: %s, error: %v", srvname, err))
+				// a.Logger.Error("Server start failed", "error", err)
 				log.Fatal(err) // TODO 服务启动失败暂强制退出
 			}
 		}()
