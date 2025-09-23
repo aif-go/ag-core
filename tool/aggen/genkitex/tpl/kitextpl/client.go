@@ -15,7 +15,7 @@
 // Modifications made by ag-cmd houzw in 2025.09:
 // - kitex原始模板: https://github.com/cloudwego/kitex/blob/v0.14.1/tool/internal_pkg/tpl/client.go
 // - 移除import和package相关生成逻辑，由新方式生成
-// - 生成内容方与kitex原模板一致，调整适配aggen的数据结构，原kitex传入对象为PackageInfo中组合了ServiceInfo，aggen不是
+// - 生成内容与kitex原模板一致，调整适配aggen的数据结构，原kitex传入对象为PackageInfo中组合了ServiceInfo，注意aggen不再是PackageInfo
 // - 注释掉了 模板扩展点 FIXME 后续有扩展需求再说
 
 package kitextpl
