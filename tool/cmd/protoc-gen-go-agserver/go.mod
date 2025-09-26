@@ -1,4 +1,4 @@
-module ag-core/cmd/protoc-gen-go-agserver
+module ag-core/tool/cmd/protoc-gen-go-agserver
 
 go 1.23.6
 

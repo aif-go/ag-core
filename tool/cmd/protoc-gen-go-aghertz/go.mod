@@ -1,4 +1,4 @@
-module ag-core/cmd/protoc-gen-go-aghertz
+module ag-core/tool/cmd/protoc-gen-go-aghertz
 
 go 1.23.6
 

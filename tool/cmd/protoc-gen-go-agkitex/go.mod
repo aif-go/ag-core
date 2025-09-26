@@ -1,4 +1,4 @@
-module ag-core/cmd/protoc-gen-go-agkitex
+module ag-core/tool/cmd/protoc-gen-go-agkitex
 
 go 1.23.6
 
