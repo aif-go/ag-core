@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -31,11 +30,13 @@ var ServiceTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	_pkgInfo := geni.PkgInfo
 	_svcInfo := geni.ServiceInfo
 
-	apipath := strings.ReplaceAll(_pkgInfo.PkgName, ".", string(filepath.Separator))
+	// apipath := strings.ReplaceAll(_pkgInfo.PkgName, ".", string(filepath.Separator))
 	lowerSvcName := strings.ToLower(_svcInfo.ServiceName)
 
 	// outpath: xxx/api/hzw/hello 每个接口一个单独包目录
-	outpath := path.Join(apipath, lowerSvcName)
+	// outpath := path.Join(apipath, lowerSvcName)
+	outpath := path.Join("internal", "adpgen", "hertz", lowerSvcName)
+
 	if !hasHttp(_svcInfo) {
 		slog.Info("[genhertz] service not http method, whill skip.", "service", _svcInfo.ServiceName)
 		return tasks, nil
@@ -73,10 +74,14 @@ var ServiceTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	tasks = append(tasks, fxTask)
 
 	// fxadpinitfile
+	adpPath := "internal/adpgen"
+	adpInitPath := path.Join(adpPath, "adpinit")
+
 	fxAdpInitName := fmt.Sprintf("%s_%s_%s%s", "zfx_aghertz", _pkgInfo.PkgRefName, lowerSvcName, "_adpinit.go")
 	fxAdpInitTask := &types.Task{
-		Name:      fxAdpInitName,
-		Path:      path.Join("api", "adpinit", fxAdpInitName),
+		Name: fxAdpInitName,
+		// Path:      path.Join("api", "adpinit", fxAdpInitName),
+		Path:      path.Join(adpInitPath, fxAdpInitName),
 		Text:      tpl.FxAdpInitTpl,
 		SetImport: tpl.FxAdpInitImportsSetter,
 	}

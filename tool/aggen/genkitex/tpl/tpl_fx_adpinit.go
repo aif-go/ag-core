@@ -17,10 +17,14 @@ var FxAdpInitImportsSetter = func(geni *types.GennerInfo) error {
 		return fmt.Errorf("pwdGoMod is empty")
 	}
 
-	_pkgInfo := geni.PkgInfo
+	// _pkgInfo := geni.PkgInfo
 	_svcInfo := geni.ServiceInfo
 	lowerSvcName := strings.ToLower(_svcInfo.ServiceName)
-	geni.AddImport(lowerSvcName, fmt.Sprintf("%s/%s/%s", _module.PwdGoMod, _pkgInfo.ImportPkg, lowerSvcName))
+	//eg: import hzwhello "ag-layout-demo/api/hzw/hzwhello
+	// geni.AddImport(lowerSvcName, fmt.Sprintf("%s/%s/%s", _module.PwdGoMod, _pkgInfo.ImportPkg, lowerSvcName))
+
+	//eg: import hzwhello "ag-layout-demo/internal/adpgen/kitex/hzwhello"
+	geni.AddImport(lowerSvcName, fmt.Sprintf("%s/%s/%s/%s/%s", _module.PwdGoMod, "internal", "adpgen", "kitex", lowerSvcName))
 
 	return nil
 }

@@ -1,12 +1,11 @@
 package genkitex
 
 import (
-	"ag-core/tool/aggen/genkitex/tpl"
 	"ag-core/tool/aggen/generator"
+	"ag-core/tool/aggen/genkitex/tpl"
 	"ag-core/tool/aggen/types"
 	"fmt"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -30,9 +29,10 @@ var ServiceTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	_pkgInfo := geni.PkgInfo
 	_svcInfo := geni.ServiceInfo
 
-	apipath := strings.ReplaceAll(_pkgInfo.PkgName, ".", string(filepath.Separator))
+	// apipath := strings.ReplaceAll(_pkgInfo.PkgName, ".", string(filepath.Separator))
 	lowerSvcName := strings.ToLower(_svcInfo.ServiceName)
-	outpath := path.Join(apipath, lowerSvcName) // xxx/api/hzw/hello
+	// outpath := path.Join(apipath, lowerSvcName) // xxx/api/hzw/hello
+	outpath := path.Join("internal", "adpgen", "kitex", lowerSvcName)
 
 	// servicefile
 	svcName := fmt.Sprintf("%s_%s%s", "agkitex", lowerSvcName, ".go")
@@ -44,7 +44,7 @@ var ServiceTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	}
 	tasks = append(tasks, svcTask)
 
-	// serverfile
+	// serverfile FIXME 属于适配层的
 	svrName := fmt.Sprintf("%s_%s%s", "agkitex", lowerSvcName, "_server.go")
 	svrTask := &types.Task{
 		Name:      svrName,
@@ -76,9 +76,10 @@ var ServiceTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 
 	// fxadpinitfile
 	fxAdpInitName := fmt.Sprintf("%s_%s_%s%s", "zfx_agkitex", _pkgInfo.PkgRefName, lowerSvcName, "_adpinit.go")
+	fxAdpInitPath := path.Join("internal", "adpgen", "adpinit")
 	fxAdpInitTask := &types.Task{
 		Name:      fxAdpInitName,
-		Path:      path.Join("api", "adpinit", fxAdpInitName),
+		Path:      path.Join(fxAdpInitPath, fxAdpInitName),
 		Text:      tpl.FxAdpInitTpl,
 		SetImport: tpl.FxAdpInitImportsSetter,
 	}

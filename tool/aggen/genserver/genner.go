@@ -1,8 +1,8 @@
 package genserver
 
 import (
-	"ag-core/tool/aggen/genserver/tpl"
 	"ag-core/tool/aggen/generator"
+	"ag-core/tool/aggen/genserver/tpl"
 	"ag-core/tool/aggen/types"
 	"fmt"
 	"path"
@@ -53,7 +53,8 @@ var ModuleTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 
 	// _module := geni.ModuleInfo
 
-	adpPath := "api"
+	// adpPath := "api"
+	adpPath := "internal/adpgen"
 	fxAdapterName := "zfx_adapter.go"
 	fxAdapterTask := &types.Task{
 		Name:      fxAdapterName,
@@ -63,7 +64,7 @@ var ModuleTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	}
 	tasks = append(tasks, fxAdapterTask)
 
-	adpInitPath := path.Join("api", "adpinit")
+	adpInitPath := path.Join(adpPath, "adpinit")
 	fxAdapterInitName := "zfx_adapter_init.go"
 	fxAdapterInitTask := &types.Task{
 		Name:      fxAdapterInitName,

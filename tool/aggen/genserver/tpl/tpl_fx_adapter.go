@@ -13,7 +13,8 @@ var FxAdapterImportsSetter = func(geni *types.GennerInfo) error {
 	if !_module.HasPwdGoMod {
 		return fmt.Errorf("pwdGoMod is empty")
 	}
-	geni.AddImport("adpinit", fmt.Sprintf("%s/%s/%s", _module.PwdGoMod, "api", "adpinit"))
+	// geni.AddImport("adpinit", fmt.Sprintf("%s/%s/%s", _module.PwdGoMod, "api", "adpinit"))
+	geni.AddImport("adpinit", fmt.Sprintf("%s/%s/%s/%s", _module.PwdGoMod, "internal", "adpgen", "adpinit"))
 
 	geni.AddImport("fx", "go.uber.org/fx")
 	return nil
