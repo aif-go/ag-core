@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 
 	"ag-core/tool/aggen/generator"
 	"ag-core/tool/aggen/genkitex"
@@ -14,6 +15,7 @@ import (
 
 var (
 	showVersion = flag.Bool("version", false, "print the version and exit")
+	model       = flag.String("model", "all", "model to generate, server|client|all default all")
 )
 
 func main() {
@@ -25,6 +27,8 @@ func main() {
 	protogen.Options{
 		ParamFunc: flag.CommandLine.Set,
 	}.Run(func(gen *protogen.Plugin) error {
+
+		slog.Info(pluginName, "model", *model)
 
 		gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 
@@ -50,7 +54,7 @@ func main() {
 		geninfo.Reset()
 		geninfo.ResetVersion()
 		geninfo.SetVersion("kitex", "v0.14.1") // TODO kitex的版本怎么获取
-		err = generator.GenRender(geninfo, genkitex.KitexGenServiceTask())
+		err = generator.GenRender(geninfo, genkitex.KitexGenServiceTask(*model))
 		if err != nil {
 			return err
 		}

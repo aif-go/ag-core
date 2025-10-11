@@ -5,6 +5,7 @@ plugins=(
     "protoc-gen-go-aghertz"
     "protoc-gen-go-agserver"
     "protoc-gen-go-agservice"
+    "protoc-gen-go-aggenall"
 )
 
 for i in ${plugins[@]}

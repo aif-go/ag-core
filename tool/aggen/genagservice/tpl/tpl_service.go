@@ -113,7 +113,8 @@ func New{{$LServiceImplName}}I( /* TODO inject dependencies */ ) {{$LPkgRefName}
 		// {{$LMethod.Name}} TODO:DESCRIBE
 		func (c *{{$LServiceImplName}}) {{$LMethod.Name}}(ctx context.Context, req {{$LArg.Type}}) ({{$LResp.Type}}, error){
 			var resp *{{$LMethod.Resp.UnptrType}}
-
+			resp = &{{$LMethod.Resp.UnptrType}}{
+			}
 			// TODO 添加业务处理逻辑
 
 			return resp, nil

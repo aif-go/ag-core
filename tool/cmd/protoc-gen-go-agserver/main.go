@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 
 	"ag-core/tool/aggen/generator"
 	"ag-core/tool/aggen/genserver"
@@ -14,6 +15,7 @@ import (
 
 var (
 	showVersion = flag.Bool("version", false, "print the version and exit")
+	model       = flag.String("model", "all", "model to generate, server|client|all default all")
 )
 
 func main() {
@@ -22,9 +24,12 @@ func main() {
 		fmt.Printf("%s %v\n", pluginName, release)
 		return
 	}
+
 	protogen.Options{
 		ParamFunc: flag.CommandLine.Set,
 	}.Run(func(gen *protogen.Plugin) error {
+
+		slog.Info(pluginName, "model", *model)
 
 		gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 
@@ -48,7 +53,7 @@ func main() {
 
 		// 生成server代码 - 服务接口
 		geninfo.Reset()
-		err = generator.GenRender(geninfo, genserver.GenServiceTask())
+		err = generator.GenRender(geninfo, genserver.GenServiceTask(*model))
 		if err != nil {
 			return err
 		}

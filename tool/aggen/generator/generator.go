@@ -70,12 +70,12 @@ func GenRender(geni *types.GennerInfo, taskGens *TaskGenerators) error {
 	// module genner
 	geni.ResetSource()
 	geni.GenScope = string(types.ScopeModule)
-	for _, ggroup := range ggroups {
-		for _, pkg := range ggroup.PackageInfos {
-			// module级别的所有源文件
-			geni.AddSource(pkg.IDLName)
-		}
-	}
+	// for _, ggroup := range ggroups {
+	// 	for _, pkg := range ggroup.PackageInfos {
+	// 		// module级别的所有源文件
+	// 		geni.AddSource(pkg.IDLName)
+	// 	}
+	// }
 	err := doGenRender(taskGens, geni, types.ScopeModule)
 	if err != nil {
 		return err

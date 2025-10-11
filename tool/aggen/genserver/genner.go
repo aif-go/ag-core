@@ -11,19 +11,21 @@ import (
 )
 
 // GenServiceTask 生成服务任务
-func GenServiceTask() *generator.TaskGenerators {
+func GenServiceTask(model string) *generator.TaskGenerators {
 	genners := &generator.TaskGenerators{}
 
 	// 添加PackageGroup级别的任务生成器
-	genners.AddGen(types.ScopePackageGroup, PackageGroupTaskGen)
+	genners.AddGen(types.ScopePackageGroup, PackageGroupBaseTaskGen)
 
-	// 添加module级别的任务生成器
-	genners.AddGen(types.ScopeModule, ModuleTaskGen)
+	if model == "all" || model == "server" {
+		// 添加module级别Server端的任务生成器
+		genners.AddGen(types.ScopeModule, ModuleServerTaskGen)
+	}
 
 	return genners
 }
 
-var PackageGroupTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
+var PackageGroupBaseTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	tasks := make([]*types.Task, 0)
 
 	_pkginfo := geni.PkgInfo
@@ -48,7 +50,7 @@ var PackageGroupTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	return tasks, nil
 }
 
-var ModuleTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
+var ModuleServerTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	tasks := make([]*types.Task, 0)
 
 	// _module := geni.ModuleInfo
