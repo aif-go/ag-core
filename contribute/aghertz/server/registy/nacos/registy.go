@@ -25,7 +25,7 @@ type Param struct {
 }
 
 func NewRegisty(param *Param, props *Properties) registry.Registry {
-	if param.NamingClient == nil {
+	if param.NamingClient != nil {
 		return rnacos.NewNacosRegistry(
 			param.NamingClient,
 			rnacos.WithRegistryCluster(props.Cluster),

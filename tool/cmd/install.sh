@@ -1,6 +1,7 @@
 #!/bin/bash
 
 plugins=(
+    "aggo"
     "protoc-gen-go-agkitex"
     "protoc-gen-go-aghertz"
     "protoc-gen-go-agserver"

@@ -17,7 +17,7 @@ var (
 func init() {
 	rootcmd.RegCommand(CmdUpgrade)
 
-	baseMode = "git.houzw.cn/aifgo/ag-core"
+	baseMode = "ag-core"
 	CmdUpgrade.Flags().StringVarP(&baseMode, "base-mode", "b", baseMode, "base mode")
 }
 
