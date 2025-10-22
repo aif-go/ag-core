@@ -24,7 +24,8 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	geni.AddImports("context")
 	geni.AddImport("app", "github.com/cloudwego/hertz/pkg/app")
 	geni.AddImport("consts", "github.com/cloudwego/hertz/pkg/protocol/consts")
-	geni.AddImport("server", "ag-core/ag/ag_hertz/server")
+	// geni.AddImport("server", "ag-core/ag/ag_hertz/server")
+	geni.AddImport("hserver", "ag-core/contribute/aghertz/server")
 
 	return nil
 }
@@ -57,6 +58,7 @@ var serverTpl string = `
 
 			{{- $LHttpDesc := .}}
 
+			{{/*
 			// Register_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz
 			// @Name: {{$LMethod.Name}}
 			// @Method: {{.Method}}
@@ -67,6 +69,18 @@ var serverTpl string = `
 					RelativePath: "{{.Path}}",
 					Handlers:     append(make([]app.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
 				})
+			}
+			*/}}
+			// Router_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz
+			// @Name: {{$LMethod.Name}}
+			// @Method: {{.Method}}
+			// @Path: {{.Path}}
+			func Router_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz(s {{$LServiceTypeName}}) *hserver.Route {
+				return &hserver.Route{
+					HttpMethod:   "{{.Method}}",
+					RelativePath: "{{.Path}}",
+					Handlers:     append(make([]app.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
+				}
 			}
 
 			func _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s {{$LServiceTypeName}}) func(ctx context.Context, c *app.RequestContext) {
