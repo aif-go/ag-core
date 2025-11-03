@@ -92,42 +92,13 @@ func FxNewHertzServerConfigParam(fp FxInHertzServerConfigParam) *HertzServerConf
 	}
 }
 
-// FxInServerSuiteParam HertzServerSuiteParam 内容注入器
-// type FxInServerSuiteParam struct {
-// 	fx.In
-// 	Opts []*ServerOption `group:"aghertz_server_options" ,optional:"true"`
-// }
-
-// FxNewHertzServerOptions 通过注入器构建 HertzServerOptionParam
-// func FxNewHertzServerSuite(fp FxInServerSuiteParam) ServerSuite {
-// 	suite := &SimpleServerSuite{}
-// 	if fp.Opts == nil {
-// 		return suite
-// 	}
-// 	suite.AddPtr(fp.Opts...)
-// 	return suite
-// }
-
-// FxInRouteOptionParam 路由配置注入器
-// type FxInRouteOptionParam struct {
-// 	fx.In
-
-// 	Route []*RouteOption `group:"aghertz_route_options" ,optional:"true"`
-// }
-
-// FxNewHertzRouteOptions 通过注入器构建 RouteOptionParam
-// func FxNewHertzRouteOptions(fp FxInRouteOptionParam) *RouteOptionParam {
-// 	return &RouteOptionParam{
-// 		Route: fp.Route,
-// 	}
-// }
-
 type FxInServerConfiguratorParam struct {
 	fx.In
 
 	Server *server.Hertz
 	Opts   []*ServerOption `group:"aghertz_server_options" ,optional:"true"`
 	Routes []*Route        `group:"aghertz_route" ,optional:"true"`
+	Mws    []Middleware    `group:"aghertz_middleware" ,optional:"true"`
 }
 
 func FxNewServerConfiguratorParam(fp FxInServerConfiguratorParam) *ServerConfiguratorParam {
@@ -135,6 +106,7 @@ func FxNewServerConfiguratorParam(fp FxInServerConfiguratorParam) *ServerConfigu
 		Server: fp.Server,
 		Opts:   fp.Opts,
 		Routes: fp.Routes,
+		Mws:    fp.Mws,
 	}
 }
 
@@ -145,14 +117,6 @@ func NewFxServerOptionsProvider(t any) any {
 		fx.ResultTags(`group:"aghertz_server_options"`),
 	)
 }
-
-// NewFxRouteOptionsProvider 为 RouteOptions 提供 FX 选项
-// func NewFxRouteOptionsProvider(t any) any {
-// 	return fx.Annotate(
-// 		t,
-// 		fx.ResultTags(`group:"aghertz_route_options"`),
-// 	)
-// }
 
 // NewFxServerConfigOptionsProvider 为 HertzServerConfigOptions 提供 FX 选项
 func NewFxServerConfigOptionsProvider(t any) any {
@@ -167,5 +131,12 @@ func NewFxServerRouteProvider(t any) any {
 	return fx.Annotate(
 		t,
 		fx.ResultTags(`group:"aghertz_route"`),
+	)
+}
+
+func NewFxServerMiddlewareProvider(t any) any {
+	return fx.Annotate(
+		t,
+		fx.ResultTags(`group:"aghertz_middleware"`),
 	)
 }

@@ -1,6 +1,9 @@
 package server
 
 import (
+	"fmt"
+	"log/slog"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
@@ -17,6 +20,7 @@ type ServerConfiguratorParam struct {
 	Server *server.Hertz
 	Opts   []*ServerOption
 	Routes []*Route
+	Mws    []Middleware
 }
 
 func NewServerConfiguratorWithParam(param *ServerConfiguratorParam) *ServerConfigurator {
@@ -24,6 +28,7 @@ func NewServerConfiguratorWithParam(param *ServerConfiguratorParam) *ServerConfi
 		Server: param.Server,
 		Opts:   param.Opts,
 		Routes: param.Routes,
+		Mws:    param.Mws,
 	}
 }
 
@@ -51,7 +56,17 @@ func (m *ServerConfigurator) InitHertzServer() error {
 }
 
 func (m *ServerConfigurator) ApplyRoute() error {
+	// 应用路由
+	if m.Server == nil {
+		return fmt.Errorf("hertz server is nil")
+	}
+
+	if len(m.Routes) == 0 {
+		return nil
+	}
+
 	for _, route := range m.Routes {
+		slog.Info("apply hertz server route", "httpMethod", route.HttpMethod, "relativePath", route.RelativePath)
 		m.Server.Handle(route.HttpMethod, route.RelativePath, route.Handlers...)
 	}
 	return nil
@@ -59,14 +74,31 @@ func (m *ServerConfigurator) ApplyRoute() error {
 
 // ApplyServerOptions 应用服务器选项
 func (m *ServerConfigurator) ApplyServerOptions() error {
+	if m.Server == nil {
+		return fmt.Errorf("hertz server is nil")
+	}
+
+	if len(m.Opts) == 0 {
+		return nil
+	}
+
 	suite := &SimpleServerSuite{}
 	suite.AddPtr(m.Opts...)
 	return OptionHertzServerSuite(m.Server, suite)
 }
 
-func (m *ServerConfigurator) ApplyMiddleware() {
+func (m *ServerConfigurator) ApplyMiddleware() error {
 	// 应用全局中间件
+	if m.Server == nil {
+		return fmt.Errorf("hertz server is nil")
+	}
+
+	if len(m.Mws) == 0 {
+		return nil
+	}
+
 	for _, mw := range m.Mws {
 		m.Server.Use(app.HandlerFunc(mw))
 	}
+	return nil
 }

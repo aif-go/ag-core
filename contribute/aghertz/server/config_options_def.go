@@ -22,6 +22,10 @@ type SimpleSuite struct {
 	opts []*config.Option
 }
 
+func NewSimpleSuite(opts ...*config.Option) *SimpleSuite {
+	return &SimpleSuite{opts: opts}
+}
+
 func (s *SimpleSuite) Options() []*config.Option {
 	return s.opts
 }
