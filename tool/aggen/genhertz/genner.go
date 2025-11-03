@@ -51,10 +51,12 @@ var ServiceClientTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	// client
 	cliName := fmt.Sprintf("%s_%s_%s", "aghertz", lowerSvcName, "client.go")
 	cliTask := &types.Task{
-		Name:      cliName,
-		Path:      path.Join(outpath, cliName),
-		Text:      tpl.ClientTpl,
-		SetImport: tpl.ClientImportsSetter,
+		Name: cliName,
+		Path: path.Join(outpath, cliName),
+		// Text:      tpl.ClientTpl,
+		// SetImport: tpl.ClientImportsSetter,
+		Text:      tpl.ClientTplV2,
+		SetImport: tpl.ClientImportsSetterV2,
 	}
 	tasks = append(tasks, cliTask)
 
