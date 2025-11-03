@@ -1,74 +1,75 @@
 package client
 
 import (
-	"context"
-	"errors"
+	"log/slog"
+
+	"github.com/cloudwego/hertz/pkg/app/client"
+	"github.com/cloudwego/hertz/pkg/app/client/discovery"
+	"github.com/cloudwego/hertz/pkg/app/middlewares/client/sd"
 	"github.com/cloudwego/hertz/pkg/common/config"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 )
 
-type Client struct {
-	nc      naming_client.INamingClient
-	hostUrl string
-	*cli
-	reqOpt []config.RequestOption
-}
-type ClientOption func(*Client)
+// HertzClientParams is the parameters for creating a hertz client.
+type HertzClientParams struct {
+	ClientOptions    []*config.ClientOption
+	ClientMiddleware []client.Middleware
 
-func WithNamingClient(nc naming_client.INamingClient) ClientOption {
-	return func(c *Client) {
-		c.nc = nc
-	}
+	// PrioritizedClientMiddleware 带优先级的客户端中间件，用于fx注入时保证顺序
+	PrioritizedClientMiddleware      []PrioritizedClientMiddleware
+	PrioritizedClientMiddlewareSuite PrioritizedClientMiddlewareSuite
+
+	Resolver discovery.Resolver
 }
 
-func WithHostUrl(hostUrl string) ClientOption {
-	return func(c *Client) {
-		c.hostUrl = hostUrl
-	}
-}
-
-func NewClient(opts []ClientOption) *Client {
-	c := &Client{}
-	for _, opt := range opts {
-		opt(c)
+// NewHertzClient creates a new hertz client.
+func NewHertzClient(params *HertzClientParams) (*client.Client, error) {
+	// 应用客户端选项
+	suite := &SimpleClientSuite{
+		opts: params.ClientOptions,
 	}
 
-	options := make([]Option, 0)
-	if c.nc != nil {
-		options = append(options, withNamingClient(c.nc))
-		c.reqOpt = append(c.reqOpt, config.WithSD(true))
-	}
-
-	if c.hostUrl == "" {
-		panic(errors.New("hostUrl is empty"))
-	}
-
-	options = append(options, withHostUrl(c.hostUrl))
-
-	client, err := newClient(getOptions(options...))
+	c, err := client.NewClient(WithClientSuite(suite))
 	if err != nil {
-		panic(err)
+		slog.Error("failed to create hertz client", "err", err)
+		return nil, err
 	}
-	c.cli = client
 
-	return c
-}
+	// 应用客户端中间件
+	var cliMws []PrioritizedClientMiddleware
 
-func (c *Client) Invoke(ctx context.Context, method, path string, pathVars map[string]string, args any, reply any, opts ...config.RequestOption) error {
-	opts = append(c.reqOpt, opts...)
-	_, err := c.cli.r().
-		setContext(ctx).
-		setQueryParams(map[string]interface{}{}).
-		setPathParams(pathVars).
-		addHeaders(map[string]string{}).
-		setFormParams(map[string]string{}).
-		setFormFileParams(map[string]string{}).
-		setBodyParam(args).
-		setRequestOption(opts...).
-		setResult(reply).
-		execute(method, path)
-	if err != nil {
-		return err
+	// 服务发现中间件（如果有）
+	if params.Resolver != nil {
+		cliMws = append(cliMws, &SimplePrioritizedClientMiddleware{
+			Order:      ClientMiddlewarePriorityNormal,
+			Middleware: sd.Discovery(params.Resolver),
+		})
 	}
-	return nil
+
+	// 优先使用带优先级的中间件（保证顺序）
+	if len(params.PrioritizedClientMiddleware) > 0 {
+		cliMws = append(cliMws, params.PrioritizedClientMiddleware...)
+		// SortAndApplyMiddleware(c, params.PrioritizedClientMiddleware)
+	}
+
+	// 普通中间件（不保证顺序），默认配置在Normal级别
+	if len(params.ClientMiddleware) > 0 {
+		// 兼容旧版本：使用普通中间件（不保证顺序）
+		// c.Use(params.ClientMiddleware...)
+		for _, mw := range params.ClientMiddleware {
+			cliMws = append(cliMws, &SimplePrioritizedClientMiddleware{
+				Order:      ClientMiddlewarePriorityNormal,
+				Middleware: mw,
+			})
+		}
+	}
+
+	if params.PrioritizedClientMiddlewareSuite != nil {
+		cliMws = append(cliMws, params.PrioritizedClientMiddlewareSuite.GetMiddlewares()...)
+	}
+
+	if len(cliMws) > 0 {
+		SortAndApplyMiddleware(c, cliMws)
+	}
+
+	return c, nil
 }

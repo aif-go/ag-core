@@ -4,6 +4,8 @@ go 1.23.6
 
 require (
 	github.com/cloudwego/hertz v0.10.2
+	github.com/hertz-contrib/gzip v0.0.3
+	github.com/hertz-contrib/http2 v0.1.8
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/registry/nacos v0.0.0-20250319055937-8a220332e808
 	github.com/nacos-group/nacos-sdk-go v1.1.6
@@ -39,8 +41,10 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
+	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
