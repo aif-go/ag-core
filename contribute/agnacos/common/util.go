@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cast"
 )
 
-// ParseIPPort 解析IP:端口格式的字符串，返回IP和端口的集合
+// ParseIPPort 解析IP:端口格式的字符串，返回IP和端口的集合。 eg: 127.0.0.1:8848,127.0.0.2
 func ParseIPPort(input string) ([]IpPort, error) {
 	var result []IpPort
 

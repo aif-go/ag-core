@@ -1,6 +1,6 @@
 package naming
 
-import "ag-core/ag/ag_nacos/common"
+import "ag-core/contribute/agnacos/common"
 
 const (
 	// NacosNamingPropertiesPrefix nacos naming properties prefix

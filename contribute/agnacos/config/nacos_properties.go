@@ -1,6 +1,6 @@
 package config
 
-import "ag-core/ag/ag_nacos/common"
+import "ag-core/contribute/agnacos/common"
 
 const (
 	// NacosConfigPropertiesPrefix nacos config properties prefix

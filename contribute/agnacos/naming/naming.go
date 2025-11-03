@@ -1,25 +1,25 @@
-package config
+package naming
 
 import (
 	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_nacos/common"
+	"ag-core/contribute/agnacos/common"
 	"errors"
 
 	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/config_client"
+	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/vo"
 )
 
-func NewNacosConfigProperties(binder ag_conf.IBinder) (*NacosConfigProperties, error) {
-	p := &NacosConfigProperties{}
-	err := binder.Bind(p, NacosConfigPropertiesPrefix)
+func NewNacosNamingProperties(binder ag_conf.IBinder) (*NacosNamingProperties, error) {
+	p := &NacosNamingProperties{}
+	err := binder.Bind(p, NacosNamingPropertiesPrefix)
 	if err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-func NewNacosConfigClient(p *NacosConfigProperties) (config_client.IConfigClient, error) {
+func NewNacosNamingClient(p *NacosNamingProperties) (naming_client.INamingClient, error) {
 
 	if p == nil || !p.Enable {
 		return nil, nil
@@ -33,7 +33,6 @@ func NewNacosConfigClient(p *NacosConfigProperties) (config_client.IConfigClient
 		return nil, errors.New("nacos server config is empty")
 	}
 
-	// cc, err := namingClientConfig(p)
 	cc, err := common.BuildClientConfig(p.SCProperties)
 	if err != nil {
 		return nil, err
@@ -42,13 +41,12 @@ func NewNacosConfigClient(p *NacosConfigProperties) (config_client.IConfigClient
 		return nil, errors.New("nacos client config is empty")
 	}
 
-	cli, err := clients.NewConfigClient(
+	cli, err := clients.NewNamingClient(
 		vo.NacosClientParam{
 			ClientConfig:  cc,
 			ServerConfigs: sc,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}

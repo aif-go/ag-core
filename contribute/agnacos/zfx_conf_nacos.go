@@ -1,8 +1,8 @@
-package fxs
+package agnacos
 
 import (
-	"ag-core/ag/ag_nacos/config"
-	"ag-core/ag/ag_nacos/naming"
+	"ag-core/contribute/agnacos/config"
+	"ag-core/contribute/agnacos/naming"
 
 	"go.uber.org/fx"
 )

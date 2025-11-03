@@ -29,8 +29,17 @@ func BuildServerConfig(p SCProperties) ([]constant.ServerConfig, error) {
 		return nil, err
 	}
 
+	// schema
 	schema := p.Schema
+	if schema == "" {
+		schema = "http"
+	}
+
+	// contextPath
 	contextPath := p.ContextPath
+	if contextPath == "" {
+		contextPath = "/nacos"
+	}
 
 	opts := []constant.ServerOption{}
 	if schema != "" {
