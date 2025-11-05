@@ -18,6 +18,7 @@ var FxImportsSetter = func(geni *types.GennerInfo) error {
 	// geni.AddImport("api", fmt.Sprintf("%s/%s", _module.PwdGoMod, "api"))
 
 	geni.AddImport("fx", "go.uber.org/fx")
+	geni.AddImport("akserver", "ag-core/contribute/agkitex/server")
 
 	return nil
 }
@@ -50,9 +51,16 @@ var Fx{{$LServiceName}}KitexModule = fx.Module("fx_{{$LServiceName}}_kitex",
 
 // Fx{{$LServiceName}}KitexRegProvider fx provide
 var Fx{{$LServiceName}}KitexRegProvider = fx.Provide(
+
+	{{/* 
 	fx.Annotate(
 		Register_{{$LServiceName}}_KitexServer,
 		fx.ResultTags(` + "`" + `group:"ag_kitex_server_registrars"` + "`" + `),
+	),
+	*/}}
+
+	akserver.NewFxAgKitexServiceRegistry(
+		Register_{{$LServiceName}}_KitexServer,
 	),
 )
 

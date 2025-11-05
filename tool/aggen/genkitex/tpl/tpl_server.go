@@ -1,8 +1,8 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
 	"ag-core/tool/aggen/generator"
+	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
 	"ag-core/tool/aggen/types"
 	"fmt"
 )
@@ -24,7 +24,8 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	// geni.AddImports("server") // 注意全局依赖的配置
 	geni.AddImport("server", "github.com/cloudwego/kitex/server")
 
-	geni.AddImport("akserver", "ag-core/ag/ag_kitex/server")
+	// geni.AddImport("akserver", "ag-core/ag/ag_kitex/server")
+	geni.AddImport("akserver", "ag-core/contribute/agkitex/server")
 
 	return nil
 }
@@ -57,10 +58,19 @@ var serverTpl string = `
 // agkitexServerTpl_ext1 扩展1，添加ag_kitex的服务注册方式
 var agkitexServerTpl_ext1 string = `
 // Register_{{.ServiceName}}_KitexServer ag_kitex service register.
+{{/* 
 func Register_{{.ServiceName}}_KitexServer(srv {{call .ServiceTypeName}}) akserver.Option {
 	return akserver.WithServiceRegistrar(&akserver.ServiceRegistrar{
 		ServiceInfo: NewServiceInfo(),
 		Handler: srv,
 	})
+}
+*/}}
+func Register_{{.ServiceName}}_KitexServer(srv {{call .ServiceTypeName}}) *akserver.AgKitexServiceRegistry {
+	reg := akserver.NewAgKitexServiceRegistry(
+		NewServiceInfo(),
+		srv,
+	)
+	return reg
 }
 `

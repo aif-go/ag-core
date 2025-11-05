@@ -131,5 +131,15 @@ var ServiceClientTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	}
 	tasks = append(tasks, cliTask)
 
+	// agclientfile
+	agcliName := fmt.Sprintf("%s_%s%s", "agkitex", lowerSvcName, "_agclient.go")
+	agcliTask := &types.Task{
+		Name:      agcliName,
+		Path:      path.Join(outpath, agcliName),
+		Text:      tpl.AgClientTpl,
+		SetImport: tpl.AgClientImportsSetter,
+	}
+	tasks = append(tasks, agcliTask)
+
 	return tasks, nil
 }
