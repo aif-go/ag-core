@@ -2,7 +2,7 @@ package server
 
 import (
 	"ag-core/ag/ag_server"
-	"ag-core/contribute/aghertz/server/registy"
+	ahregistry "ag-core/contribute/aghertz/server/registry"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/app/server/registry"
@@ -13,7 +13,7 @@ import (
 // FxAgHertzServerModule 创建HTTP服务，并注册到注册中心
 var FxAgHertzServerModule = fx.Module("fx_aghertz_server",
 	// 注册中心
-	registy.FxHertzRegistyModule,
+	ahregistry.FxHertzRegistyModule,
 
 	fx.Provide(
 		// 配置文件

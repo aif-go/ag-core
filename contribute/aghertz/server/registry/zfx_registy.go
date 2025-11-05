@@ -1,7 +1,7 @@
-package registy
+package registry
 
 import (
-	"ag-core/contribute/aghertz/server/registy/nacos"
+	"ag-core/contribute/aghertz/server/registry/nacos"
 
 	"go.uber.org/fx"
 )
