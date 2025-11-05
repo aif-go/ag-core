@@ -1,7 +1,7 @@
 package hello
 
 import (
-	"ag-core/ag/ag_netty/client"
+	// "ag-core/ag/ag_netty/client"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,18 +13,18 @@ import (
 
 type Server struct {
 	httpSrv *http.Server
-	suite   *client.NettyOptionSuite
-	logger  *slog.Logger
+	// suite   *client.NettyOptionSuite
+	logger *slog.Logger
 }
 type Option func(s *Server)
 
 // func NewHelloServer(engine *gin.Engine, logger *log.Logger, opts ...Option) *Server {
 func NewHelloServer(
-	suite *client.NettyOptionSuite,
+	// suite *client.NettyOptionSuite,
 	logger *slog.Logger,
 ) *Server {
 	s := &Server{
-		suite:  suite,
+		// suite:  suite,
 		logger: logger,
 	}
 	return s
@@ -46,16 +46,16 @@ func (s *Server) Start(ctx context.Context) error {
 		buf := make([]byte, 2048)
 		n, _ := body.Read(buf)
 
-		clientWithSuite := client.NewNettyClientWithSuite(s.suite, s.logger)
-		err2 := clientWithSuite.Connect()
-		if err2 != nil {
-			panic(err2)
-		}
-		_, err2 = clientWithSuite.SendAndGet(buf[:n])
-		if err2 != nil {
-			println("err2", err2.(error).Error())
-			panic(err2)
-		}
+		// clientWithSuite := client.NewNettyClientWithSuite(s.suite, s.logger)
+		// err2 := clientWithSuite.Connect()
+		// if err2 != nil {
+		// 	panic(err2)
+		// }
+		// _, err2 = clientWithSuite.SendAndGet(buf[:n])
+		// if err2 != nil {
+		// 	println("err2", err2.(error).Error())
+		// 	panic(err2)
+		// }
 
 		bbuf := buf[:n]
 		var bmap map[string]any
