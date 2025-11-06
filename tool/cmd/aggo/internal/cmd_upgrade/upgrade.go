@@ -39,7 +39,7 @@ func Run(_ *cobra.Command, _ []string) {
 		"google.golang.org/protobuf/cmd/protoc-gen-go@latest",
 		// "google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest",
 		// "github.com/google/gnostic/cmd/protoc-gen-openapi@latest",
-		"github.com/google/gnostic/cmd/protoc-gen-openapi@v0.6.2",
+		"github.com/google/gnostic/cmd/protoc-gen-openapi@v0.6.9",
 		// fmt.Sprintf("%s/tool/cmd/protoc-gen-go-aggenall@latest", baseMode),
 		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-agserver@latest", baseMode),
 		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-agservice@latest", baseMode),
