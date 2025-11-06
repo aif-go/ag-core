@@ -32,5 +32,5 @@ func init() {
 	RegPlugin(PluginHertz, ModelClient, "--go-aghertz_out=model=client:.")
 
 	// openapi
-	RegPlugin(PluginOpenapi, ModelBase, "--go-agkitex_out=model=server:.")
+	RegPlugin(PluginOpenapi, ModelBase, "--openapi_out=fq_schema_naming=true,default_response=false:.")
 }
