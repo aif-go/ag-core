@@ -7,6 +7,14 @@ import (
 	"go.uber.org/fx"
 )
 
+var FxModuleAgHertzClient = fx.Module(
+	"aghertz_client",
+	fx.Provide(
+		FxNewHertzClientParams,
+		NewHertzClient,
+	),
+)
+
 // FxHertzClientMiddlewareParams fx注入的Hertz客户端中间件参数
 type FxHertzClientMiddlewareParams struct {
 	fx.In
