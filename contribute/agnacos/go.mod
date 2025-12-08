@@ -1,6 +1,6 @@
 module ag-core/contribute/agnacos
 
-go 1.23.6
+go 1.24.8
 
 require (
 	github.com/nacos-group/nacos-sdk-go v1.1.6

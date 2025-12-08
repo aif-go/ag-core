@@ -1,6 +1,6 @@
 module ag-core/contribute/agkitex
 
-go 1.23.6
+go 1.24.8
 
 require (
 	github.com/cloudwego/kitex v0.15.2

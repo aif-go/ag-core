@@ -1,22 +1,22 @@
 module ag-core/contribute/aghertz
 
-go 1.23.6
+go 1.24.8
 
 require (
+	github.com/bytedance/sonic v1.14.0
 	github.com/cloudwego/hertz v0.10.2
-	github.com/hertz-contrib/gzip v0.0.3
 	github.com/hertz-contrib/http2 v0.1.8
 	github.com/hertz-contrib/pprof v0.1.2
 	github.com/hertz-contrib/registry/nacos v0.0.0-20250319055937-8a220332e808
 	github.com/nacos-group/nacos-sdk-go v1.1.6
 	go.uber.org/fx v1.24.0
+	google.golang.org/protobuf v1.34.1
 )
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytedance/gopkg v0.1.1 // indirect
-	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/cloudwego/gopkg v0.1.4 // indirect
@@ -45,7 +45,6 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )

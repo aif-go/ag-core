@@ -1,6 +1,6 @@
 module ag-core/tool/cmd/protoc-gen-go-aghertz
 
-go 1.23.6
+go 1.24.8
 
 replace ag-core => ../../../
 
