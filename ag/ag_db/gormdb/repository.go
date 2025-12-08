@@ -1,10 +1,12 @@
 package gormdb
 
 import (
-	"ag-core/ag/ag_db"
 	"context"
 	"database/sql"
 	"log/slog"
+	"strings"
+
+	"ag-core/ag/ag_db"
 
 	"gorm.io/gorm"
 )
@@ -18,6 +20,7 @@ type Repository struct {
 	//tm     TransactionManager // 循环注入
 	//logger *log.Logger
 	logger *slog.Logger
+	DbType string
 }
 
 func NewRepository(
@@ -33,6 +36,9 @@ func NewRepository(
 		//tm:     tm,
 	}
 	ag_db.TM = rep
+	// 获取当前驱动对应的数据库类型
+	
+	rep.DbType = strings.ToUpper(db.Dialector.Name())
 	return rep
 }
 
