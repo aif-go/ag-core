@@ -1,6 +1,8 @@
 package client
 
 import (
+	"ag-core/contribute/aghertz/metadata"
+
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/app/client/discovery"
 	"github.com/cloudwego/hertz/pkg/common/config"
@@ -12,6 +14,10 @@ var FxModuleAgHertzClient = fx.Module(
 	fx.Provide(
 		FxNewHertzClientParams,
 		NewHertzClient,
+		// AgMetadate Hertz 客户端 元数据处理 中间件
+		NewFxClientMiddlewareProvider(
+			metadata.NewAgHertzClientAgMetadataMiddleware,
+		),
 	),
 )
 

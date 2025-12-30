@@ -10,26 +10,11 @@ import (
 
 // ServerConfigurator 服务器组件及路由配置器
 type ServerConfigurator struct {
-	Server *server.Hertz   // Hertz 服务
-	Opts   []*ServerOption // 服务器选项
-	Routes []*Route        // 路由
-	Mws    []Middleware    // 全局中间件
-}
-
-type ServerConfiguratorParam struct {
-	Server *server.Hertz
-	Opts   []*ServerOption
-	Routes []*Route
-	Mws    []Middleware
-}
-
-func NewServerConfiguratorWithParam(param *ServerConfiguratorParam) *ServerConfigurator {
-	return &ServerConfigurator{
-		Server: param.Server,
-		Opts:   param.Opts,
-		Routes: param.Routes,
-		Mws:    param.Mws,
-	}
+	Server   *server.Hertz     // Hertz 服务
+	Opts     []*ServerOption   // 服务器选项
+	Routes   []*Route          // 路由
+	Mws      []Middleware      // 全局中间件
+	MwsHFunc []app.HandlerFunc // 全局中间件
 }
 
 func (m *ServerConfigurator) AddRoute(route *Route) {
@@ -44,7 +29,10 @@ func (m *ServerConfigurator) InitHertzServer() error {
 	}
 
 	// 应用全局中间件
-	m.ApplyMiddleware()
+	err = m.ApplyMiddleware()
+	if err != nil {
+		return err
+	}
 
 	// 应用路由
 	err = m.ApplyRoute()
@@ -93,12 +81,12 @@ func (m *ServerConfigurator) ApplyMiddleware() error {
 		return fmt.Errorf("hertz server is nil")
 	}
 
-	if len(m.Mws) == 0 {
-		return nil
-	}
-
 	for _, mw := range m.Mws {
 		m.Server.Use(app.HandlerFunc(mw))
+	}
+
+	for _, mw := range m.MwsHFunc {
+		m.Server.Use(mw)
 	}
 	return nil
 }

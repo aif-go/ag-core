@@ -2,8 +2,10 @@ package server
 
 import (
 	"ag-core/ag/ag_server"
+	"ag-core/contribute/aghertz/metadata"
 	ahregistry "ag-core/contribute/aghertz/server/registry"
 
+	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/app/server/registry"
 	"github.com/cloudwego/hertz/pkg/common/config"
@@ -21,29 +23,26 @@ var FxAgHertzServerModule = fx.Module("fx_aghertz_server",
 
 		// 注入构建HertzServerParam
 		FxNewHertzServerConfigParam,
-
 		// Hertz 服务配置选项
 		NewFxServerConfigOptionsProvider(BuildHertzServerConfigOption),
-
 		// Hertz 服务配置套件，注入聚合所有配置选项
 		FxNewHertsServerConfigSuite,
-
 		// 原始Hertz服务
 		NewHertzServerWithSuite,
 
-		// Ag Hertz服务，包装原始Hertz服务
-		NewAGHertzServer,
-
-		// Hertz 服务选项
+		// Hertz 服务选项 ServerOption
 		NewFxServerOptionsProvider(BuildHertzServerOptions),
 
-		// Hertz 服务选项
-		// FxNewHertzServerSuite,
+		// AgMetadate Hertz 客户端 元数据处理 中间件
+		NewFxServerMiddlewareProvider(
+			metadata.NewAgHertzServerAgMetadataMiddleware,
+		),
 
-		// Hertz 路由选项
-		// FxNewHertzRouteOptions,
-		FxNewServerConfiguratorParam,
-		NewServerConfiguratorWithParam,
+		// Hertz 服务配置器
+		FxNewServerConfigurator,
+
+		// Ag Hertz服务，包装原始Hertz服务
+		NewAGHertzServer,
 
 		fx.Annotate(
 			hertzServerWrapper,                  // Hertz服务包装器，将AgHertzServer转换为ag_server.Server
@@ -52,7 +51,7 @@ var FxAgHertzServerModule = fx.Module("fx_aghertz_server",
 	),
 	fx.Invoke(
 		func(sc *ServerConfigurator) error {
-			return sc.InitHertzServer()
+			return sc.InitHertzServer() // 通过服务配置器初始化Hertz服务
 		},
 	),
 )
@@ -95,18 +94,20 @@ func FxNewHertzServerConfigParam(fp FxInHertzServerConfigParam) *HertzServerConf
 type FxInServerConfiguratorParam struct {
 	fx.In
 
-	Server *server.Hertz
-	Opts   []*ServerOption `group:"aghertz_server_options" ,optional:"true"`
-	Routes []*Route        `group:"aghertz_route" ,optional:"true"`
-	Mws    []Middleware    `group:"aghertz_middleware" ,optional:"true"`
+	Server   *server.Hertz
+	Opts     []*ServerOption   `group:"aghertz_server_options" ,optional:"true"`
+	Routes   []*Route          `group:"aghertz_route" ,optional:"true"`
+	Mws      []Middleware      `group:"aghertz_middleware" ,optional:"true"`
+	MwsHFunc []app.HandlerFunc `group:"aghertz_middleware" ,optional:"true"`
 }
 
-func FxNewServerConfiguratorParam(fp FxInServerConfiguratorParam) *ServerConfiguratorParam {
-	return &ServerConfiguratorParam{
-		Server: fp.Server,
-		Opts:   fp.Opts,
-		Routes: fp.Routes,
-		Mws:    fp.Mws,
+func FxNewServerConfigurator(fp FxInServerConfiguratorParam) *ServerConfigurator {
+	return &ServerConfigurator{
+		Server:   fp.Server,
+		Opts:     fp.Opts,
+		Routes:   fp.Routes,
+		Mws:      fp.Mws,
+		MwsHFunc: fp.MwsHFunc,
 	}
 }
 
