@@ -22,13 +22,22 @@ func BuildKitexResolver(config *KitexClientConfig, namingClient naming_client.IN
 
 	switch config.Resolver.Type {
 	case "agnacos":
-		slog.Debug("Creating Nacos resolver", 
+		slog.Debug("Creating Ag Nacos resolver",
 			slog.String("group", config.Resolver.Nacos.Group),
 			slog.String("cluster", config.Resolver.Nacos.Cluster))
-		
+
+		return NewAgNacosResolver(namingClient,
+			WithGroup(config.Resolver.Nacos.Group),
+			WithCluster(config.Resolver.Nacos.Cluster))
+	case "nacos":
+		slog.Debug("Creating Nacos resolver",
+			slog.String("group", config.Resolver.Nacos.Group),
+			slog.String("cluster", config.Resolver.Nacos.Cluster))
+
 		return resolver.NewNacosResolver(namingClient,
 			resolver.WithGroup(config.Resolver.Nacos.Group),
 			resolver.WithCluster(config.Resolver.Nacos.Cluster))
+
 	default:
 		slog.Warn("Unknown resolver type", slog.String("type", config.Resolver.Type))
 		return nil

@@ -1,6 +1,8 @@
 package client
 
 import (
+	"ag-core/contribute/agkitex/metadata"
+
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/pkg/discovery"
 	"github.com/cloudwego/kitex/pkg/endpoint"
@@ -15,6 +17,11 @@ var FxKitexClientBaseModule = fx.Module(
 		BuildKitexResolver,
 		FxKitexClientSuiteBuilder,
 		FxNewKitexClientSuite,
+
+		// AgMetadate Kitex HTTP2 客户端 元数据处理
+		NewFxClientOptionsProvider(
+			metadata.NewAgKitexClientAgMetadataHTTP2HandlerOption,
+		),
 	),
 )
 
@@ -65,7 +72,7 @@ func NewFxClientOptionsProvider(t any) any {
 func NewFxClientMiddlewareProvider(t any) any {
 	return fx.Annotate(
 		t,
-		fx.ResultTags(`group:"kitex_client middlewares"`),
+		fx.ResultTags(`group:"kitex_client_middlewares"`),
 	)
 }
 

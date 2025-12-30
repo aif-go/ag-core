@@ -2,6 +2,7 @@ package server
 
 import (
 	"ag-core/ag/ag_server"
+	"ag-core/contribute/agkitex/metadata"
 	agkitexReg "ag-core/contribute/agkitex/server/registry"
 
 	"github.com/cloudwego/kitex/pkg/endpoint"
@@ -33,6 +34,11 @@ var FxKitexServerBaseModule = fx.Module("fx_kitex_server_base",
 
 		// 服务注册器持有者
 		FxNewKitexServiceRegistryHolder,
+
+		// AgMetadate Kitex HTTP2 服务端 元数据处理
+		NewFxServerOptionsProvider(
+			metadata.NewAgKitexServerAgMetadataHTTP2HandlerOption,
+		),
 	),
 
 	// 调用服务注册器持有者注册服务
@@ -46,7 +52,7 @@ type FxInKitexServerParams struct {
 	fx.In
 
 	// 自定义选项
-	ServerOptions []server.Option `group:"kitex_server_options",optional:"true"`
+	ServerOptions []*server.Option `group:"kitex_server_options",optional:"true"`
 
 	// 配置
 	Config *KitexServerProperties
@@ -64,12 +70,19 @@ type FxInKitexServerParams struct {
 // FxNewKitexServerSuiteBuilder 构建服务器套件构建器
 func FxNewKitexServerSuiteBuilder(params FxInKitexServerParams) (*KitexServerSuiteBuilder, error) {
 	builder := &KitexServerSuiteBuilder{
-		ServerOptions:          params.ServerOptions,
-		Properties:                 params.Config,
+		// ServerOptions:          params.ServerOptions,
+		Properties:             params.Config,
 		Registry:               params.Registry,
 		Middlewares:            params.Middlewares,
 		PrioritizedMiddlewares: params.PrioritizedMiddlewares,
 	}
+
+	// 处理自定义选项
+	svrOpt := make([]server.Option, 0)
+	for _, opt := range params.ServerOptions {
+		svrOpt = append(svrOpt, *opt)
+	}
+	builder.ServerOptions = svrOpt
 
 	return builder, nil
 }
