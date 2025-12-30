@@ -18,16 +18,24 @@ const (
 
 var protoPluginsStor = map[string]map[string][]string{}
 
-func RegPlugin(model, plugin string, pluginOpt string) {
-	if _, ok := protoPluginsStor[model]; !ok {
-		protoPluginsStor[model] = map[string][]string{}
+func RegPlugin(plugin, model string, pluginOpt string) {
+	if _, ok := protoPluginsStor[plugin]; !ok {
+		protoPluginsStor[plugin] = map[string][]string{}
 	}
 
-	if _, ok := protoPluginsStor[model][plugin]; !ok {
-		protoPluginsStor[model][plugin] = []string{}
+	if _, ok := protoPluginsStor[plugin][model]; !ok {
+		protoPluginsStor[plugin][model] = []string{}
 	}
 
-	protoPluginsStor[model][plugin] = append(protoPluginsStor[model][plugin], pluginOpt)
+	protoPluginsStor[plugin][model] = append(protoPluginsStor[plugin][model], pluginOpt)
+}
+
+func GetAllPluginsName() []string {
+	plugins := map[string]bool{}
+	for k := range protoPluginsStor {
+		plugins[k] = true
+	}
+	return lo.Keys(plugins)
 }
 
 // selectPlugins select plugins by models
@@ -35,6 +43,7 @@ func selectPlugins(plugins []string, models []string) ([]string, error) {
 
 	pgs := []string{}
 
+	// 提前加载base插件
 	if _, ok := protoPluginsStor[PluginBase]; ok {
 		if _, ok := protoPluginsStor[PluginBase][ModelBase]; ok {
 			pgs = append(pgs, protoPluginsStor[PluginBase][ModelBase]...)
@@ -44,11 +53,7 @@ func selectPlugins(plugins []string, models []string) ([]string, error) {
 	modelAll := lo.Contains(models, ModelAll)
 	pluginAll := lo.Contains(plugins, PluginAll)
 
-	// modelAll := slices.Contains(models, ModelAll)
-	// pluginAll := slices.Contains(plugins, PluginAll)
-
 	if pluginAll {
-
 		// 加载所有插件
 		for k, mps := range protoPluginsStor {
 			if k == PluginBase {
@@ -56,20 +61,13 @@ func selectPlugins(plugins []string, models []string) ([]string, error) {
 			}
 
 			for m, _ := range mps {
-				if m == ModelBase {
-					pgs = append(pgs, mps[m]...)
-					continue
-				}
-
-				// if modelAll || slices.Contains(models, m) {
-				if modelAll || lo.Contains(models, m) {
+				if modelAll || m == ModelBase || lo.Contains(models, m) {
 					pgs = append(pgs, mps[m]...)
 				}
 			}
 		}
 
 	} else {
-
 		// 加载指定插件
 		for _, plugin := range plugins {
 			if plugin == PluginBase {
@@ -77,13 +75,7 @@ func selectPlugins(plugins []string, models []string) ([]string, error) {
 			}
 			if mps, ok := protoPluginsStor[plugin]; ok {
 				for m, _ := range mps {
-					if m == ModelBase {
-						pgs = append(pgs, mps[m]...)
-						continue
-					}
-
-					// if modelAll || slices.Contains(models, m) {
-					if modelAll || lo.Contains(models, m) {
+					if modelAll || m == ModelBase || lo.Contains(models, m) {
 						pgs = append(pgs, mps[m]...)
 					}
 				}

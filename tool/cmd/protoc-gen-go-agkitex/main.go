@@ -53,7 +53,7 @@ func main() {
 		// 生成kitex代码
 		geninfo.Reset()
 		geninfo.ResetVersion()
-		geninfo.SetVersion("kitex", "v0.14.1") // TODO kitex的版本怎么获取
+		// geninfo.SetVersion("kitex", "v0.14.1") // TODO kitex的版本怎么获取
 		err = generator.GenRender(geninfo, genkitex.KitexGenServiceTask(*model))
 		if err != nil {
 			return err

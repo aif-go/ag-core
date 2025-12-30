@@ -26,25 +26,26 @@ var (
 )
 
 func init() {
+	// 注册插件
+	initRegPlugins()
+
 	rootcmd.RegCommand(CmdProto)
 
 	CmdProto.Flags().BoolVarP(&desc, "desc", "d", desc, "show debug log")
 
-	CmdProto.Flags().BoolVarP(&clientMode, "client", "c", clientMode, "generate client code")
-	CmdProto.Flags().BoolVarP(&serverMode, "server", "s", serverMode, "generate server code")
-	CmdProto.Flags().BoolVarP(&allMode, "all", "a", allMode, "generate all code")
+	// CmdProto.Flags().BoolVarP(&clientMode, "client", "c", clientMode, "generate client code")
+	// CmdProto.Flags().BoolVarP(&serverMode, "server", "s", serverMode, "generate server code")
+	// CmdProto.Flags().BoolVarP(&allMode, "all", "a", allMode, "generate all code")
 
-	CmdProto.Flags().StringArrayVarP(&extProtoPath, "ext-proto-path", "e", []string{}, "external proto path, eg: ./third_party")
-
-	CmdProto.Flags().StringArrayVarP(&plugins, "plugins", "p", []string{"base"}, "plugins name, default base, eg: -p go,server,service,hertz,kitex")
-	CmdProto.Flags().StringArrayVarP(&models, "models", "m", []string{}, "models name, default all, eg: -m all,server,client")
-
+	CmdProto.Flags().StringArrayVarP(&extProtoPath, "ext-proto-path", "e", []string{}, "external proto path, eg: -e ./idl")
+	CmdProto.Flags().StringArrayVarP(&plugins, "plugins", "p", []string{"all"}, fmt.Sprintf("plugins name, eg: -p all,%s", strings.Join(GetAllPluginsName(), ",")))
+	CmdProto.Flags().StringArrayVarP(&models, "models", "m", []string{"all"}, "models name, eg: -m all,server,client")
 	CmdProto.Flags().StringArrayVarP(&extPlugins, "ext-plugins", "P", []string{}, "extra plugins name, default none, eg: -P '--xxx'")
 }
 
 // CmdProto represents the proto command.
 var CmdProto = &cobra.Command{
-	Use:   "proto",
+	Use:   "proto [flags] <idl-file-or-directory>...",
 	Short: "Generate the proto files",
 	Long:  "Generate the proto files.",
 	Run:   run,

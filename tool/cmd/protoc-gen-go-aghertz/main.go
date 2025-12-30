@@ -53,7 +53,7 @@ func main() {
 		// 生成hertz代码
 		geninfo.Reset()
 		geninfo.ResetVersion()
-		geninfo.SetVersion("hertz", "v0.10.0") // TODO hertz的版本怎么获取
+		// geninfo.SetVersion("hertz", "v0.10.0") // TODO hertz的版本怎么获取
 		err = generator.GenRender(geninfo, genhertz.HertzGenServiceTask(*model))
 		if err != nil {
 			return err

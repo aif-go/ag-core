@@ -9,7 +9,7 @@ const (
 	PluginOpenapi = "openapi"
 )
 
-func init() {
+func initRegPlugins() {
 	// base
 	// RegPlugin(PluginBase, ModelBase, "--go_out=paths=source_relative:.")
 
