@@ -60,7 +60,7 @@ func (n *NamedHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	ctx = context.WithValue(ctx, HandlerNameKey, handlerName)
-	r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(handlerName.(string))})
+	// r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(handlerName.(string))})
 
 	return n.Handler.Handle(ctx, r)
 }

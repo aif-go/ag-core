@@ -1,4 +1,4 @@
-package ag_ext
+package ag_service
 
 import (
 	"context"
@@ -96,7 +96,6 @@ func loggingMiddleware(
 	return res, err
 }
 
-// TODO 暂且从service移动到这，后续重构再行调整
 type BaseFxMiddlewareParams struct {
 	fx.In
 	// GlobalMws []mw.PrioritizedMiddleware `group:"fx_global_service_middleware" ,optional:"true"`
