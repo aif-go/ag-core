@@ -112,7 +112,7 @@ func (wm *WatcherManager) run(ctx context.Context) error {
 		// watcherManager超时轮询，用于watcher自检
 		case <-time.After(60 * time.Second):
 			// TODO 自检
-			slog.Info("watcherManager check")
+			// slog.Info("watcherManager check")
 		case <-wm.ctx.Done():
 			slog.Info("watcherManager ctx done")
 			return nil
