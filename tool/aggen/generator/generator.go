@@ -182,6 +182,11 @@ func doTaskRender(geni *types.GennerInfo, tasks []*types.Task) error {
 		genPkgRefName := filepath.Base(filepath.Dir(task.Path))
 		geni.GenPkgRefName = genPkgRefName
 
+		if task.IsSkip != nil && task.IsSkip(geni) {
+			slog.Info(fmt.Sprintf("skip gen path: %s", task.Path))
+			continue
+		}
+
 		f, err := task.Render(geni)
 		if err != nil {
 			return err

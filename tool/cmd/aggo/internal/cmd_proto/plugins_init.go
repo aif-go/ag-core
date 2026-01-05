@@ -1,6 +1,7 @@
 package cmd_proto
 
 const (
+	PluginApi     = "api"
 	PluginGO      = "go"
 	PluginServer  = "server"
 	PluginHertz   = "hertz"
@@ -14,10 +15,14 @@ func initRegPlugins() {
 	// RegPlugin(PluginBase, ModelBase, "--go_out=paths=source_relative:.")
 
 	// go
-	RegPlugin(PluginGO, ModelBase, "--go_out=paths=source_relative:.")
+	// RegPlugin(PluginGO, ModelBase, "--go_out=paths=source_relative:.")
+	RegPlugin(PluginGO, ModelBase, "--go_out=paths=source_relative:./api")
+
+	// api
+	RegPlugin(PluginApi, ModelBase, "--go-agapi_out=.")
 
 	// server
-	RegPlugin(PluginServer, ModelServer, "--go-agserver_out=model=server:.")
+	// RegPlugin(PluginServer, ModelServer, "--go-agserver_out=model=server:.")
 	RegPlugin(PluginServer, ModelBase, "--go-agserver_out=model=xxx:.") // xxx实际不存在，这里只保持基础生成
 
 	// service
@@ -33,4 +38,5 @@ func initRegPlugins() {
 
 	// openapi
 	RegPlugin(PluginOpenapi, ModelBase, "--openapi_out=fq_schema_naming=true,default_response=false:.")
+
 }

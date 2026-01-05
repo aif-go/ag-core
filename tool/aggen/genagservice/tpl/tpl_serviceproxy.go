@@ -9,21 +9,37 @@ import (
 // ServiceImportsSetter 设置Import部分信息
 var ProxyImportsSetter = func(geni *types.GennerInfo) error {
 	_module := geni.ModuleInfo
-	_pkg := geni.PkgInfo
+	// _pkg := geni.PkgInfo
 	// _pkgI := geni.PackageInfo
-	// _svc := geni.ServiceInfo
+	_svc := geni.ServiceInfo
 
 	if !_module.HasPwdGoMod {
 		return fmt.Errorf("pwdGoMod is empty")
 	}
 
-	geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
+	for _, m := range _svc.Methods {
+		// 入参
+		for _, arg := range m.Args {
+			for _, dep := range arg.Deps {
+				geni.AddImport(dep.PkgRefName, dep.ImportPath)
+			}
+		}
+		// 出参
+		resp := m.Resp
+		for _, dep := range resp.Deps {
+			geni.AddImport(dep.PkgRefName, dep.ImportPath)
+		}
+	}
+
+	// api 接口包
+	// geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
 
 	geni.AddImports("context")
 
 	serviceRef := fmt.Sprintf("%s/internal/service", _module.PwdGoMod)
-	geni.AddImport("service", serviceRef)      // 模块servcie import
-	geni.AddImport("smw", "ag-core/ag/ag_ext") // 服务中间件扩展
+	geni.AddImport("service", serviceRef) // 模块servcie import
+	// geni.AddImport("smw", "ag-core/ag/ag_ext") // 服务中间件扩展
+	geni.AddImport("smw", "ag-core/ag/ag_service")
 	geni.AddImport("slog", "log/slog")
 
 	return nil

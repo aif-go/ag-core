@@ -48,6 +48,7 @@ type Task struct {
 	Path      string                      // 文件路径，包含文件名
 	Text      string                      // 文件内容
 	SetImport func(pkg *GennerInfo) error // 设置导入包, 每个文件的import都是不一样的，应该在定义task时指定
+	IsSkip    func(pkg *GennerInfo) bool  // 是否跳过该任务，某些文件实际生成时可能是空内容，可通过该函数判断是否跳过（可选）
 
 	*template.Template // 模板
 
@@ -55,7 +56,6 @@ type Task struct {
 	Scope      ScopeType  // 作用域，module、package、service
 	OutputType OutputType // 输出类型，覆盖、追加、插入
 }
-
 
 // Build .
 func (t *Task) Build() error {

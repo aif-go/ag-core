@@ -3,23 +3,32 @@ package tpl
 import (
 	"ag-core/tool/aggen/generator"
 	"ag-core/tool/aggen/types"
-	"fmt"
 )
 
 // ServiceImportsSetter 设置Import部分信息
 var ServiceImportsSetter = func(geni *types.GennerInfo) error {
-	_module := geni.ModuleInfo
-	_pkg := geni.PkgInfo
+
+	// _module := geni.ModuleInfo
+	// _pkg := geni.PkgInfo
 	// _pkgI := geni.PackageInfo
-	// _svc := geni.ServiceInfo
+	_svc := geni.ServiceInfo
 
-	geni.AddImports("context")
+	for _, m := range _svc.Methods {
+		// 入参
+		for _, arg := range m.Args {
+			for _, dep := range arg.Deps {
+				geni.AddImport(dep.PkgRefName, dep.ImportPath)
+			}
+		}
+		// 出参
+		resp := m.Resp
+		for _, dep := range resp.Deps {
+			geni.AddImport(dep.PkgRefName, dep.ImportPath)
+		}
+	}
 
-	if _module.HasPwdGoMod {
-		// 若当前存在go module则以当前gomodule路径为准
-		geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
-	} else {
-		geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
+	if len(_svc.AllMethods()) > 0 {
+		geni.AddImport("context", "context")
 	}
 
 	return nil
@@ -66,16 +75,18 @@ type {{$LServiceImplName}} struct {
 // New{{$LServiceImplName}} creates and returns a new {{$LServiceImplName}} instance.
 //@param TODO inject dependencies
 //@return *{{$LServiceImplName}}
-func New{{$LServiceImplName}}( /* TODO inject dependencies */ ) *{{$LServiceImplName}} {
+func New{{$LServiceImplName}}() *{{$LServiceImplName}} {
 	return &{{$LServiceImplName}}{}
 }
 
+{{- /* 
 // New{{$LServiceImplName}}I new {{$LServiceImplName}} instance, and return interface {{$LPkgRefName}}.{{$LServiceName}}.
 //@param TODO inject dependencies
 //@return {{$LPkgRefName}}.{{$LServiceName}}
-func New{{$LServiceImplName}}I( /* TODO inject dependencies */ ) {{$LPkgRefName}}.{{$LServiceName}} {
-	return New{{$LServiceImplName}}( /* TODO inject dependencies */ )
+func New{{$LServiceImplName}}I() {{$LPkgRefName}}.{{$LServiceName}} {
+	return &{{$LServiceImplName}}{}
 }
+*/}}
 
 {{- range $LServiceInfo.AllMethods}}
 	{{- $LMethod := .}}

@@ -45,7 +45,7 @@ func Parse(gen *protogen.Plugin, files []*protogen.File) (*types.GennerInfo, err
 		}
 
 		// 解析proto文件
-		err = parseFile(ctx, globalInfo, f)
+		err = parseFile(ctx, gen, globalInfo, f)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,11 @@ func Parse(gen *protogen.Plugin, files []*protogen.File) (*types.GennerInfo, err
 }
 
 // parseFile 解析proto文件
-func parseFile(ctx context.Context, gInfo *types.GlobalInfo, f *protogen.File) error {
+func parseFile(ctx context.Context, gen *protogen.Plugin, gInfo *types.GlobalInfo, f *protogen.File) error {
+	// slog.Info(fmt.Sprintf("====TEST====gfnameprefix: %s, goimportpath: %s", f.GeneratedFilenamePrefix, f.GoImportPath))
+	// g := gen.NewGeneratedFile(f.GeneratedFilenamePrefix, f.GoImportPath)
+	// g.QualifiedGoIdent()
+
 	pkg, err := parsePackageInfo(ctx, f)
 	if err != nil {
 		return err

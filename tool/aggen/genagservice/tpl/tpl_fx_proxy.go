@@ -7,6 +7,16 @@ import (
 )
 
 // PackageGroup级别
+var FxProxyIsSkip = func(geni *types.GennerInfo) bool {
+	pkgg := geni.PackageGroup
+
+	for _, pkg := range pkgg.PackageInfos {
+		if len(pkg.Services) > 0 {
+			return false
+		}
+	}
+	return true
+}
 
 // FxProxyImportsSetter 设置Import部分信息
 var FxProxyImportsSetter = func(geni *types.GennerInfo) error {
@@ -15,17 +25,22 @@ var FxProxyImportsSetter = func(geni *types.GennerInfo) error {
 
 	geni.AddImport("fx", "go.uber.org/fx")
 
-	geni.AddImport("smw", "ag-core/ag/ag_ext")
+	// geni.AddImport("smw", "ag-core/ag/ag_ext")
+	geni.AddImport("smw", "ag-core/ag/ag_service")
 
 	serviceRef := fmt.Sprintf("%s/internal/service", _module.PwdGoMod)
 	geni.AddImport("service", serviceRef)
 
-	if _module.HasPwdGoMod {
-		// 若当前存在go module则以当前gomodule路径为准
-		geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
-	} else {
-		geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
-	}
+	// 包组级别，proxy依赖接口api包名
+	// if _module.HasPwdGoMod {
+	// 	// 若当前存在go module则以当前gomodule路径为准
+	// 	geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
+	// } else {
+	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath) // 此仅导入api包路径
+	// }
+
+	// _pkgjson, _ := json.Marshal(_pkg)
+	// slog.Info(fmt.Sprintf("==TEST==%s", string(_pkgjson)))
 	return nil
 }
 

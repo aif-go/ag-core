@@ -74,16 +74,17 @@ var PackageGroupScopeTaskGen = func(geni *types.GennerInfo) ([]*types.Task, erro
 
 	lowerPkgRefName := strings.ToLower(_pkginfo.PkgRefName)
 
-	// fx_service
-	fxSvcPath := path.Join("internal", "svcgen")
-	fxSvcName := fmt.Sprintf("%s_%s%s", "zfx_agservice_service", lowerPkgRefName, ".go")
-	fxSvcTask := &types.Task{
-		Name:      fxSvcName,
-		Path:      path.Join(fxSvcPath, fxSvcName),
-		Text:      tpl.FxServiceTpl,
-		SetImport: tpl.FxServiceImportsSetter,
-	}
-	tasks = append(tasks, fxSvcTask)
+	// fx_service // FIXME 暂不生成非代理服务注册
+	// fxSvcPath := path.Join("internal", "svcgen")
+	// fxSvcName := fmt.Sprintf("%s_%s%s", "zfx_agservice_service", lowerPkgRefName, ".go")
+	// fxSvcTask := &types.Task{
+	// 	Name:      fxSvcName,
+	// 	Path:      path.Join(fxSvcPath, fxSvcName),
+	// 	Text:      tpl.FxServiceTpl,
+	// 	SetImport: tpl.FxServiceImportsSetter,
+	// 	IsSkip:    tpl.FxServiceIsSkip,
+	// }
+	// tasks = append(tasks, fxSvcTask)
 
 	// fx_proxy
 	fxProxyPath := path.Join("internal", "svcgen")
@@ -93,6 +94,7 @@ var PackageGroupScopeTaskGen = func(geni *types.GennerInfo) ([]*types.Task, erro
 		Path:      path.Join(fxProxyPath, fxProxyName),
 		Text:      tpl.FxProxyTpl,
 		SetImport: tpl.FxProxyImportsSetter,
+		IsSkip:    tpl.FxProxyIsSkip,
 	}
 	tasks = append(tasks, fxProxyTask)
 

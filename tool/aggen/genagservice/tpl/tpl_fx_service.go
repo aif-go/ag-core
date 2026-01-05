@@ -7,6 +7,16 @@ import (
 )
 
 // PackageGroup级别
+var FxServiceIsSkip = func(geni *types.GennerInfo) bool {
+	pkgg := geni.PackageGroup
+
+	for _, pkg := range pkgg.PackageInfos {
+		if len(pkg.Services) > 0 {
+			return false
+		}
+	}
+	return true
+}
 
 // FxServiceImportsSetter 设置Import部分信息
 var FxServiceImportsSetter = func(geni *types.GennerInfo) error {

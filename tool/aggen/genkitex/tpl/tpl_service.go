@@ -4,12 +4,11 @@ import (
 	"ag-core/tool/aggen/generator"
 	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
 	"ag-core/tool/aggen/types"
-	"fmt"
 )
 
 // ServiceImportsSetter 设置Import部分信息
 var ServiceImportsSetter = func(geni *types.GennerInfo) error {
-	_module := geni.ModuleInfo
+	// _module := geni.ModuleInfo
 	_pkg := geni.PkgInfo
 	_pkgI := geni.PackageInfo
 	_svc := geni.ServiceInfo
@@ -21,11 +20,24 @@ var ServiceImportsSetter = func(geni *types.GennerInfo) error {
 	geni.AddImport("kitex", "github.com/cloudwego/kitex/pkg/serviceinfo")
 
 	// pkg.AddImport(pkg.ServiceInfo.PkgRefName, pkg.ServiceInfo.ImportPath)
-	if _module.HasPwdGoMod {
-		// 若当前存在go module则以当前gomodule路径为准
-		geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
-	} else {
-		geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
+	// if _module.HasPwdGoMod {
+	// 	// 若当前存在go module则以当前gomodule路径为准
+	// 	geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
+	// } else {
+	// 	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
+	// }
+	for _, m := range _svc.Methods {
+		// 入参
+		for _, arg := range m.Args {
+			for _, dep := range arg.Deps {
+				geni.AddImport(dep.PkgRefName, dep.ImportPath)
+			}
+		}
+		// 出参
+		resp := m.Resp
+		for _, dep := range resp.Deps {
+			geni.AddImport(dep.PkgRefName, dep.ImportPath)
+		}
 	}
 
 	if len(_svc.AllMethods()) > 0 {

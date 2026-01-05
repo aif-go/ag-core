@@ -29,19 +29,23 @@ var fxGlobalServiceTpl string = `
 {{ $LMI := .ModuleInfo }}     {{/* 模块信息 */}}
 
 var (
+{{- /* 
 	_lock1             sync.Mutex
 	fxServiceOpts      []fx.Option
+*/}}
 	_lock2             sync.Mutex
 	fxServiceWithProxyOpts []fx.Option
 )
 
 
+{{- /* 
 // FxServiceModule return service fx module
 func FxServiceModule() fx.Option {
 	_lock1.Lock()
 	defer _lock1.Unlock()
 	return fx.Module("fx-service", fxServiceOpts...)
 }
+*/}}
 
 // FxServiceWithProxyModule return service fx module with service proxy
 func FxServiceWithProxyModule() fx.Option {
@@ -50,6 +54,7 @@ func FxServiceWithProxyModule() fx.Option {
 	return fx.Module("fx-service-with-proxy", fxServiceWithProxyOpts...)
 }
 
+{{- /* 
 // AddFxServiceOpt add fx service option.
 func AddFxServiceOpt(opt fx.Option) {
 	_lock1.Lock()
@@ -59,6 +64,7 @@ func AddFxServiceOpt(opt fx.Option) {
 	}
 	fxServiceOpts = append(fxServiceOpts, opt)
 }
+*/}}
 
 // AddFxServiceWithProxyOpt add fx service option with proxy.
 func AddFxServiceWithProxyOpt(opt fx.Option) {
