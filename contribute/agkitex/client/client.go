@@ -8,6 +8,7 @@ import (
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/pkg/discovery"
 	"github.com/cloudwego/kitex/pkg/endpoint"
+	"github.com/cloudwego/kitex/pkg/loadbalance"
 	"github.com/cloudwego/kitex/transport"
 )
 
@@ -31,6 +32,9 @@ type KitexSuiteBuilder struct {
 
 	// 服务发现解析器
 	Resolver discovery.Resolver
+
+	// 负载均衡器
+	LoadBalancer loadbalance.Loadbalancer
 
 	// 中间件
 	Middleware []endpoint.Middleware
@@ -65,6 +69,11 @@ func (builder *KitexSuiteBuilder) BuildSuite() (*KitexClientSuite, error) {
 	// 3. 配置服务发现
 	if builder.Resolver != nil {
 		opts = append(opts, client.WithResolver(builder.Resolver))
+	}
+
+	// 4. 配置负载均衡器
+	if builder.LoadBalancer != nil {
+		opts = append(opts, client.WithLoadBalancer(builder.LoadBalancer))
 	}
 
 	// 4. 配置RPC超时时间

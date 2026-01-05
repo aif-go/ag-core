@@ -6,6 +6,7 @@ import (
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/pkg/discovery"
 	"github.com/cloudwego/kitex/pkg/endpoint"
+	"github.com/cloudwego/kitex/pkg/loadbalance"
 	"go.uber.org/fx"
 )
 
@@ -30,8 +31,9 @@ type FxInKitexClientParams struct {
 	fx.In
 
 	Config                 *KitexClientConfig
-	ClientOptions          []*client.Option `group:"kitex_client_options",optional:"true"`
-	Resolver               discovery.Resolver
+	ClientOptions          []*client.Option              `group:"kitex_client_options",optional:"true"`
+	Resolver               discovery.Resolver            `optional:"true"`
+	LoadBalancer           loadbalance.Loadbalancer      `optional:"true"`
 	Middleware             []endpoint.Middleware         `group:"kitex_client_middlewares",optional:"true"`
 	PrioritizedMiddlewares []PrioritizedClientMiddleware `group:"kitex_client_prioritized_middlewares",optional:"true"`
 }
@@ -40,6 +42,7 @@ type FxInKitexClientParams struct {
 func FxKitexClientSuiteBuilder(params FxInKitexClientParams) (*KitexSuiteBuilder, error) {
 	builder := &KitexSuiteBuilder{
 		Resolver:               params.Resolver,
+		LoadBalancer:           params.LoadBalancer,
 		Config:                 params.Config,
 		Middleware:             params.Middleware,
 		PrioritizedMiddlewares: params.PrioritizedMiddlewares,
