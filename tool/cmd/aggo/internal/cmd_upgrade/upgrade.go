@@ -45,6 +45,7 @@ func Run(_ *cobra.Command, _ []string) {
 		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-agservice@latest", baseMode),
 		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-aghertz@latest", baseMode),
 		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-agkitex@latest", baseMode),
+		fmt.Sprintf("%s/tool/cmd/protoc-gen-go-agapi@latest", baseMode),
 	)
 	if err != nil {
 		slog.Error("upgrade failed", "err", err)
