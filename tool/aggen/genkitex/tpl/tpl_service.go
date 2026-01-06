@@ -4,6 +4,9 @@ import (
 	"ag-core/tool/aggen/generator"
 	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
 	"ag-core/tool/aggen/types"
+	"encoding/json"
+	"fmt"
+	"log/slog"
 )
 
 // ServiceImportsSetter 设置Import部分信息
@@ -14,6 +17,8 @@ var ServiceImportsSetter = func(geni *types.GennerInfo) error {
 	_svc := geni.ServiceInfo
 
 	// util.TestLog("ServiceImportsSetter", _pkg)
+	_svcjson, _ := json.Marshal(_svc.PkgInfo)
+	slog.Info(fmt.Sprintf("===TEST=== %s", _svcjson))
 
 	geni.AddImports("errors")
 	geni.AddImport("client", "github.com/cloudwego/kitex/client")
@@ -24,8 +29,12 @@ var ServiceImportsSetter = func(geni *types.GennerInfo) error {
 	// 	// 若当前存在go module则以当前gomodule路径为准
 	// 	geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
 	// } else {
-	// 	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
+	//  geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
 	// }
+
+	// service接口包
+	geni.AddImport(_svc.PkgRefName, _svc.ImportPath)
+
 	for _, m := range _svc.Methods {
 		// 入参
 		for _, arg := range m.Args {

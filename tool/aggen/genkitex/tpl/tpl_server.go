@@ -17,22 +17,26 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	// 	// 若当前存在go module则以当前gomodule路径为准
 	// 	geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
 	// } else {
-	// 	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
+	//	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
 	// }
 
-	for _, m := range _svc.Methods {
-		// 入参
-		for _, arg := range m.Args {
-			for _, dep := range arg.Deps {
-				geni.AddImport(dep.PkgRefName, dep.ImportPath)
-			}
-		}
-		// 出参
-		resp := m.Resp
-		for _, dep := range resp.Deps {
-			geni.AddImport(dep.PkgRefName, dep.ImportPath)
-		}
-	}
+	// service接口包
+	geni.AddImport(_svc.PkgRefName, _svc.ImportPath)
+
+	// kitex server中只引用接口包，不引用参数包
+	// for _, m := range _svc.Methods {
+	// 	// 入参
+	// 	for _, arg := range m.Args {
+	// 		for _, dep := range arg.Deps {
+	// 			geni.AddImport(dep.PkgRefName, dep.ImportPath)
+	// 		}
+	// 	}
+	// 	// 出参
+	// 	resp := m.Resp
+	// 	for _, dep := range resp.Deps {
+	// 		geni.AddImport(dep.PkgRefName, dep.ImportPath)
+	// 	}
+	// }
 
 	// geni.AddImports("server") // 注意全局依赖的配置
 	geni.AddImport("server", "github.com/cloudwego/kitex/server")

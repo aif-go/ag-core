@@ -32,6 +32,8 @@ var ProxyImportsSetter = func(geni *types.GennerInfo) error {
 	}
 
 	// api 接口包
+	geni.AddImport(_svc.PkgRefName, _svc.ImportPath)
+
 	// geni.AddImport(_pkg.PkgRefName, fmt.Sprintf("%s/%s", _module.PwdGoMod, _pkg.ImportPkg))
 
 	geni.AddImports("context")

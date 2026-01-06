@@ -20,9 +20,9 @@ func KitexGenServiceTask(model string) *generator.TaskGenerators {
 	}
 
 	// FIXME kitex原生成逻辑未区分clien和server端，server端生成文件中存在引用client内容的耦合情况，此处暂都生成client端文件
-	// if model == "all" || model == "client" {
-	genners.AddGen(types.ScopeService, ServiceClientTaskGen)
-	// }
+	if model == "all" || model == "client" {
+		genners.AddGen(types.ScopeService, ServiceClientTaskGen)
+	}
 
 	return genners
 }

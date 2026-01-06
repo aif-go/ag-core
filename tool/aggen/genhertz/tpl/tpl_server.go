@@ -20,6 +20,9 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	// 	geni.AddImport(_pkg.PkgRefName, _pkg.ImportPath)
 	// }
 
+	// 导入服务接口包
+	geni.AddImport(_svc.PkgRefName, _svc.ImportPath)
+
 	for _, m := range _svc.Methods {
 		// 入参
 		for _, arg := range m.Args {
