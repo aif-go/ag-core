@@ -1,0 +1,225 @@
+database_table:
+    table_name: tm_media_act
+    columns:
+        seq:
+            db_column: SEQ
+            go_type: int64
+            primary_key: true
+            not_null: true
+            auto_increment: true
+        cardno:
+            db_column: CARDNO
+            go_type: string
+            comment: 卡号
+            not_null: true
+            length: "19"
+        app_id:
+            db_column: APP_ID
+            go_type: string
+            comment: 应用编号
+            not_null: true
+            length: "10"
+        new_cardno:
+            db_column: NEW_CARDNO
+            go_type: string
+            comment: 新卡号
+            not_null: true
+            length: "19"
+        biz_date:
+            db_column: BIZ_DATE
+            go_type: time.Time
+            comment: 业务日期
+            not_null: true
+            length: "8"
+        action_cd:
+            db_column: ACTION_CD
+            go_type: string
+            comment: 操作类型
+            not_null: true
+            length: "2"
+        act_status:
+            db_column: ACT_STATUS
+            go_type: string
+            comment: 状态
+            not_null: true
+            length: "1"
+        card_fetch_method:
+            db_column: CARD_FETCH_METHOD
+            go_type: string
+            comment: 卡片领取方式
+            length: "1"
+        address:
+            db_column: ADDRESS
+            go_type: string
+            comment: 卡片寄送地址
+            length: "200"
+        city:
+            db_column: CITY
+            go_type: string
+            comment: 卡片寄送地址-城市
+            length: "40"
+        country_cd:
+            db_column: COUNTRY_CD
+            go_type: string
+            comment: 卡片寄送地址-国家代码
+            length: "3"
+        district:
+            db_column: DISTRICT
+            go_type: string
+            comment: 卡片寄送地址-区/县
+            length: "40"
+        state:
+            db_column: STATE
+            go_type: string
+            comment: 卡片寄送地址-省份
+            length: "40"
+        zip:
+            db_column: ZIP
+            go_type: string
+            comment: 卡片寄送地址-邮政编码
+            length: "10"
+        gender:
+            db_column: Gender
+            go_type: string
+            comment: 性别
+            length: "1"
+        name:
+            db_column: NAME
+            go_type: string
+            comment: 中文名
+            length: "80"
+        corp_name:
+            db_column: CORP_NAME
+            go_type: string
+            comment: 公司中文名称
+            length: "80"
+        bsc_supp_ind:
+            db_column: BSC_SUPP_IND
+            go_type: string
+            comment: 主附卡标识
+            length: "1"
+        id_type:
+            db_column: ID_TYPE
+            go_type: string
+            comment: 证件类型
+            length: "1"
+        id_no:
+            db_column: ID_NO
+            go_type: string
+            comment: 证件号码
+            length: "30"
+        mobile_no:
+            db_column: MOBILE_NO
+            go_type: string
+            comment: 手机
+            length: "20"
+        phone:
+            db_column: PHONE
+            go_type: string
+            comment: 电话
+            length: "20"
+        owning_branch:
+            db_column: OWNING_BRANCH
+            go_type: string
+            comment: 网点编号
+            length: "12"
+        billing_cycle:
+            db_column: BILLING_CYCLE
+            go_type: string
+            comment: 账单日
+            length: "2"
+        curr_cd:
+            db_column: CURR_CD
+            go_type: string
+            comment: 本币币种
+            length: "3"
+        credit_limit:
+            db_column: CREDIT_LIMIT
+            go_type: int64
+            comment: 本币额度
+            length: "13"
+        dual_curr_cd:
+            db_column: DUAL_CURR_CD
+            go_type: string
+            comment: 外币币种
+            length: "3"
+        dual_credit_limit:
+            db_column: DUAL_CREDIT_LIMIT
+            go_type: int64
+            comment: 外币额度
+            length: "13"
+        is_urgent_card:
+            db_column: IS_URGENT_CARD
+            go_type: string
+            comment: 紧急制卡标志
+            length: "1"
+        jpa_version:
+            db_column: JPA_VERSION
+            go_type: string
+            comment: JPA_VERSION
+            not_null: true
+        created_time:
+            db_column: CREATED_TIME
+            go_type: time.Time
+            comment: 创建时间
+            description: ///@create
+        last_modified_time:
+            db_column: LAST_MODIFIED_TIME
+            go_type: time.Time
+            comment: 最后更新时间
+            description: ///@update
+        org:
+            db_column: ORG
+            go_type: string
+            comment: 机构号
+            not_null: true
+            length: "12"
+        card_mailer_ind:
+            db_column: CARD_MAILER_IND
+            go_type: string
+            comment: 卡片寄送地址标志
+            length: "1"
+        encode_name:
+            db_column: ENCODE_NAME
+            go_type: string
+            comment: 十六进制姓名
+            length: "160"
+        encode_address:
+            db_column: ENCODE_ADDRESS
+            go_type: string
+            comment: 十六进制地址
+            length: "400"
+    primary_keys:
+        - column: seq
+    indexes:
+        general:
+            - index_name: INDEX1_TM_MEDOA_ACT
+              columns:
+                - biz_date
+                - action_cd
+            - index_name: INDEX2_TM_MEDIA_ACT
+              columns:
+                - address
+                - biz_date
+        unique:
+            - index_name: TM_MEDIA_ACT_UNIUQE_1
+              columns:
+                - cardno
+                - biz_date
+self_query_rules:
+    Xxxxx:
+        select_fields: ORG,cardno
+        aggregation:
+            function: SUM(DUAL_CREDIT_LIMIT) AS TOTAL_LIMIT
+            result_type: int64
+        where:
+            operator: OR
+            conditions:
+                - operator: AND
+                  conditions:
+                    - expr: cardno = @Cardno
+                    - expr: biz_date = @BizDate
+                - operator: AND
+                  conditions:
+                    - expr: biz_date = @BizDate
+                    - expr: action_cd in @ActionCdSlice

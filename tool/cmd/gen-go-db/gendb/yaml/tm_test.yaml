@@ -1,0 +1,63 @@
+database_table:
+    table_name: tm_test
+    columns:
+        SEQ:
+            db_column: SEQ
+            go_type: int64
+            primary_key: true
+            not_null: true
+            auto_increment: true
+        SEX:
+            db_column: SEX
+            go_type: int
+            comment: 1-男 2-女
+            default_value: "1"
+        NAME:
+            db_column: NAME
+            go_type: string
+            comment: 卡号
+            not_null: true
+            length: "20"
+        PHONE:
+            db_column: PHONE
+            go_type: string
+            length: "11"
+        ADDRESS:
+            db_column: ADDRESS
+            go_type: string
+            comment: 应用编号
+            not_null: true
+            length: "100"
+        JPA_VERSION:
+            db_column: JPA_VERSION
+            go_type: int
+            comment: JPA_VERSION
+            not_null: true
+        CREATED_TIME:
+            db_column: CREATED_TIME
+            go_type: time.Time
+            comment: 创建时间
+            description: ///@create
+        LAST_MODIFIED_TIME:
+            db_column: LAST_MODIFIED_TIME
+            go_type: time.Time
+            comment: 最后更新时间
+            description: ///@update
+    primary_keys:
+        - column: seq
+    indexes:
+        general:
+            - index_name: INDEX1_TM_TEST
+              columns:
+                - name
+                - address
+        unique:
+            - index_name: TM_TEST_UNIUQE_1
+              columns:
+                - phone
+self_query_rules:
+    Xxxxx:
+        select_fields: SEQ,SEX,NAME,PHONE,ADDRESS
+        where:
+            expr: PHONE = @Phone
+        page: true

@@ -1,0 +1,12 @@
+// DO NOT EDIT
+// DO NOT EDIT
+// DO NOT EDIT
+
+package dao
+
+func Init{{.ObjectName}}NamingSql() {
+{{- range .DbTypeSlice}}
+    // 执行一次初始化操作
+    Init{{$.ObjectName}}{{.}}()
+{{- end}} 
+}
