@@ -41,6 +41,8 @@ type {{$.ObjectName}}{{.MethodName}}Res struct {
    DataRes []*{{$.ObjectName}}{{.MethodName}}
    {{end}}
    TotalPage int64 `json:"totalPage"`
+   TotalCount int64 `json:"TotalCount"`
+
 }
 // 指定列查询返回实体定义
 {{- if not .SelectAllCol}}
