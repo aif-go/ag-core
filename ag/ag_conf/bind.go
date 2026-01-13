@@ -130,7 +130,8 @@ func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v refl
 
 	if !v.CanSet() {
 		err := errors.New("can not set value")
-		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		// return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
+		return fmt.Errorf("bind path=%s error: %w", param.Path, err)
 	}
 	// 检查Value的类型范围，只允许指定范围的类型
 	if !IsBindableType(v.Type()) { // 此处的判断要保障下面代码的正确性
@@ -141,6 +142,7 @@ func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v refl
 	// 需要进一步解析的类型
 	switch v.Kind() {
 	case reflect.Pointer: // 此处的value需要解引用
+		// TODO 此处v.Elem可能是空指针，会被后续!v.CanSet()判断失败。能否通过反射对nil进行提前创建实体?
 		return cpb.BindValue(bctx, v.Elem(), param)
 		// err := errors.New("reflect.Value shoud be ptr.Elem()")
 		// return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
@@ -172,8 +174,24 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(bctx context.Context, v ref
 		return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), err)
 	}
 
+	if !cpb.containsDescendantOfName(param.Key) {
+		if param.PTag.HasDef {
+			return nil
+		}
+		if param.Required {
+			return fmt.Errorf("property %q %w", param.Key, ErrNotExist)
+		} else {
+			return nil // 中断绑定
+			// TOTO 此中断是因为子字段可能还有required限制，若继续绑定其他字段，可能会导致required字段绑定失败，但此处的属性又是可选的
+			// TODO 是否应该继续绑定其他字段，因为可能有默认值，若继续的话，字段可能还有required限制，怎么办？
+			// TODO 后续若有自动刷新的tag支持，此处的中断存在不合理性
+		}
+	}
+
 	// 遍历结构体的所有字段 // TODO 私有字段无法绑定
 	for i := range t.NumField() {
+		// TODO 若字段为指针，且为空指针，是否提前创建字段实例
+
 		ft := t.Field(i) // 获取字段类型信息
 		fv := v.Field(i) // 获取字段值
 
@@ -201,10 +219,21 @@ func (cpb *ConfigurationPropertiesBinder) bindStruct(bctx context.Context, v ref
 			continue
 		}
 
+		subParam.STag = ft.Tag
+
 		if tag, ok := ft.Tag.Lookup("value"); ok { // 获取value标签
 			if err := subParam.BindTag(tag, ft.Tag); err != nil {
 				return fmt.Errorf("bind path=%s type=%s error << %w", param.Path, v.Type().String(), err)
 			}
+		}
+
+		if rtag, ok := ft.Tag.Lookup("required"); ok {
+			// rtag 转换为bool类型
+			required, err := strconv.ParseBool(rtag)
+			if err != nil {
+				return fmt.Errorf("bind path=%s type=%s error << %w", param.Path, v.Type().String(), err)
+			}
+			subParam.Required = required
 		}
 
 		// 若没有配置value标签 或 value标签设置的key为空，则使用字段名称作为key
@@ -261,7 +290,11 @@ func (cpb *ConfigurationPropertiesBinder) bindSlice(bctx context.Context, v refl
 			Path: fmt.Sprintf("%s[%d]", param.Path, i),
 		}
 		if !cpb.containsDescendantOfName(subParam.Key) {
-			break
+			if i == 0 && param.Required {
+				// 必填时，切片类型的第一个元素不可为空
+				return fmt.Errorf("bind path=%s key=%s type=%s error: %w", subParam.Path, subParam.Key, v.Type().String(), ErrNotExist)
+			}
+			break // 直到没有项为止
 		}
 		err := cpb.BindValue(bctx, ev, subParam)
 		if err != nil {
@@ -289,7 +322,11 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 		if param.PTag.HasDef {
 			return nil
 		}
-		return fmt.Errorf("property %q %w", param.Key, ErrNotExist)
+		if param.Required {
+			return fmt.Errorf("bind path=%s key=%s type=%s error: %w", param.Path, param.Key, v.Type().String(), ErrNotExist)
+		} else {
+			return nil
+		}
 	}
 
 	// 1. 获取所有子键
@@ -318,12 +355,13 @@ func (cpb *ConfigurationPropertiesBinder) bindMap(bctx context.Context, v reflec
 
 // containsDescendantOfName 检查是否包含后代键
 // 子键检查包含切片类型key
+// TODO 数组类型 xxx[0] 能匹配到 xxx[0]、xxx[0].key、xxx[0][1]、xxx[0][0]，应该根据具体类型精准判断是那一种情况才符合
 func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) bool {
 	found := false
 	prefix := name + "."
 	prefix2 := name + "[" // 切片类型
 
-	isArray := isArryKey(name)
+	isArray := isArrayKey(name)
 
 	cpb.env.GetPropertySources().RangePropertySourceHandler(func(ps IPropertySource) (end bool, err error) {
 		// 检查属性源内容是否包含后代
@@ -332,7 +370,7 @@ func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) 
 			// if k == name || strings.HasPrefix(k, prefix) {
 			if strings.EqualFold(k, name) || // 完全匹配
 				hasPrefixIgnoreCase(k, prefix) || // .前缀匹配
-				(isArray && hasPrefixIgnoreCase(k, prefix2)) {
+				(isArray && hasPrefixIgnoreCase(k, prefix2) && isArrayKey(k)) { // 匹配二维数组
 				found = true
 				return true, nil
 			}
@@ -343,7 +381,7 @@ func (cpb *ConfigurationPropertiesBinder) containsDescendantOfName(name string) 
 	return found
 }
 
-func isArryKey(key string) bool {
+func isArrayKey(key string) bool {
 	// 正则表达式匹配
 	pattern := `^.+\[\d+\]$`
 	re := regexp.MustCompile(pattern)
@@ -451,10 +489,11 @@ func getDescendantSubKeysOfName(name string, keys []string) []string {
 
 // BindParam 绑定参数
 type BindParam struct {
-	Key  string // 变量对应的参数key
-	Path string // 目标变量的实际
-	PTag ParsedTag
-	STag reflect.StructTag // 目标属性的Tag
+	Key      string // 变量对应的参数key
+	Path     string // 目标变量的实际
+	PTag     ParsedTag
+	Required bool              // 是否必填
+	STag     reflect.StructTag // 目标属性的Tag
 }
 
 func (param *BindParam) BindTag(tag string, stag reflect.StructTag) error {
@@ -633,10 +672,14 @@ func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env I
 			// TODO 告警日志，使用默认值
 			slog.Warn(fmt.Sprintf("bind path=%s type=%s use default value=%s\n", param.Path, v.Type().String(), param.PTag.Def))
 			value = param.PTag.Def
+		} else if param.Required {
+			// 根据必填标志判断是否报错
+			return fmt.Errorf("bind path=%s key=%s type=%s error: %w", param.Path, param.Key, v.Type().String(), ErrNotExist)
 		} else {
-			return fmt.Errorf("bind path=%s type=%s error: %w", param.Path, v.Type().String(), ErrNotExist)
+			return nil // 非必填字段，且没有配置默认值，直接返回
 		}
 	}
+
 	// TODO 默认值可能也有占位符 默认值暂不支持占位符
 	return parseValue(value, v, param)
 }
@@ -645,7 +688,9 @@ func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env I
 func parseValue(value string, v reflect.Value, param BindParam) error {
 	// 检查目标值是否可设置，避免panic
 	if !v.CanSet() {
-		return fmt.Errorf("bind path=%s type=%s error: value is not settable", param.Path, v.Type().String())
+		// return fmt.Errorf("bind path=%s type=%s error: value is not settable", param.Path, v.Type().String())
+		// FIXME v.Type().String()空指针会panic
+		return fmt.Errorf("bind path=%s error: value is not settable", param.Path)
 	}
 
 	// 封装错误处理，减少重复代码

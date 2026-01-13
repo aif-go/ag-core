@@ -1,0 +1,13 @@
+a: a
+hzwarrayss:
+  array:
+    - a
+    - b
+  arrays:
+    -
+      - a
+      - b
+    -
+      - c
+      - d
+    - a: a
