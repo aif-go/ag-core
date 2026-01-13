@@ -121,7 +121,7 @@ type AgUniversalOptionsProperties struct {
 }
 
 // NewAgRedisPropertiesByBinder 从配置绑定器中创建 AgRedisProperties 实例
-func NewAgRedisPropertiesByBinder(binder *ag_conf.ConfigurationPropertiesBinder) (*AgRedisProperties, error) {
+func NewAgRedisPropertiesByBinder(binder ag_conf.IBinder) (*AgRedisProperties, error) {
 	conf := &AgRedisProperties{}
 	err := binder.Bind(conf, AgRedisConfPrefix)
 	if err != nil {
