@@ -44,6 +44,7 @@ type DatabaseTable struct {
 	Columns      *orderedmap.OrderedMap `yaml:"columns"`
 	PrimaryKeys  []PrimaryKey           `yaml:"primary_keys"`
 	Indexes      Indexes                `yaml:"indexes"`
+	DbType       string                 `yaml:"-"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling for DatabaseTable

@@ -55,6 +55,9 @@ func CreateTag(columnData *ColumnData) string {
 	if columnData.AutoUpdate {
 		builder.WriteString("AUTOUPDATETIME;")
 	}
+	if columnData.Omitempty {
+		builder.WriteString("omitempty;")
+	}		
 	builder.WriteString(`column:`)
 
 	builder.WriteString(columnData.DbColName)

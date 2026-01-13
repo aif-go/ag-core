@@ -6,6 +6,9 @@ package dao
 
 {{- range .RNamingSqlList}}
 const {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}} = "{{unescaped .NamingSql}}"
+{{if .PageCountSql}}
+const {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}_Count = "{{unescaped .PageCountSql}}"
+{{- end}}
 {{- end}}
 {{- range .CUDNamingSqlList}}
 const {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}} = "{{unescaped .NamingSql}}"
@@ -14,10 +17,11 @@ const {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}} = "{{unescaped .NamingSql}}"
 func Init{{.ObjectName}}{{$.DbType}}() {
     {{- range .RNamingSqlList}}
     {{$.ObjectName}}NamingSqlMap["{{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}"]  = {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}
+    {{if .PageCountSql}}
+    {{$.ObjectName}}NamingSqlMap["{{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}_Count"]  = {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}_Count
+    {{- end}}
     {{- end}}
     {{- range .CUDNamingSqlList}}
     {{$.ObjectName}}NamingSqlMap["{{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}"]  = {{$.DbType}}_{{$.ObjectName}}_{{.MethodName}}
-    {{- end}}
-      
-    
+    {{- end}}          
 }

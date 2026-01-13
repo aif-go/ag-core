@@ -128,6 +128,92 @@ func extractParamsFromExpression(expr string, seenParams map[string]bool) []rend
 	return params
 }
 
+// 从表达式中提取列名
+func extractColumnsFromExpression(expr string) []string {
+	var columns []string
+	
+	// 使用正则表达式匹配 "列名 操作符 @参数名" 格式，例如 "name = @nameParam"
+	re := regexp.MustCompile(`(\w+)\s*([=!<>]+|LIKE|like|Like|IN|in|In)\s*@(\w+)`)
+	matches := re.FindAllStringSubmatch(expr, -1)
+	
+	for _, match := range matches {
+		if len(match) >= 2 {
+			columnName := match[1]
+			columns = append(columns, columnName)
+		}
+	}
+	
+	// Also handle other common patterns like "column = value" or "column IN (...)"
+	re2 := regexp.MustCompile(`(\w+)\s*([=!<>]+|LIKE|like|Like|IN|in|In)\s*(\w+|\(.+?\)|'.*?'|".*?")`)
+	matches2 := re2.FindAllStringSubmatch(expr, -1)
+	
+	for _, match := range matches2 {
+		if len(match) >= 2 {
+			columnName := match[1]
+			// Check if it's already added
+			found := false
+			for _, col := range columns {
+				if col == columnName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				columns = append(columns, columnName)
+			}
+		}
+	}
+	
+	return columns
+}
+
+// 从WhereNode中提取列名（内部递归函数）
+func extractColumnsFromWhereNode(node WhereNode) []string {
+	var columns []string
+	
+	if node.Expr != "" {
+		// 从表达式中提取列名
+		exprColumns := extractColumnsFromExpression(node.Expr)
+		columns = append(columns, exprColumns...)
+		return columns
+	}
+	
+	// 检查Conditions是否为nil
+	if node.Conditions == nil {
+		return columns
+	}
+	
+	// 递归处理子条件
+	for _, child := range *node.Conditions {
+		childColumns := extractColumnsFromWhereNode(child)
+		columns = append(columns, childColumns...)
+	}
+	
+	return columns
+}
+
+// 从Indexes结构中收集所有索引的列名
+func getAllIndexedColumns(tableData *render.TableData) map[string]bool {
+	indexedColumns := make(map[string]bool)
+	
+	// 收集普通索引的列
+	for _, index := range tableData.GeneralIndexList {
+		for _, bindParam := range index.BindParamList {
+			indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
+		}
+	}	
+	// 收集唯一索引的列
+	for _, index := range tableData.UniqueIndexList {
+		for _, bindParam := range index.BindParamList {
+			indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
+		}
+	}
+	for _, bindParam := range tableData.PrimryRIndex.BindParamList {
+			indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
+	}
+	return indexedColumns
+}
+
 // 从WhereNode中提取参数（内部递归函数，使用共享的seenParams）
 func extractParamsFromWhereNodeWithSeenParams(node WhereNode, seenParams map[string]bool) []render.SqlParameter {
 	var params []render.SqlParameter
@@ -205,18 +291,43 @@ func extractAliasFromFunction(function string) string {
 // ConvertSelfQueryRulesToNamingSql 将 SelfQueryRules 转换为 NamingSqlData
 func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQueryRule, tableData *render.TableData) []*render.NamingSqlData {
 	var namingSqlList []*render.NamingSqlData
-	
+	// 获取所有索引的列
+	indexedColumns := getAllIndexedColumns(tableData)
 	for _, item := range orderedRules {
 		methodName := item.MethodName
 		rule := item.Rule
-		
 		// 构建SELECT子句
-		
+		selectAllCol := false
 		selectClause := rule.SelectFields
+		// 如果查询的是*，处理重置为表的所有列
+		if selectClause == "*" {
+			selectClause = ""
+			selectAllCol = true
+			allCols:=[]string{}
+			for key,_:= range tableData.ColumnDataMap{
+				allCols=append(allCols, key)
+			}
+			selectClause = strings.Join(allCols,",")
+		}
+
 		if rule.Aggregation != nil {
 			selectClause = 		strings.Join([]string{selectClause,rule.Aggregation.Function},",")
 		}
 		
+		// 检查rule.where涉及到的列Expr必须是索引列
+		if rule.Where != nil {
+			// 提取WHERE子句中使用的所有列名
+			whereColumns := extractColumnsFromWhereNode(*rule.Where)
+			// 检查每个WHERE子句中使用的列是否都有索引
+			for _, column := range whereColumns {
+				if !indexedColumns[strings.ToUpper(column)] {
+					// 如果列不在索引中，返回错误
+					fmt.Errorf("查询方法 %s 的WHERE条件中使用了非索引列: %s。所有WHERE条件中的列都必须是索引列。", methodName, column)
+					continue
+				}
+			}
+		}
+
 		// 构建WHERE子句
 		whereClause := ""
 		if rule.Where != nil {
@@ -230,6 +341,9 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 		orderByClause := ""
 		if rule.OrderBy != "" {
 			orderByClause = "ORDER BY " + rule.OrderBy
+		}else if rule.Page{
+			// 如果没有指定OrderBy，默认按主键排序
+			orderByClause = "ORDER BY " + tableData.PrimaryKeyList
 		}
 		
 		// 拼接完整SQL
@@ -239,13 +353,17 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 		}
 		if whereClause != "" {
 			sqlParts = append(sqlParts, whereClause)
+		}else{
+			sqlParts = append(sqlParts, " ")
 		}
 		if orderByClause != "" {
 			sqlParts = append(sqlParts, orderByClause)
+		}else{
+			sqlParts = append(sqlParts, " ")
 		}
-		// TODO 此时判断是否需要按照分页处理，处理最终sq
+		// TODO 此时判断是否需要按照分页处理，处理最终sql
 		// finalSQL := strings.Join(sqlParts, " ")
-		finalSQL := buildSql(rule.Page,sqlParts)
+		finalSQL := buildSql(rule.Page,sqlParts,tableData.DbType)
 		// 直接从rule中提取参数，无需二次解析SQL
 		var renderParams []render.SqlParameter
 		if rule.Where != nil {
@@ -266,7 +384,7 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 			}
 			renderSelectColumns = append(renderSelectColumns, col)
 		}  
-		if rule.SelectFields != "" {
+		if rule.SelectFields != "" && rule.SelectFields !="*" {
 			// 拆分SelectFields为多个列
 			fields := strings.Split(rule.SelectFields, ",")
 			for _, field := range fields {
@@ -301,8 +419,8 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 			SelectColumns:    renderSelectColumns,
 			PageCountSql: pageCountSql,
 			Page: rule.Page,
+			SelectAllCol: selectAllCol,
 		}
-		
 		namingSqlList = append(namingSqlList, namingSqlData)
 	}
 	
@@ -310,65 +428,25 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 }
 
 // buildSql 构建SQL语句，根据是否分页添加分页子句
-func buildSql(page bool, sqlParts []string) string{
+func buildSql(page bool, sqlParts []string, dbType string) string{
 	if page {
-		// 构建分页子句
-		return fmt.Sprintf("%s from (%s,ROW_NUMBER() over() as rn %s %s) t where t.rn between %s and %s", sqlParts[0], sqlParts[0], sqlParts[1], sqlParts[2], "@StartPage", "@EndPage")
-		// sqlParts = append(sqlParts, limit)
+		switch dbType{
+			case "mysql":
+				// 构建分页子句
+				return fmt.Sprintf("%s %s %s %s limit %s,%s", sqlParts[0], sqlParts[1], sqlParts[2], sqlParts[3], "@StartNum", "@EndNum")
+			default:
+				// 构建分页子句
+				return fmt.Sprintf("%s from (%s %s %s) t where t.rn between %s and %s", sqlParts[0], sqlParts[0], sqlParts[1], sqlParts[2], "@StartNum", "@EndNum")
+		}
 	}
+	// mysql 使用limit 偏移量, 每页数量
 	return strings.Join(sqlParts, " ")
 }
 
-// 拆分模块：解析有序查询规则并生成SQL
-func ParseQueryRules(tableName string, orderedRules []OrderedQueryRule) {
-	fmt.Println("\n===== 【3. 自定义查询规则模块（生成SQL）】 =====")
-	for _, item := range orderedRules {
-		methodName := item.MethodName
-		rule := item.Rule
-		fmt.Printf("查询方法：%s\n", methodName)
-
-		// 构建SELECT子句
-		selectClause := rule.SelectFields
-		if rule.Aggregation != nil {
-			selectClause = rule.Aggregation.Function
-		}
-
-		// 构建WHERE子句
-		whereClause := ""
-		if rule.Where != nil {
-			whereSQL := buildWhereSQL(*rule.Where)
-			if whereSQL != "" {
-				whereClause = "WHERE " + whereSQL
-			}
-		}
-
-		// 构建ORDER BY子句
-		orderByClause := ""
-		if rule.OrderBy != "" {
-			orderByClause = "ORDER BY " + rule.OrderBy
-		}
-
-		// 拼接完整SQL
-		sqlParts := []string{
-			fmt.Sprintf("SELECT %s", selectClause),
-			fmt.Sprintf("FROM %s", tableName),
-		}
-		if whereClause != "" {
-			sqlParts = append(sqlParts, whereClause)
-		}
-		if orderByClause != "" {
-			sqlParts = append(sqlParts, orderByClause)
-		}
-		finalSQL := strings.Join(sqlParts, " ") + ";"
-		fmt.Printf("生成SQL：%s\n", finalSQL)
-		fmt.Println("---")
-	}
-}
-
-// ConvertToRenderTableData 将解析后的YAML数据转换为render包中的TableData
-func ConvertToRenderTableData(table DatabaseTable) *render.TableData {
-	return ConvertToTableData(table, nil)
-}
+// // ConvertToRenderTableData 将解析后的YAML数据转换为render包中的TableData
+// func ConvertToRenderTableData(table DatabaseTable) *render.TableData {
+// 	return ConvertToTableData(table, nil)
+// }
 
 // ConvertConfigToRenderTableData 将完整的Config解析为render包中的TableData，包括处理SelfQueryRules
 func ConvertConfigToRenderTableData(config YamlDataConfig) *render.TableData {
