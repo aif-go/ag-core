@@ -6,7 +6,7 @@ package dao
 import (
        "context"
        "{{.ModelName}}/repository/model"
-       db "ag-core/contribute/agdb/gormdb"
+       db "ag-core-inner-agdb/ag/ag_db/gormdb"
 {{- range .DaoImports}}
        "{{ .}}"
 {{- end}}
@@ -170,6 +170,7 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    startRecord,endRecord,totalPage:= db.CalcPageStartRecord(arg.PageNum, arg.PageSize, count, dao.DbType)
    res:=&model.{{$.ObjectName}}{{.MethodResName}}{
       TotalPage: totalPage,
+      TotalCount: count,
       DataRes: list,
    }
    if count == 0 {
