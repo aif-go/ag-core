@@ -51,6 +51,7 @@ type ColumnData struct {
 	AutoUpdate         bool   `yaml:"AutoUpdate"`
 	AutoCreate         bool   `yaml:"AutoCreate"`
 	AutoIncrement      bool   `yaml:"AutoIncrement"`
+	Omitempty          bool   `yaml:"-"`
 	EndSymbol          string `yaml:"-"`
 }
 
@@ -66,6 +67,8 @@ type NamingSqlData struct {
 	// 分页查询时，获取总页数的sql
 	PageCountSql string `yaml:"-"`
 	Page bool `yaml:"-"`
+	// 查询全部列
+	SelectAllCol bool `yaml:"-"`
 }
 
 type SelectColumn struct{
@@ -148,6 +151,8 @@ type NamingSqlTemplate struct {
 	SelectColumns []*SelectColumn `yaml:"-"`
 	MethodResName string `yaml:"-"`
 	GenerateBol  bool `yaml:"-"`
+	PageCountSql string `yaml:"-"`
+	SelectAllCol bool `yaml:"-"`
 	// DbType string
 }
 

@@ -59,7 +59,7 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 	for _,support:= range config.SupportDB {
 		dbType:=strings.ToUpper(support)
 		fileName:=dbType+"_"+tableData.ObjectName+"_NamingSql.go"
-		if dbType != tableData.DbType{
+		if support != tableData.DbType{
 			_,err:=os.Stat(targetPath+fileName)
 			// 说明文件存在
 			if err == nil{
@@ -88,7 +88,7 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 					sql = value.NamingSql
 				}
 				nullData.CUDNamingSqlList = append(nullData.CUDNamingSqlList, 
-					&NamingSqlTemplate{NamingSql: sql, MethodName: namingsql.MethodName})
+					&NamingSqlTemplate{NamingSql: sql, MethodName: namingsql.MethodName, PageCountSql: namingsql.PageCountSql})
 			}
 
 			for _,namingsql:=range tableData.RNamingSqlList {
@@ -97,7 +97,7 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 					sql = value.NamingSql
 				}
 				nullData.RNamingSqlList = append(nullData.RNamingSqlList, 
-					&NamingSqlTemplate{NamingSql:sql, MethodName: namingsql.MethodName})
+					&NamingSqlTemplate{NamingSql:sql, MethodName: namingsql.MethodName,PageCountSql: namingsql.PageCountSql})
 			}
 			tableData = nullData
 		}

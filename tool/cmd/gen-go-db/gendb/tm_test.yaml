@@ -12,6 +12,7 @@ database_table:
             go_type: int
             comment: 1-男 2-女
             default_value: "1"
+            description: ///@omitempty
         NAME:
             db_column: NAME
             go_type: string
@@ -56,7 +57,21 @@ database_table:
               columns:
                 - phone
 self_query_rules:
+    FindAaByPage:
+        select_fields: SEQ,SEX,NAME,PHONE,ADDRESS
+        where:
+            expr: ADDRESS = @Address
+        page: true
+    FindAllCols:
+        select_fields: '*'
+        where:
+            expr: ADDRESS = @Address
     Xxxxx:
         select_fields: SEQ,SEX,NAME,PHONE,ADDRESS
         where:
             expr: PHONE = @Phone
+    FindAllColsByPage:
+        select_fields: '*'
+        where:
+            expr: ADDRESS = @Address
+        page: true

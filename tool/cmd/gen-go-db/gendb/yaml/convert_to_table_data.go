@@ -30,6 +30,7 @@ func ConvertToTableData(dbTable DatabaseTable, selfQueryRules *yaml.Node) *rende
 		// Sort:           "utf8mb4_unicode_ci",
 		DaoImportsFilterMap: sync.Map{},      // 添加 DaoImportsFilterMap
 		EntityImportsFilterMap: sync.Map{},   // 添加 EntityImportsFilterMap
+		DbType: dbTable.DbType,
 	}
 
 	// 转换列数据
@@ -221,6 +222,8 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 
 		template.MethodName = sqlData.MethodName
 		template.NamingSql = sqlData.NamingSql
+		template.PageCountSql = sqlData.PageCountSql
+		template.SelectAllCol = sqlData.SelectAllCol
 
 		// 处理参数列表
 		list := []*render.BindParam{}
@@ -244,16 +247,6 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 				bindParam.GoColName = strings.Trim(sqlParameter.ParameterName,"@")
 				list = append(list, bindParam)
 			}
-		}
-		if sqlData.Page {
-			list = append(list, &render.BindParam{
-				GoType: "int",
-				GoColName: "StartPage",
-			})
-			list = append(list, &render.BindParam{
-				GoType: "int",
-				GoColName: "EndPage",
-			})
 		}
 		template.BindParam = list
 
@@ -387,6 +380,26 @@ func processCol(dbTable DatabaseTable,tableData	*render.TableData){
 			continue
 		}
 		
+		// 解析tag列，处理多标签的问题
+		tagParts := strings.Split(column.Description, ";")
+		omitempty := false
+		autoCreate := false
+		autoUpdate := false
+		for _, tag := range tagParts {
+			if strings.TrimSpace(tag) == "///@omitempty" {
+				omitempty = true
+				continue
+			}
+			if strings.TrimSpace(tag) == "///@create" {
+				autoCreate = true
+				continue
+			}
+			if strings.TrimSpace(tag) == "///@update" {
+				autoUpdate = true
+				continue
+			}
+		}
+
 		colData := &render.ColumnData{
 			GoType:        column.GoType,
 			GoColName:     ToCamelCase(strings.ToLower(colName)),
@@ -400,8 +413,9 @@ func processCol(dbTable DatabaseTable,tableData	*render.TableData){
 			DefaultVal:    column.DefaultValue,
 			AutoIncrement: column.AutoIncrement,
 			EndSymbol:     ",", // 默认设置为逗号
-			AutoUpdate:  column.Description == "///@update",
-			AutoCreate:  column.Description == "///@create",
+			AutoUpdate:    autoUpdate,
+			AutoCreate:    autoCreate,
+			Omitempty:     omitempty,
 		}
 
 		

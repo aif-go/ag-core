@@ -1,13 +1,12 @@
 package yaml
 
 import (
+	"ag-core/tool/cmd/gen-go-db/gendb/render"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"ag-core/tool/cmd/gen-go-db/gendb/render"
 
 	"gopkg.in/yaml.v3"
 )
@@ -38,6 +37,8 @@ func (generate *YamlGenerate) ParseTemplateFile(config *render.AGInfraStructrueC
 			fmt.Printf("解析YAML失败：%v\n", err)
 			continue
 		}
+		// 设置数据库类型
+		yamlFileData.DatabaseTable.DbType=config.DbType
 		yamlDataList = append(yamlDataList, yamlFileData)
 	}
 	

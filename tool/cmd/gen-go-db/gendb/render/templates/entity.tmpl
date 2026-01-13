@@ -17,22 +17,49 @@ type {{.ObjectName}} struct {
    {{- end}}
 }
 
-{{- range .RNamingSqlList}}
+{{- range .RNamingSqlList }}
 type {{$.ObjectName}}{{.MethodName}}Arg struct {
-   {{- range .BindParam}}
+   {{- range .BindParam }}
    {{.GoColName}}  {{.GoType}}
+   {{end}}
+   {{- if .PageCountSql -}}
+   PageNum int64 `json:"pageNum"`
+   PageSize int64 `json:"pageSize"`
    {{- end}}
 }
 {{- end}}
 
-{{- range .RNamingSqlList}}
-{{if .GenerateBol}}
+// 指定列查询返回实体定义
+{{- range .RNamingSqlList }}
+{{- if .GenerateBol}}
+{{- if .PageCountSql}}
 type {{$.ObjectName}}{{.MethodName}}Res struct {
+   {{- if .SelectAllCol}}
+   DataRes []*{{$.ObjectName}}
+   {{else}}
+   // 查询指定列
+   DataRes []*{{$.ObjectName}}{{.MethodName}}
+   {{end}}
+   TotalPage int64 `json:"totalPage"`
+}
+// 指定列查询返回实体定义
+{{- if not .SelectAllCol}}
+type {{$.ObjectName}}{{.MethodName}} struct {
    {{- range .SelectColumns}}
    {{.Alias}}  {{.GoType}} `{{unescaped .Tag}}`  
    {{- end}}
 }
-{{end}}
+{{- end}}
+{{else}}
+{{ if not .SelectAllCol}}
+type {{$.ObjectName}}{{.MethodName}}Res struct {
+   {{- range .SelectColumns }}
+   {{.Alias}}  {{.GoType}} `{{unescaped .Tag}}`  
+   {{- end }}
+}
+{{- end}}
+{{- end}}
+{{- end}}
 {{- end}}
 
 {{- range .CUDNamingSqlList}}

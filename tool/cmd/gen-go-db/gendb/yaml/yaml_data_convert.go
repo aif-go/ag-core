@@ -1,8 +1,6 @@
 package yaml
 
-import (
-	"ag-core/tool/cmd/gen-go-db/gendb/render"
-)
+import "ag-core/tool/cmd/gen-go-db/gendb/render"
 
 type YamlDataConvert struct {
 }
