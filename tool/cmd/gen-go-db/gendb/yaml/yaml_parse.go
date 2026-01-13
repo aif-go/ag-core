@@ -429,6 +429,8 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 
 // buildSql 构建SQL语句，根据是否分页添加分页子句
 func buildSql(page bool, sqlParts []string, dbType string) string{
+	// TODO 暂时不支持分页查询，待分页接口定义清晰之后公开
+	page=false
 	if page {
 		switch dbType{
 			case "mysql":
