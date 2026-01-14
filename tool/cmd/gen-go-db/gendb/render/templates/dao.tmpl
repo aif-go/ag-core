@@ -169,6 +169,8 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    }
    startRecord,endRecord,totalPage:= db.CalcPageStartRecord(arg.PageNum, arg.PageSize, count, dao.DbType)
    res:=&model.{{$.ObjectName}}{{.MethodResName}}{
+      PageNum: arg.PageNum,
+      PageSize: arg.PageSize,
       TotalPage: totalPage,
       TotalCount: count,
       DataRes: list,

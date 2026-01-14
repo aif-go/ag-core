@@ -40,6 +40,8 @@ type {{$.ObjectName}}{{.MethodName}}Res struct {
    // 查询指定列
    DataRes []*{{$.ObjectName}}{{.MethodName}}
    {{end}}
+   PageNum int64 `json:"pageNum"`
+   PageSize int64 `json:"pageSize"`
    TotalPage int64 `json:"totalPage"`
    TotalCount int64 `json:"TotalCount"`
 
