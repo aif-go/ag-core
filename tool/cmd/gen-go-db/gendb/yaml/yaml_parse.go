@@ -24,7 +24,7 @@ func ParseTableStruct(table DatabaseTable) {
 		// 从orderedmap中获取列值
 		columnValue, _ := table.Columns.Get(colName)
 		col := columnValue.(Column) // 类型断言为Column类型
-		
+
 		fmt.Printf("  %s:\n", colName)
 		fmt.Printf("    数据库列名：%s\n", col.DbColumn)
 		fmt.Printf("    Go类型：%s\n", col.GoType)
@@ -63,33 +63,33 @@ func buildWhereSQL(node WhereNode) string {
 	if node.Expr != "" {
 		return node.Expr
 	}
-	
+
 	// 检查Conditions是否为nil
 	if node.Conditions == nil {
 		return ""
 	}
-	
+
 	// 如果只有一个条件，直接返回该条件的SQL
 	if len(*node.Conditions) == 1 {
 		return buildWhereSQL((*node.Conditions)[0])
 	}
-	
+
 	var parts []string
 	for _, child := range *node.Conditions {
 		parts = append(parts, buildWhereSQL(child))
 	}
-	
+
 	// 根据测试要求，在条件两侧添加括号
 	if len(parts) > 1 {
-		joined := strings.Join(parts, " " + node.Operator + " ")
+		joined := strings.Join(parts, " "+node.Operator+" ")
 		// 只有当父节点有操作符时才添加外层括号
 		if node.Operator != "" {
 			return "(" + joined + ")"
 		}
 		return joined
 	}
-	
-	return strings.Join(parts, " " + node.Operator + " ")
+
+	return strings.Join(parts, " "+node.Operator+" ")
 }
 
 // 从WhereNode中提取参数
@@ -104,49 +104,49 @@ func extractParamsFromExpression(expr string, seenParams map[string]bool) []rend
 		seenParams = make(map[string]bool) // 用于跟踪已添加的参数名，避免重复
 	}
 	var params []render.SqlParameter
-	
+
 	// 使用正则表达式匹配 "列名 操作符 @参数名" 格式，例如 "name = @nameParam"
 	re := regexp.MustCompile(`(\w+)\s*([=!<>]+|LIKE|like|Like|IN|in|In)\s*@(\w+)`)
 	matches := re.FindAllStringSubmatch(expr, -1)
-	
+
 	for _, match := range matches {
 		if len(match) == 4 {
 			parameterName := "@" + match[3]
 			// 检查参数是否已经存在
 			if !seenParams[parameterName] {
 				param := render.SqlParameter{
-					ColName:       match[1],      // 列名
-					ParameterName: parameterName, // 完整的@参数名
-					IsSlice:       strings.HasSuffix(match[3], "Slice"),        // 检查参数名是否以Slice结尾
+					ColName:       match[1],                             // 列名
+					ParameterName: parameterName,                        // 完整的@参数名
+					IsSlice:       strings.HasSuffix(match[3], "Slice"), // 检查参数名是否以Slice结尾
 				}
 				params = append(params, param)
 				seenParams[parameterName] = true
 			}
 		}
 	}
-	
+
 	return params
 }
 
 // 从表达式中提取列名
 func extractColumnsFromExpression(expr string) []string {
 	var columns []string
-	
+
 	// 使用正则表达式匹配 "列名 操作符 @参数名" 格式，例如 "name = @nameParam"
 	re := regexp.MustCompile(`(\w+)\s*([=!<>]+|LIKE|like|Like|IN|in|In)\s*@(\w+)`)
 	matches := re.FindAllStringSubmatch(expr, -1)
-	
+
 	for _, match := range matches {
 		if len(match) >= 2 {
 			columnName := match[1]
 			columns = append(columns, columnName)
 		}
 	}
-	
+
 	// Also handle other common patterns like "column = value" or "column IN (...)"
 	re2 := regexp.MustCompile(`(\w+)\s*([=!<>]+|LIKE|like|Like|IN|in|In)\s*(\w+|\(.+?\)|'.*?'|".*?")`)
 	matches2 := re2.FindAllStringSubmatch(expr, -1)
-	
+
 	for _, match := range matches2 {
 		if len(match) >= 2 {
 			columnName := match[1]
@@ -163,45 +163,45 @@ func extractColumnsFromExpression(expr string) []string {
 			}
 		}
 	}
-	
+
 	return columns
 }
 
 // 从WhereNode中提取列名（内部递归函数）
 func extractColumnsFromWhereNode(node WhereNode) []string {
 	var columns []string
-	
+
 	if node.Expr != "" {
 		// 从表达式中提取列名
 		exprColumns := extractColumnsFromExpression(node.Expr)
 		columns = append(columns, exprColumns...)
 		return columns
 	}
-	
+
 	// 检查Conditions是否为nil
 	if node.Conditions == nil {
 		return columns
 	}
-	
+
 	// 递归处理子条件
 	for _, child := range *node.Conditions {
 		childColumns := extractColumnsFromWhereNode(child)
 		columns = append(columns, childColumns...)
 	}
-	
+
 	return columns
 }
 
 // 从Indexes结构中收集所有索引的列名
 func getAllIndexedColumns(tableData *render.TableData) map[string]bool {
 	indexedColumns := make(map[string]bool)
-	
+
 	// 收集普通索引的列
 	for _, index := range tableData.GeneralIndexList {
 		for _, bindParam := range index.BindParamList {
 			indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
 		}
-	}	
+	}
 	// 收集唯一索引的列
 	for _, index := range tableData.UniqueIndexList {
 		for _, bindParam := range index.BindParamList {
@@ -209,7 +209,7 @@ func getAllIndexedColumns(tableData *render.TableData) map[string]bool {
 		}
 	}
 	for _, bindParam := range tableData.PrimryRIndex.BindParamList {
-			indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
+		indexedColumns[strings.ToUpper(bindParam.DbColName)] = true
 	}
 	return indexedColumns
 }
@@ -217,25 +217,25 @@ func getAllIndexedColumns(tableData *render.TableData) map[string]bool {
 // 从WhereNode中提取参数（内部递归函数，使用共享的seenParams）
 func extractParamsFromWhereNodeWithSeenParams(node WhereNode, seenParams map[string]bool) []render.SqlParameter {
 	var params []render.SqlParameter
-	
+
 	if node.Expr != "" {
 		// 从表达式中提取参数
 		exprParams := extractParamsFromExpression(node.Expr, seenParams)
 		params = append(params, exprParams...)
 		return params
 	}
-	
+
 	// 检查Conditions是否为nil
 	if node.Conditions == nil {
 		return params
 	}
-	
+
 	// 递归处理子条件
 	for _, child := range *node.Conditions {
 		childParams := extractParamsFromWhereNodeWithSeenParams(child, seenParams)
 		params = append(params, childParams...)
 	}
-	
+
 	return params
 }
 
@@ -276,14 +276,14 @@ func parseOrderedQueryRules(node *yaml.Node) ([]OrderedQueryRule, error) {
 func extractAliasFromFunction(function string) string {
 	// 将字符串转换为大写以便匹配
 	upperFunction := strings.ToUpper(function)
-	
+
 	// 查找 "AS" 关键字的位置
 	asIndex := strings.Index(upperFunction, " AS ")
 	if asIndex != -1 {
 		// 返回 "AS" 后面的部分作为别名
 		return strings.TrimSpace(function[asIndex+4:])
 	}
-	
+
 	// 如果没有找到 "AS"，则返回原始函数表达式
 	return function
 }
@@ -303,17 +303,17 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 		if selectClause == "*" {
 			selectClause = ""
 			selectAllCol = true
-			allCols:=[]string{}
-			for key,_:= range tableData.ColumnDataMap{
-				allCols=append(allCols, key)
+			allCols := []string{}
+			for key, _ := range tableData.ColumnDataMap {
+				allCols = append(allCols, key)
 			}
-			selectClause = strings.Join(allCols,",")
+			selectClause = strings.Join(allCols, ",")
 		}
 
 		if rule.Aggregation != nil {
-			selectClause = 		strings.Join([]string{selectClause,rule.Aggregation.Function},",")
+			selectClause = strings.Join([]string{selectClause, rule.Aggregation.Function}, ",")
 		}
-		
+
 		// 检查rule.where涉及到的列Expr必须是索引列
 		if rule.Where != nil {
 			// 提取WHERE子句中使用的所有列名
@@ -336,16 +336,16 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 				whereClause = "WHERE " + whereSQL
 			}
 		}
-		
+
 		// 构建ORDER BY子句
 		orderByClause := ""
 		if rule.OrderBy != "" {
 			orderByClause = "ORDER BY " + rule.OrderBy
-		}else if rule.Page{
+		} else if rule.Page {
 			// 如果没有指定OrderBy，默认按主键排序
 			orderByClause = "ORDER BY " + tableData.PrimaryKeyList
 		}
-		
+
 		// 拼接完整SQL
 		sqlParts := []string{
 			fmt.Sprintf("SELECT %s", selectClause),
@@ -353,17 +353,17 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 		}
 		if whereClause != "" {
 			sqlParts = append(sqlParts, whereClause)
-		}else{
+		} else {
 			sqlParts = append(sqlParts, " ")
 		}
 		if orderByClause != "" {
 			sqlParts = append(sqlParts, orderByClause)
-		}else{
+		} else {
 			sqlParts = append(sqlParts, " ")
 		}
 		// TODO 此时判断是否需要按照分页处理，处理最终sql
 		// finalSQL := strings.Join(sqlParts, " ")
-		finalSQL := buildSql(rule.Page,sqlParts,tableData.DbType)
+		finalSQL := buildSql(rule.Page, sqlParts, tableData.DbType)
 		// 直接从rule中提取参数，无需二次解析SQL
 		var renderParams []render.SqlParameter
 		if rule.Where != nil {
@@ -380,30 +380,30 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 			col := &render.SelectColumn{
 				ColumnName: alias,
 				Alias:      ToCamelCase(strings.ToLower(alias)),
-				GoType: rule.Aggregation.ResultType,
+				GoType:     rule.Aggregation.ResultType,
 			}
 			renderSelectColumns = append(renderSelectColumns, col)
-		}  
-		if rule.SelectFields != "" && rule.SelectFields !="*" {
+		}
+		if rule.SelectFields != "" && rule.SelectFields != "*" {
 			// 拆分SelectFields为多个列
 			fields := strings.Split(rule.SelectFields, ",")
 			for _, field := range fields {
 				field = strings.TrimSpace(field)
 				if field != "" {
 					// 根据field作为key从tableData的colmap中获取对应的列信息，然后Alias为对应的GoName
-					field= strings.ToUpper(field) // 默认使用字段名作为别名
+					field = strings.ToUpper(field) // 默认使用字段名作为别名
 					// 此处不需要做列不存在判断，如果通过列找不到对象的问题就是研发填写的问题
 					col := &render.SelectColumn{
 						ColumnName: field,
 						Alias:      tableData.ColumnDataMap[field].GoColName,
-						GoType: tableData.ColumnDataMap[field].GoType,
+						GoType:     tableData.ColumnDataMap[field].GoType,
 					}
 
 					renderSelectColumns = append(renderSelectColumns, col)
 				}
 			}
 		}
-		
+
 		var pageCountSql string
 		if rule.Page {
 			// 分页查询，需要额外处理PageCountSql
@@ -414,31 +414,31 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 		namingSqlData := &render.NamingSqlData{
 			MethodName:       methodName,
 			NamingSql:        finalSQL,
-			DbType:            " ", // 设置默认值为空格字符，表示适用于所有数据库类型
+			DbType:           " ", // 设置默认值为空格字符，表示适用于所有数据库类型
 			ParamColNameList: renderParams,
 			SelectColumns:    renderSelectColumns,
-			PageCountSql: pageCountSql,
-			Page: rule.Page,
-			SelectAllCol: selectAllCol,
+			PageCountSql:     pageCountSql,
+			Page:             rule.Page,
+			SelectAllCol:     selectAllCol,
 		}
 		namingSqlList = append(namingSqlList, namingSqlData)
 	}
-	
+
 	return namingSqlList
 }
 
 // buildSql 构建SQL语句，根据是否分页添加分页子句
-func buildSql(page bool, sqlParts []string, dbType string) string{
+func buildSql(page bool, sqlParts []string, dbType string) string {
 	// TODO 暂时不支持分页查询，待分页接口定义清晰之后公开
-	page=false
+	page = false
 	if page {
-		switch dbType{
-			case "mysql":
-				// 构建分页子句
-				return fmt.Sprintf("%s %s %s %s limit %s,%s", sqlParts[0], sqlParts[1], sqlParts[2], sqlParts[3], "@StartNum", "@EndNum")
-			default:
-				// 构建分页子句
-				return fmt.Sprintf("%s from (%s %s %s) t where t.rn between %s and %s", sqlParts[0], sqlParts[0], sqlParts[1], sqlParts[2], "@StartNum", "@EndNum")
+		switch dbType {
+		case "mysql":
+			// 构建分页子句
+			return fmt.Sprintf("%s %s %s %s limit %s,%s", sqlParts[0], sqlParts[1], sqlParts[2], sqlParts[3], "@StartNum", "@EndNum")
+		default:
+			// 构建分页子句
+			return fmt.Sprintf("%s from (%s %s %s) t where t.rn between %s and %s", sqlParts[0], sqlParts[0], sqlParts[1], sqlParts[2], "@StartNum", "@EndNum")
 		}
 	}
 	// mysql 使用limit 偏移量, 每页数量

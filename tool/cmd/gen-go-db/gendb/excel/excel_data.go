@@ -6,7 +6,7 @@ type ExcelData struct {
 	DbType string
 	// dbname 用来做dao模块的model
 	// SchemaName string
-	ModelName  string
+	ModelName string
 	// 表名
 	TableName string
 	// 表元素的列数据集合
@@ -21,12 +21,11 @@ type ExcelData struct {
 	NamingSqlList []*render.NamingSqlData
 	// 用来支持多数据类型的场景
 	NamingsqlMap map[string]*render.NamingSqlData
-	Encode string
-	Engine string
-	Sort  string
+	Encode       string
+	Engine       string
+	Sort         string
 }
 
-
-type ExcelAllData struct{
+type ExcelAllData struct {
 	ExcelDataList []*ExcelData
 }

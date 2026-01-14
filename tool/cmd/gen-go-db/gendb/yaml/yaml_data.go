@@ -5,10 +5,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-
-type YamlAllTableData struct{
+type YamlAllTableData struct {
 	YamlDataList []*YamlDataConfig
 }
+
 // 顶级配置结构（SelfQueryRules改为yaml.Node，用于有序解析）
 type YamlDataConfig struct {
 	DatabaseTable  DatabaseTable `yaml:"database_table"`
@@ -51,27 +51,27 @@ type DatabaseTable struct {
 func (dt *DatabaseTable) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// 创建一个临时结构体来处理解析，避免递归
 	type tempDatabaseTable struct {
-		TableName    string                 `yaml:"table_name"`
-		TableComment string                 `yaml:"table_comment,omitempty"`
-		Columns      yaml.Node              `yaml:"columns"`
-		PrimaryKeys  []PrimaryKey           `yaml:"primary_keys"`
-		Indexes      Indexes                `yaml:"indexes"`
+		TableName    string       `yaml:"table_name"`
+		TableComment string       `yaml:"table_comment,omitempty"`
+		Columns      yaml.Node    `yaml:"columns"`
+		PrimaryKeys  []PrimaryKey `yaml:"primary_keys"`
+		Indexes      Indexes      `yaml:"indexes"`
 	}
-	
+
 	var temp tempDatabaseTable
 	if err := unmarshal(&temp); err != nil {
 		return err
 	}
-	
+
 	// 赋值基本字段
 	dt.TableName = temp.TableName
 	dt.TableComment = temp.TableComment
 	dt.PrimaryKeys = temp.PrimaryKeys
 	dt.Indexes = temp.Indexes
-	
+
 	// 手动解析Columns字段以保持顺序
 	dt.Columns = orderedmap.New()
-	
+
 	// 确保Columns节点是映射类型
 	if temp.Columns.Kind == yaml.MappingNode {
 		// 遍历YAML节点的内容（键值对）
@@ -79,27 +79,27 @@ func (dt *DatabaseTable) UnmarshalYAML(unmarshal func(interface{}) error) error 
 			if i+1 < len(temp.Columns.Content) {
 				keyNode := temp.Columns.Content[i]
 				valueNode := temp.Columns.Content[i+1]
-				
+
 				// 获取键名
 				key := keyNode.Value
-				
+
 				// 解析值为Column结构
 				var column Column
 				valueBytes, err := yaml.Marshal(valueNode)
 				if err != nil {
 					return err
 				}
-				
+
 				if err := yaml.Unmarshal(valueBytes, &column); err != nil {
 					return err
 				}
-				
+
 				// 添加到orderedmap
 				dt.Columns.Set(key, column)
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -145,8 +145,8 @@ func (dt DatabaseTable) MarshalYAML() (interface{}, error) {
 
 	// 添加columns字段，orderedmap会自动保持插入顺序
 	columnsNode := &yaml.Node{
-		Kind: yaml.ScalarNode,
-		Tag:  "!!str",
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!str",
 		Value: "columns",
 	}
 	node.Content = append(node.Content, columnsNode)
@@ -167,22 +167,22 @@ func (dt DatabaseTable) MarshalYAML() (interface{}, error) {
 				Value: key,
 			}
 			columnsMappingNode.Content = append(columnsMappingNode.Content, keyNode)
-			
+
 			// 添加值节点
 			valueBytes, err := yaml.Marshal(value)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			var valueNode yaml.Node
 			if err := yaml.Unmarshal(valueBytes, &valueNode); err != nil {
 				return nil, err
 			}
-			
+
 			columnsMappingNode.Content = append(columnsMappingNode.Content, valueNode.Content[0])
 		}
 	}
-	
+
 	node.Content = append(node.Content, columnsMappingNode)
 
 	// 添加primary_keys字段
@@ -249,7 +249,7 @@ type PrimaryKey struct {
 // 单个索引（扁平化改造：BindColumns → Columns）
 type Index struct {
 	IndexName string   `yaml:"index_name"`
-	Columns   []string `yaml:"columns"` 
+	Columns   []string `yaml:"columns"`
 }
 
 // 索引（普通+唯一）- 无需修改
@@ -275,9 +275,9 @@ type Aggregation struct {
 
 // WHERE条件节点（递归结构）
 type WhereNode struct {
-	Operator   string        `yaml:"operator,omitempty"`
+	Operator   string       `yaml:"operator,omitempty"`
 	Conditions *[]WhereNode `yaml:"conditions,omitempty"`
-	Expr       string        `yaml:"expr,omitempty"`
+	Expr       string       `yaml:"expr,omitempty"`
 }
 
 // MarshalYAML 自定义YAML序列化方法，使用yaml.Node确保字段顺序
@@ -287,7 +287,7 @@ func (w WhereNode) MarshalYAML() (interface{}, error) {
 		Kind: yaml.MappingNode,
 		Tag:  "!!map",
 	}
-	
+
 	// 按照特定顺序添加字段
 	// 1. expr字段（如果存在）
 	if w.Expr != "" {
@@ -303,7 +303,7 @@ func (w WhereNode) MarshalYAML() (interface{}, error) {
 		}
 		node.Content = append(node.Content, &exprKey, &exprValue)
 	}
-	
+
 	// 2. operator字段（如果存在）
 	if w.Operator != "" {
 		operatorKey := yaml.Node{
@@ -318,7 +318,7 @@ func (w WhereNode) MarshalYAML() (interface{}, error) {
 		}
 		node.Content = append(node.Content, &operatorKey, &operatorValue)
 	}
-	
+
 	// 3. conditions字段（如果存在）
 	if w.Conditions != nil && len(*w.Conditions) > 0 {
 		conditionsKey := yaml.Node{
@@ -326,21 +326,21 @@ func (w WhereNode) MarshalYAML() (interface{}, error) {
 			Tag:   "!!str",
 			Value: "conditions",
 		}
-		
+
 		// 序列化conditions数组
 		conditionsValue, err := yaml.Marshal(w.Conditions)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		var conditionsNode yaml.Node
 		if err := yaml.Unmarshal(conditionsValue, &conditionsNode); err != nil {
 			return nil, err
 		}
-		
+
 		node.Content = append(node.Content, &conditionsKey, conditionsNode.Content[0])
 	}
-	
+
 	return &node, nil
 }
 
@@ -352,10 +352,10 @@ type OrderedQueryRule struct {
 
 // NamingSqlData 自定义SQL数据
 type NamingSqlData struct {
-	MethodName       string        `yaml:"method_name"`
-	NamingSql        string        `yaml:"naming_sql"`
-	DbType           string        `yaml:"db_type,omitempty"`
-	ParamColNameList []SqlParameter `yaml:"param_col_name_list,omitempty"`
+	MethodName       string          `yaml:"method_name"`
+	NamingSql        string          `yaml:"naming_sql"`
+	DbType           string          `yaml:"db_type,omitempty"`
+	ParamColNameList []SqlParameter  `yaml:"param_col_name_list,omitempty"`
 	SelectColumns    []*SelectColumn `yaml:"select_columns,omitempty"`
 }
 
@@ -372,9 +372,6 @@ type SelectColumn struct {
 	Alias      string `yaml:"alias"`
 }
 
-
-
-
 // GenericColumn represents a generic column definition from an Excel sheet
 type GenericColumn struct {
 	Name          string `json:"name"`
@@ -384,22 +381,22 @@ type GenericColumn struct {
 	DefaultValue  string `json:"default_value"`
 	AutoIncrement string `json:"auto_increment"`
 	Description   string `json:"description"`
-	Tag    string `json:"custom_type"`
+	Tag           string `json:"custom_type"`
 	IsPrimaryKey  bool   `json:"is_primary_key"` // 标记是否为主键
 }
 
 // GenericRule represents a generic query rule from an Excel sheet
 type GenericRule struct {
-	Name         string          `json:"name"`
-	SelectFields string          `json:"select_fields"`
-	Conditions   *WhereNode `json:"conditions"`
-	Description  string          `json:"description,omitempty"`
-	Aggregation  string          `json:"aggregation,omitempty"`
-	AggregationType  string      `json:"result_type,omitempty"`
-	OrderBy string `json:"order_by,omitempty"`
-	GroupBy string `json:"group_by,omitempty"`
-	DBTypes      string          `json:"db_types,omitempty"`
-	Page         bool            `json:"page,omitempty"`
+	Name            string     `json:"name"`
+	SelectFields    string     `json:"select_fields"`
+	Conditions      *WhereNode `json:"conditions"`
+	Description     string     `json:"description,omitempty"`
+	Aggregation     string     `json:"aggregation,omitempty"`
+	AggregationType string     `json:"result_type,omitempty"`
+	OrderBy         string     `json:"order_by,omitempty"`
+	GroupBy         string     `json:"group_by,omitempty"`
+	DBTypes         string     `json:"db_types,omitempty"`
+	Page            bool       `json:"page,omitempty"`
 }
 
 // RuleCondition represents a condition in a query rule
@@ -414,12 +411,12 @@ type PrimaryKeyInfo struct {
 
 // ConstraintInfo represents constraint information
 type ConstraintInfo struct {
-	Name   string   `json:"name"`
+	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
 }
 
 // IndexInfo represents index information
 type IndexInfo struct {
-	Name   string   `json:"name"`
+	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
 }

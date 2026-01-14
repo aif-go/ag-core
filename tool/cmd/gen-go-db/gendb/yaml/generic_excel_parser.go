@@ -17,38 +17,38 @@ func GenerateYamlFromExcel(config *render.AGInfraStructrueConfig) error {
 	if err != nil {
 		return err
 	}
-	supportTablesLen:=len(config.SupportTables)
-	for _,sheet:= range xlFile.Sheets{
+	supportTablesLen := len(config.SupportTables)
+	for _, sheet := range xlFile.Sheets {
 		// 如果配置了表名但是当前处理的表名又不在里面，则放弃处理该表
-		if _,ok:=config.SupportTables[strings.ToLower(sheet.Name)]; !ok && supportTablesLen!=0{
+		if _, ok := config.SupportTables[strings.ToLower(sheet.Name)]; !ok && supportTablesLen != 0 {
 			continue
-		} 
+		}
 		columns, rules, primaryKeys, constraints, indexes, err := ParseGenericExcelSheet(sheet)
-	
-		if err!= nil{
-			fmt.Println("sheetname:",sheet.Name,"解析失败,错误信息:",err.Error())
+
+		if err != nil {
+			fmt.Println("sheetname:", sheet.Name, "解析失败,错误信息:", err.Error())
 			continue
 		}
 
-		yamlDataConfig, err:= ConvertGenericToYAML(sheet.Name,columns, rules, primaryKeys, constraints, indexes)
-		if err!=nil{
-			fmt.Println("sheetname:",sheet.Name,"转换为yaml数据失败,错误信息:",err.Error())
+		yamlDataConfig, err := ConvertGenericToYAML(sheet.Name, columns, rules, primaryKeys, constraints, indexes)
+		if err != nil {
+			fmt.Println("sheetname:", sheet.Name, "转换为yaml数据失败,错误信息:", err.Error())
 			continue
 		}
 
 		// 序列化为YAML格式
 		yamlBytes, err := yaml.Marshal(yamlDataConfig)
 		if err != nil {
-			fmt.Println("sheetname:",sheet.Name,"yaml对象转换为字节流失败,错误信息:",err.Error())
+			fmt.Println("sheetname:", sheet.Name, "yaml对象转换为字节流失败,错误信息:", err.Error())
 			continue
 		}
-	
+
 		// 写入到generic_tm_media_act.yaml文件
-		filename:=strings.ToLower(sheet.Name)+".yaml"
-		outputPath := config.OutputPath+filename
+		filename := strings.ToLower(sheet.Name) + ".yaml"
+		outputPath := config.OutputPath + filename
 		err = os.WriteFile(outputPath, yamlBytes, 0644)
 		if err != nil {
-				fmt.Println("sheetname:",sheet.Name,"最后阶段生成yaml文件失败,错误信息:",err.Error())
+			fmt.Println("sheetname:", sheet.Name, "最后阶段生成yaml文件失败,错误信息:", err.Error())
 		}
 	}
 
@@ -63,7 +63,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 	var primaryKeys []PrimaryKeyInfo
 	var constraints []ConstraintInfo
 	var indexes []IndexInfo
-	
+
 	// 第一行是标题行，从第二行开始读取数据
 	// 在第3行之后，如果遇到空行或者特殊标记行，则停止解析列定义
 	dataSectionEnded := false
@@ -72,23 +72,23 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 	inConstraintSection := false
 	inIndexSection := false
 	skipNextRowAsTitle := false // 标记是否需要跳过下一行（标题行）
-	
+
 	for i, row := range sheet.Rows {
 		// 跳过标题行
 		if i == 0 {
 			continue
 		}
-		
+
 		// 检查是否需要跳过当前行（标题行）
 		if skipNextRowAsTitle {
 			skipNextRowAsTitle = false
 			continue
 		}
-		
+
 		// 检查是否进入不同的定义部分
 		if i > 2 && len(row.Cells) > 0 {
 			firstCell := strings.TrimSpace(row.Cells[0].String())
-			
+
 			// 检查是否进入主键定义部分
 			if firstCell == "主键" {
 				dataSectionEnded = true
@@ -98,7 +98,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				inRulesSection = false
 				continue
 			}
-			
+
 			// 检查是否进入约束定义部分
 			if firstCell == "约束" {
 				dataSectionEnded = true
@@ -108,7 +108,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				inRulesSection = false
 				continue
 			}
-			
+
 			// 检查是否进入索引定义部分
 			if firstCell == "索引" {
 				dataSectionEnded = true
@@ -118,7 +118,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				inRulesSection = false
 				continue
 			}
-			
+
 			// 检查是否进入规则定义部分
 			if firstCell == "自定义脚本名字" {
 				dataSectionEnded = true
@@ -129,18 +129,18 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				skipNextRowAsTitle = true // 标记下一行是标题行，需要跳过
 				continue
 			}
-			
+
 			// 处理主键定义部分
 			if inPrimaryKeySection {
 				// 解析主键定义
 				if len(row.Cells) > 1 {
 					keyName := strings.TrimSpace(row.Cells[0].String())
 					columnName := strings.TrimSpace(row.Cells[1].String())
-					
+
 					// 如果主键名称是PRIMARY_KEY，则记录主键信息
 					if keyName == "PRIMARY_KEY" && columnName != "" {
 						primaryKeys = append(primaryKeys, PrimaryKeyInfo{Column: columnName})
-						
+
 						// 同时标记对应列为主键
 						for j := range columns {
 							if columns[j].Name == columnName {
@@ -152,7 +152,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				}
 				continue
 			}
-			
+
 			// 处理约束定义部分
 			if inConstraintSection {
 				// 解析约束定义
@@ -167,7 +167,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 								constraintColumns = append(constraintColumns, columnName)
 							}
 						}
-						
+
 						if len(constraintColumns) > 0 {
 							constraints = append(constraints, ConstraintInfo{
 								Name:    constraintName,
@@ -178,7 +178,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				}
 				continue
 			}
-			
+
 			// 处理索引定义部分
 			if inIndexSection {
 				// 解析索引定义
@@ -193,7 +193,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 								indexColumns = append(indexColumns, columnName)
 							}
 						}
-						
+
 						if len(indexColumns) > 0 {
 							indexes = append(indexes, IndexInfo{
 								Name:    indexName,
@@ -204,7 +204,7 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				}
 				continue
 			}
-			
+
 			// 处理规则定义部分
 			if inRulesSection {
 				// 解析规则定义
@@ -216,20 +216,20 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				continue
 			}
 		}
-		
+
 		// 如果已经到达数据定义结束点，则跳过后续行
 		if dataSectionEnded && !inPrimaryKeySection && !inConstraintSection && !inIndexSection && !inRulesSection {
 			continue
 		}
-		
+
 		// 确保行有足够的单元格
 		if len(row.Cells) < 7 {
 			continue
 		}
-		
+
 		// 创建列定义实例
 		column := GenericColumn{}
-		
+
 		// 根据实际列数和结构填充column字段
 		if len(row.Cells) > 0 {
 			column.Name = strings.TrimSpace(row.Cells[0].String())
@@ -255,20 +255,20 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 		if len(row.Cells) > 7 {
 			column.Tag = strings.TrimSpace(row.Cells[7].String())
 		}
-		
+
 		// 如果列名为空，则跳过该行
 		if column.Name == "" {
 			continue
 		}
-		
+
 		// 如果类型为空或者不合法，则跳过该行
 		if column.Type == "" {
 			continue
 		}
-		
+
 		columns = append(columns, column)
 	}
-	
+
 	return columns, queryRules, primaryKeys, constraints, indexes, nil
 }
 
@@ -295,28 +295,28 @@ func parseGenericRuleRow(row *xlsx.Row) GenericRule {
 	// 解析排序条件
 	ordering := strings.TrimSpace(row.Cells[5].String()) // 排序条件 (目前未使用)
 	// 解析分组条件
-	grouping := strings.TrimSpace(row.Cells[6].String()) // 分组条件 (目前未使用)
-	page:= strings.TrimSpace(row.Cells[7].String()) == "Y" // 分页
+	grouping := strings.TrimSpace(row.Cells[6].String())    // 分组条件 (目前未使用)
+	page := strings.TrimSpace(row.Cells[7].String()) == "Y" // 分页
 	// 解析数据库类型
 	dbTypes := strings.TrimSpace(row.Cells[8].String()) // 数据库类型
 	// 创建条件列表
 	// var conditions []RuleCondition
 	// if conditionStr != "" {
-		// 解析复杂的WHERE条件表达式
-	whereNode:= parseConditionExpression(conditionStr)
-	
+	// 解析复杂的WHERE条件表达式
+	whereNode := parseConditionExpression(conditionStr)
+
 	rule := GenericRule{
-		Name:         name,
-		SelectFields: selectFields,
-		Conditions:   whereNode,
-		Aggregation:  aggregation,
-		AggregationType:  aggregationType,
-		OrderBy: ordering,
-		GroupBy:	grouping,
-		Page:         page,		
-		DBTypes:      dbTypes,
+		Name:            name,
+		SelectFields:    selectFields,
+		Conditions:      whereNode,
+		Aggregation:     aggregation,
+		AggregationType: aggregationType,
+		OrderBy:         ordering,
+		GroupBy:         grouping,
+		Page:            page,
+		DBTypes:         dbTypes,
 	}
-	
+
 	return rule
 }
 
@@ -326,17 +326,17 @@ func parseConditionExpression(conditionStr string) *WhereNode {
 	if conditionStr == "" {
 		return &WhereNode{}
 	}
-	
+
 	// 解析复杂的WHERE条件表达式
 	whereNode := parseExpressionToWhereNode(conditionStr)
 	if whereNode == nil {
 		return &WhereNode{}
 	}
-	
+
 	// 将解析后的WhereNode结构转换为RuleCondition列表
 	// var conditions []RuleCondition
 	// flattenWhereNode(whereNode, &conditions)
-	
+
 	return whereNode
 }
 
@@ -353,15 +353,15 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 			Expr: expr,
 		}
 	}
-	
+
 	// 去除首尾空格
 	expr = strings.TrimSpace(expr)
-	
+
 	// 如果表达式为空，返回nil
 	if expr == "" {
 		return nil
 	}
-	
+
 	// 先尝试解析括号表达式中的操作符
 	// 检查是否是括号包围的表达式
 	if strings.HasPrefix(expr, "(") && strings.HasSuffix(expr, ")") {
@@ -369,7 +369,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 		if isOutermostParentheses(expr) {
 			// 去除最外层括号
 			innerExpr := strings.TrimSpace(expr[1 : len(expr)-1])
-			
+
 			// 尝试先解析内部表达式的操作符
 			// 检查是否包含OR操作符（不区分大小写），优先处理OR
 			parts := splitByOperator(innerExpr, " OR ")
@@ -379,7 +379,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 					Operator:   "OR",
 					Conditions: &[]WhereNode{},
 				}
-				
+
 				// 为每个OR部分创建子节点
 				for _, part := range parts {
 					// 解析每个部分
@@ -388,7 +388,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 						*orNode.Conditions = append(*orNode.Conditions, *subNode)
 					}
 				}
-				
+
 				// 如果有子节点，返回OR节点
 				if len(*orNode.Conditions) > 0 {
 					return orNode
@@ -402,7 +402,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 						Operator:   "AND",
 						Conditions: &[]WhereNode{},
 					}
-					
+
 					// 为每个AND部分创建子节点
 					for _, part := range parts {
 						// 解析每个部分
@@ -411,14 +411,14 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 							*andNode.Conditions = append(*andNode.Conditions, *subNode)
 						}
 					}
-					
+
 					// 如果有子节点，返回AND节点
 					if len(*andNode.Conditions) > 0 {
 						return andNode
 					}
 				}
 			}
-			
+
 			// 如果去除括号后没有操作符，则检查是否还有嵌套的括号表达式需要处理
 			if !containsOperator(innerExpr) {
 				// 简单条件，直接作为表达式
@@ -426,7 +426,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 					Expr: expr, // 保留原始带括号的表达式
 				}
 			}
-			
+
 			// 如果有操作符，则递归解析内部表达式
 			innerNode := parseExpressionToWhereNodeWithDepth(innerExpr, depth+1)
 			if innerNode != nil {
@@ -441,7 +441,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 			}
 		}
 	}
-	
+
 	// 检查是否包含OR操作符（不区分大小写），优先处理OR
 	parts := splitByOperator(expr, " OR ")
 	if len(parts) > 1 {
@@ -450,7 +450,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 			Operator:   "OR",
 			Conditions: &[]WhereNode{},
 		}
-		
+
 		// 为每个OR部分创建子节点
 		for _, part := range parts {
 			// 解析每个部分
@@ -459,7 +459,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 				*orNode.Conditions = append(*orNode.Conditions, *subNode)
 			}
 		}
-		
+
 		// 如果有子节点，返回OR节点
 		if len(*orNode.Conditions) > 0 {
 			return orNode
@@ -473,7 +473,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 				Operator:   "AND",
 				Conditions: &[]WhereNode{},
 			}
-			
+
 			// 为每个AND部分创建子节点
 			for _, part := range parts {
 				// 解析每个部分
@@ -482,7 +482,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 					*andNode.Conditions = append(*andNode.Conditions, *subNode)
 				}
 			}
-			
+
 			// 如果有子节点，返回AND节点
 			if len(*andNode.Conditions) > 0 {
 				return andNode
@@ -494,7 +494,7 @@ func parseExpressionToWhereNodeWithDepth(expr string, depth int) *WhereNode {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -509,7 +509,7 @@ func isOutermostParentheses(expr string) bool {
 	if len(expr) < 2 || !strings.HasPrefix(expr, "(") || !strings.HasSuffix(expr, ")") {
 		return false
 	}
-	
+
 	// 计算括号层数
 	count := 0
 	for i := 0; i < len(expr); i++ {
@@ -523,7 +523,7 @@ func isOutermostParentheses(expr string) bool {
 			}
 		}
 	}
-	
+
 	return count == 0
 }
 
@@ -537,13 +537,13 @@ func splitByOperator(expr, operator string) []string {
 	var parts []string
 	start := 0
 	parenCount := 0
-	
+
 	// 特殊处理BETWEEN AND的情况
 	isBetweenAnd := strings.ToUpper(operator) == " AND " && strings.Contains(strings.ToUpper(expr), " BETWEEN ")
-	
+
 	for i := 0; i < len(expr); i++ {
 		char := expr[i]
-		
+
 		if char == '(' {
 			parenCount++
 		} else if char == ')' {
@@ -559,7 +559,7 @@ func splitByOperator(expr, operator string) []string {
 						continue
 					}
 				}
-				
+
 				// 添加前面的部分
 				part := strings.TrimSpace(expr[start:i])
 				if part != "" {
@@ -572,13 +572,13 @@ func splitByOperator(expr, operator string) []string {
 			}
 		}
 	}
-	
+
 	// 添加最后一部分
 	part := strings.TrimSpace(expr[start:])
 	if part != "" {
 		parts = append(parts, part)
 	}
-	
+
 	return parts
 }
 
@@ -588,25 +588,25 @@ func isBetweenAndOperator(expr string, andPos int) bool {
 	if andPos < 1 || andPos+len(" AND ") > len(expr) {
 		return false
 	}
-	
+
 	// 获取AND前的文本
 	before := strings.ToUpper(expr[:andPos])
-	
+
 	// 查找最后出现的"BETWEEN"位置
 	lastBetweenPos := strings.LastIndex(before, "BETWEEN")
 	if lastBetweenPos == -1 {
 		return false
 	}
-	
+
 	// 检查在"BETWEEN"和"AND"之间是否还有其他操作符
 	// 提取BETWEEN之后到AND之前的部分
 	betweenAndPart := strings.TrimSpace(before[lastBetweenPos+len("BETWEEN"):])
-	
+
 	// 在这部分中不应该有其他操作符（AND/OR）
 	// 如果这部分只包含数字或其他非操作符内容，则这是一个有效的BETWEEN AND结构
 	hasAnd := strings.Contains(betweenAndPart, " AND ")
 	hasOr := strings.Contains(betweenAndPart, " OR ")
-	
+
 	// 如果在BETWEEN和AND之间没有其他操作符，则这是一个BETWEEN AND结构
 	return !hasAnd && !hasOr
 }
@@ -615,18 +615,18 @@ func isBetweenAndOperator(expr string, andPos int) bool {
 func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules []GenericRule, primaryKeys []PrimaryKeyInfo, constraints []ConstraintInfo, indexes []IndexInfo) (*YamlDataConfig, error) {
 	// 创建数据库表结构
 	dbTable := DatabaseTable{
-		TableName:    strings.ToLower(tableName),
-		Columns:      orderedmap.New(),
-		PrimaryKeys:  make([]PrimaryKey, 0),
-		Indexes:      Indexes{},
+		TableName:   strings.ToLower(tableName),
+		Columns:     orderedmap.New(),
+		PrimaryKeys: make([]PrimaryKey, 0),
+		Indexes:     Indexes{},
 	}
-	
+
 	// 转换列定义
 	for _, col := range columns {
 		// 映射数据库类型到Go类型
 		// goType := mapDBTypeToGoType(col.Type)
 		goType, _ := render.Imports(col.Type, col.Type)
-		
+
 		// columnKey := strings.ToLower(col.Name)
 		columnKey := strings.ToUpper(col.Name)
 		column := Column{
@@ -638,59 +638,59 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 			DefaultValue:  col.DefaultValue,
 			AutoIncrement: col.AutoIncrement == "Y",
 			PrimaryKey:    col.IsPrimaryKey,
-			Description: col.Tag,
+			Description:   col.Tag,
 		}
-		
+
 		// 使用orderedmap设置列，保持插入顺序
 		dbTable.Columns.Set(columnKey, column)
 	}
-	
+
 	// 处理主键信息
 	for _, pk := range primaryKeys {
 		dbTable.PrimaryKeys = append(dbTable.PrimaryKeys, PrimaryKey{
 			Column: strings.ToLower(pk.Column),
 		})
 	}
-	
+
 	// 处理索引信息
 	var generalIndexes []Index
 	var uniqueIndexes []Index
-	
+
 	// 处理约束（作为唯一索引）
 	for _, constraint := range constraints {
 		var lowerColumns []string
 		for _, col := range constraint.Columns {
 			lowerColumns = append(lowerColumns, strings.ToLower(col))
 		}
-		
+
 		uniqueIndexes = append(uniqueIndexes, Index{
 			IndexName: constraint.Name,
 			Columns:   lowerColumns,
 		})
 	}
-	
+
 	// 处理索引
 	for _, idx := range indexes {
 		var lowerColumns []string
 		for _, col := range idx.Columns {
 			lowerColumns = append(lowerColumns, strings.ToLower(col))
 		}
-		
+
 		generalIndexes = append(generalIndexes, Index{
 			IndexName: idx.Name,
 			Columns:   lowerColumns,
 		})
 	}
-	
+
 	// 设置索引
 	dbTable.Indexes = Indexes{
 		General: generalIndexes,
 		Unique:  uniqueIndexes,
 	}
-	
+
 	// 创建查询规则
 	selfQueryRules := make(map[string]QueryRule)
-	
+
 	// 转换查询规则
 	for _, rule := range queryRules {
 		if rule.Name != "" {
@@ -698,7 +698,7 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 				SelectFields: rule.SelectFields,
 				Page:         rule.Page,
 			}
-			
+
 			// 添加where子句
 			// 使用改进的解析器处理复杂表达式
 			// if len(rule.Conditions) > 0 {
@@ -710,7 +710,7 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 			// 		}
 			// 	}
 			// }
-			
+
 			// 添加聚合函数
 			if rule.Aggregation != "" {
 				queryRule.Aggregation = &Aggregation{
@@ -718,11 +718,11 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 					ResultType: rule.AggregationType, // 默认结果类型
 				}
 			}
-			
+
 			selfQueryRules[rule.Name] = queryRule
 		}
 	}
-	
+
 	// 将查询规则转换为yaml.Node以保持顺序
 	var yamlNode yaml.Node
 	// 先将map转换为yaml.Node
@@ -730,11 +730,11 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 	for k, v := range selfQueryRules {
 		mapNode[k] = v
 	}
-	
+
 	// 创建yaml.Node
 	yamlNode.Kind = yaml.MappingNode
 	yamlNode.Tag = "!!map"
-	
+
 	// 为每个键值对创建节点
 	for name, rule := range selfQueryRules {
 		// 键节点
@@ -743,28 +743,28 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 			Tag:   "!!str",
 			Value: name,
 		}
-		
+
 		// 值节点
 		valueBytes, err := yaml.Marshal(rule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal query rule %s: %v", name, err)
 		}
-		
+
 		var valueNode yaml.Node
 		if err := yaml.Unmarshal(valueBytes, &valueNode); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal query rule %s: %v", name, err)
 		}
-		
+
 		// 将键值对添加到父节点
 		yamlNode.Content = append(yamlNode.Content, &keyNode, valueNode.Content[0])
 	}
-	
+
 	// 创建完整的配置
 	config := &YamlDataConfig{
 		DatabaseTable:  dbTable,
 		SelfQueryRules: yamlNode,
 	}
-	
+
 	return config, nil
 }
 

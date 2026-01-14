@@ -37,61 +37,61 @@ type ColumnData struct {
 	DbType    string `yaml:"DbType"`
 	// DDLType       string
 	DbColName     string `yaml:"DbColName"`
-	PrimaryKey    bool `yaml:"PrimaryKey"`
-	NotNullFlag   bool `yaml:"NotNullFlag"`
+	PrimaryKey    bool   `yaml:"PrimaryKey"`
+	NotNullFlag   bool   `yaml:"NotNullFlag"`
 	Length        string `yaml:"Length"`
 	DecimalLength string `yaml:"-"`
-	Comment       string  `yaml:"Comment"`
-	Description   string  `yaml:"Description"`
-	DefaultVal    string  `yaml:"DefaultVal"`
+	Comment       string `yaml:"Comment"`
+	Description   string `yaml:"Description"`
+	DefaultVal    string `yaml:"DefaultVal"`
 	// GeneralIndexName   string
 	// UniqueIndexName    string
 	ColumnRefIndexList []*ColumnRefIndex `yaml:"-"`
-	Priority           string   `yaml:"Priority"`
-	AutoUpdate         bool   `yaml:"AutoUpdate"`
-	AutoCreate         bool   `yaml:"AutoCreate"`
-	AutoIncrement      bool   `yaml:"AutoIncrement"`
-	Omitempty          bool   `yaml:"-"`
-	EndSymbol          string `yaml:"-"`
+	Priority           string            `yaml:"Priority"`
+	AutoUpdate         bool              `yaml:"AutoUpdate"`
+	AutoCreate         bool              `yaml:"AutoCreate"`
+	AutoIncrement      bool              `yaml:"AutoIncrement"`
+	Omitempty          bool              `yaml:"-"`
+	EndSymbol          string            `yaml:"-"`
 }
 
 type NamingSqlData struct {
-	MethodName       string `yaml:"MethodName"`
-	ParamColNameList []SqlParameter  `yaml:"ParamColNameList"`
+	MethodName       string         `yaml:"MethodName"`
+	ParamColNameList []SqlParameter `yaml:"ParamColNameList"`
 	// 自定sql中涉及到的参数列，重复的可省略
 	// BindParam []string
-	NamingSql string  `yaml:"NamingSql"`
-	DbType string `yaml:"DbType"`
+	NamingSql string `yaml:"NamingSql"`
+	DbType    string `yaml:"DbType"`
 	// 对于自定义sql中涉及到自定义列的部分
 	SelectColumns []*SelectColumn `yaml:"-"`
 	// 分页查询时，获取总页数的sql
 	PageCountSql string `yaml:"-"`
-	Page bool `yaml:"-"`
+	Page         bool   `yaml:"-"`
 	// 查询全部列
 	SelectAllCol bool `yaml:"-"`
 }
 
-type SelectColumn struct{
+type SelectColumn struct {
 	ColumnName string // 根据它获取GoType值
-	Alias string // 定义的别名
-	GoType string
-	Tag string
+	Alias      string // 定义的别名
+	GoType     string
+	Tag        string
 }
 
-type SqlParameter struct{
-	ColName string
+type SqlParameter struct {
+	ColName       string
 	ParameterName string
-	IsSlice bool
+	IsSlice       bool
 }
 
-type NamingSqlParameter struct{
-	DbName string
+type NamingSqlParameter struct {
+	DbName        string
 	ParameterName string
-	NotSlice bool
+	NotSlice      bool
 }
 
 type TableData struct {
-	DbType string
+	DbType      string
 	SchemaName  string
 	ObjectName  string
 	ModelName   string
@@ -113,7 +113,7 @@ type TableData struct {
 
 	RNamingSqlList   []*NamingSqlTemplate
 	CUDNamingSqlList []*NamingSqlTemplate
-	NamingSqlMap map[string]*NamingSqlData
+	NamingSqlMap     map[string]*NamingSqlData
 
 	// 数据转换用
 	ColumnDataMap map[string]*ColumnData
@@ -128,7 +128,7 @@ type TableData struct {
 	EntityImportsFilterMap sync.Map
 	UniqueIndexSort        int
 	NoNameUiqueList        []string
-	NamingSqlMapEnable   bool
+	NamingSqlMapEnable     bool
 }
 
 type IndexData struct {
@@ -139,20 +139,20 @@ type IndexData struct {
 	HashParamters string `yaml:"-"`
 	MethodName    string `yaml:"-"`
 	IndexType     string
-	IndexColList  string `yaml:"-"` 
+	IndexColList  string   `yaml:"-"`
 	Imports       []string `yaml:"-"`
-	Use           bool `yaml:"-"`
+	Use           bool     `yaml:"-"`
 }
 
 type NamingSqlTemplate struct {
-	MethodName string
-	BindParam  []*BindParam `yaml:"-"`
-	NamingSql  string
+	MethodName    string
+	BindParam     []*BindParam `yaml:"-"`
+	NamingSql     string
 	SelectColumns []*SelectColumn `yaml:"-"`
-	MethodResName string `yaml:"-"`
-	GenerateBol  bool `yaml:"-"`
-	PageCountSql string `yaml:"-"`
-	SelectAllCol bool `yaml:"-"`
+	MethodResName string          `yaml:"-"`
+	GenerateBol   bool            `yaml:"-"`
+	PageCountSql  string          `yaml:"-"`
+	SelectAllCol  bool            `yaml:"-"`
 	// DbType string
 }
 
@@ -185,9 +185,8 @@ type TableDDL struct {
 	ColumnList       []*ColumnData
 }
 
-
-type YamlData struct{
-	ModelName  string `yaml:"ModelName"`
+type YamlData struct {
+	ModelName string `yaml:"ModelName"`
 	// 表名
 	TableName string `yaml:"TableName"`
 	// 表元素的列数据集合
@@ -199,30 +198,27 @@ type YamlData struct{
 	// 主键
 	PrimaryKeyList []string `yaml:"PrimaryKeyList"`
 	// 自定义sql集合 key为后续要生成的方法名
-	RNamingSqlList   []*NamingSqlTemplate  `yaml:"RNamingSqlList"`
+	RNamingSqlList   []*NamingSqlTemplate `yaml:"RNamingSqlList"`
 	CUDNamingSqlList []*NamingSqlTemplate `yaml:"CUDNamingSqlList"`
-	Encode string `yaml:"Encode"` // 数据库编码
-	Engine string `yaml:"Engine"` // 数据库存储引擎
-	Sort  string `yaml:"Sort"` // 数据库排序规则
+	Encode           string               `yaml:"Encode"` // 数据库编码
+	Engine           string               `yaml:"Engine"` // 数据库存储引擎
+	Sort             string               `yaml:"Sort"`   // 数据库排序规则
 }
-
 
 // 这一套东西要定义到model中
-type WhereCondition[T any] struct{
+type WhereCondition[T any] struct {
+	Condition Condition[any] // 包含使用的列名和列的值
 
-	Condition  Condition[any] // 包含使用的列名和列的值
-
-	Operate  Operate
-
+	Operate Operate
 }
 
-type Condition[T any] struct{
-	Equal T
+type Condition[T any] struct {
+	Equal    T
 	NotEqual T
-	In T
+	In       T
 }
 
-type Operate struct{
-	Or string
+type Operate struct {
+	Or  string
 	And string
 }

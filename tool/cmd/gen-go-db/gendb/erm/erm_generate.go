@@ -15,23 +15,23 @@ type ErmGenerate struct {
 // ParseTemplateFile 解析模板文件
 func (generate *ErmGenerate) ParseTemplateFile(config *render.AGInfraStructrueConfig) (*Diagram, error) {
 
-	data, err:= os.ReadFile(config.DbTemplatePath)
-	if(err!=nil){
+	data, err := os.ReadFile(config.DbTemplatePath)
+	if err != nil {
 		return nil, err
 	}
 
-    diagram:=&Diagram{}
-	if err:=xml.Unmarshal(data, diagram);err!=nil{
-		return nil, err	
+	diagram := &Diagram{}
+	if err := xml.Unmarshal(data, diagram); err != nil {
+		return nil, err
 	}
-	diagram.DbType=strings.ToUpper(config.DbType)
+	diagram.DbType = strings.ToUpper(config.DbType)
 	return diagram, nil
 }
 
 func (generate *ErmGenerate) Generate(config *render.AGInfraStructrueConfig, diagram *Diagram) error {
-	dataConvert:=ErmDataConvert{}
+	dataConvert := ErmDataConvert{}
 	tableDataList := dataConvert.Convert(diagram)
-	supportTableSize:=len(config.SupportTables)
+	supportTableSize := len(config.SupportTables)
 
 	// 过滤需要生成的表
 	filteredTables := make([]*render.TableData, 0, len(tableDataList))
@@ -112,5 +112,3 @@ func (generate *ErmGenerate) Generate(config *render.AGInfraStructrueConfig, dia
 
 	return nil
 }
-
-

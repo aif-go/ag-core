@@ -16,8 +16,9 @@ type ExcelGenerate struct {
 }
 
 type IndexType int
-const(
-	General IndexType =iota
+
+const (
+	General IndexType = iota
 	Unique
 )
 
@@ -33,28 +34,28 @@ func (generate *ExcelGenerate) ParseTemplateFile(config *render.AGInfraStructrue
 	wait := &sync.WaitGroup{}
 	wait.Add(len(sheets))
 
-	list:=[]*ExcelData{}
+	list := []*ExcelData{}
 	for _, sheet := range sheets {
-		exelData:=&ExcelData{
+		exelData := &ExcelData{
 			DbType: strings.ToUpper(config.DbType),
 		}
-		list=append(list, exelData)
+		list = append(list, exelData)
 		// 多协程并行处理文件中的sheet数据
 		go processSheet(sheet, wait, exelData)
 	}
 	wait.Wait()
 	// close(yamlCh)
 	log.Println("all yaml file has create over!!!")
-	return 	&ExcelAllData{
-		  ExcelDataList: list,
-		}, nil 
+	return &ExcelAllData{
+		ExcelDataList: list,
+	}, nil
 }
 
 // Generate 构建dao,entity,sql文件的方法
 func (generate *ExcelGenerate) Generate(config *render.AGInfraStructrueConfig, excelAllData *ExcelAllData) error {
 	dataConvert := ExcelDataConvert{}
 	tableDataList := dataConvert.Convert(excelAllData.ExcelDataList)
-	supportTableSize:=len(config.SupportTables)
+	supportTableSize := len(config.SupportTables)
 
 	// 过滤需要生成的表
 	filteredTables := make([]*render.TableData, 0, len(tableDataList))
@@ -137,8 +138,6 @@ func (generate *ExcelGenerate) Generate(config *render.AGInfraStructrueConfig, e
 	return nil
 }
 
-
-
 // processSheet 按sheet处理excel,类似表级操作
 func processSheet(sheet *xlsx.Sheet, wait *sync.WaitGroup, excelData *ExcelData) {
 	defer wait.Done()
@@ -156,10 +155,10 @@ func processSheet(sheet *xlsx.Sheet, wait *sync.WaitGroup, excelData *ExcelData)
 		for _, cell := range row.Cells {
 			value := cell.Value
 			// 处理表级别的定义数据，格式为在第一行，不能调整
-			if rownum==1{
-				excelData.Encode=row.Cells[2].Value
-				excelData.Engine=row.Cells[0].Value
-				excelData.Sort=row.Cells[1].Value
+			if rownum == 1 {
+				excelData.Encode = row.Cells[2].Value
+				excelData.Engine = row.Cells[0].Value
+				excelData.Sort = row.Cells[1].Value
 				continue
 			}
 			if value == "主键" {
@@ -209,8 +208,8 @@ process:
 // processColRow 处理列数据
 func processColRow(excelData *ExcelData, rows []*xlsx.Row) {
 	list := []*render.ColumnData{}
-	length:=len(rows)
-	primary:=false
+	length := len(rows)
+	primary := false
 	for rowi, row := range rows {
 		if len(row.Cells) == 0 {
 			break
@@ -253,24 +252,24 @@ func processColRow(excelData *ExcelData, rows []*xlsx.Row) {
 			case 8:
 				// 自定义类型处理
 				col.Description = value
-				if strings.HasPrefix(value, "///@create"){
+				if strings.HasPrefix(value, "///@create") {
 					col.AutoCreate = true
 				}
-				if strings.HasPrefix(value, "///@update"){
+				if strings.HasPrefix(value, "///@update") {
 					col.AutoUpdate = true
-				} 
+				}
 			default:
 				log.Println("非目标列,不做任何处理")
 			}
 
 		}
-		col.EndSymbol=","
+		col.EndSymbol = ","
 		// -2的原因是excel模板中每个模块最后必须保留一个空白行
-		if rowi == length-2 && !primary{
-            col.EndSymbol = ""
+		if rowi == length-2 && !primary {
+			col.EndSymbol = ""
 		}
 		// 设置db类型
-		col.DbType = render.ConvertGoTypeToDbType(col.GoType, col.Length,excelData.DbType)
+		col.DbType = render.ConvertGoTypeToDbType(col.GoType, col.Length, excelData.DbType)
 		// if col.Length!=""{
 		// 	col.DbType = dbType+"("+col.Length+")"
 		// }
@@ -281,9 +280,6 @@ func processColRow(excelData *ExcelData, rows []*xlsx.Row) {
 	}
 	excelData.ColumnList = list
 }
-
-
-
 
 // processPrimaryRow 处理主键行数据
 func processPrimaryRow(table *ExcelData, rows []*xlsx.Row) {
@@ -318,19 +314,19 @@ func processIndexRow(table *ExcelData, rows []*xlsx.Row, indexType IndexType) {
 		// indexData.BindParamList=bindParam
 		var value string
 		for index, cel := range row.Cells {
-			value= cel.Value
+			value = cel.Value
 
 			if index == 0 && value == "" {
 				break
 			}
 			if index == 0 {
-				indexData = &render.IndexData{IndexName:value }
+				indexData = &render.IndexData{IndexName: value}
 				bindParam = []*render.BindParam{}
 				continue
 			}
 
 			// 处理索引类型
-			if index == 1 && indexType==General {
+			if index == 1 && indexType == General {
 				indexData.IndexType = value
 				continue
 			}
@@ -353,67 +349,66 @@ func processIndexRow(table *ExcelData, rows []*xlsx.Row, indexType IndexType) {
 	}
 }
 
-
 func processNamingSqlRow(table *ExcelData, rows []*xlsx.Row) {
 
 	//map中取，没有的化就用默认的
 	namingsqlArr := []*render.NamingSqlData{}
 	// key 是db类型+方法名
-	namingsqlMap:=map[string]*render.NamingSqlData{}
+	namingsqlMap := map[string]*render.NamingSqlData{}
 	for _, row := range rows {
-	    // 空白行不处理
+		// 空白行不处理
 		if len(row.Cells) == 0 {
 			break
 		}
 		var namingsql *render.NamingSqlData
-		add:=true
+		add := true
 		// 先将每行数据转换为对应的实体
 		for index, cel := range row.Cells {
 			value := cel.Value
-			switch  index {
+			switch index {
 			case 0: // methodName
 				// 如果自定义命名的方法名为空,直接丢弃该条数据
 				if value == "" {
 					add = false
 					continue
 				}
-				namingsql = & render.NamingSqlData {
+				namingsql = &render.NamingSqlData{
 					MethodName: value,
 				}
-			case 1:// sql对应的db
+			case 1: // sql对应的db
 				if value == "" {
-					add =false
+					add = false
 					continue
 				}
 				namingsql.NamingSql = value
-				sqlParameterList,err:=common.ParseWhereConditions(namingsql.NamingSql)
-				if err!=nil {
+				sqlParameterList, err := common.ParseWhereConditions(namingsql.NamingSql)
+				if err != nil {
 					panic(err.Error())
 				}
-				if len(sqlParameterList) !=0 {
-					namingsql.ParamColNameList=append(namingsql.ParamColNameList, sqlParameterList...)
+				if len(sqlParameterList) != 0 {
+					namingsql.ParamColNameList = append(namingsql.ParamColNameList, sqlParameterList...)
 				}
-				selectColList,err:=common.ParseSqlSelect(namingsql.NamingSql)
-				if err!=nil{
+				selectColList, err := common.ParseSqlSelect(namingsql.NamingSql)
+				if err != nil {
 					panic(err.Error())
 				}
-				if selectColList!=nil {
+				if selectColList != nil {
 					namingsql.SelectColumns = selectColList
 				}
 			case 2:
 				// 只有前两项不为空的情况下才可以添加到map中
 				if add {
-					keyPrefix:=strings.ToUpper(value)
+					keyPrefix := strings.ToUpper(value)
 					namingsql.DbType = keyPrefix
 					if keyPrefix != "" {
-						keyPrefix=keyPrefix+"@"
+						keyPrefix = keyPrefix + "@"
 					}
-					namingsqlMap[keyPrefix + namingsql.MethodName] = namingsql
+					namingsqlMap[keyPrefix+namingsql.MethodName] = namingsql
 				}
-			default:	
+			default:
 			}
 		}
-		if add && namingsql!=nil {
+		if add && namingsql != nil {
 			namingsqlArr = append(namingsqlArr, namingsql)
 		}
 	}

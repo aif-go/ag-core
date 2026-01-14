@@ -12,24 +12,24 @@ import (
 
 func TestExcelGen(t *testing.T) {
 	//{{.Module}}
-	moduleByte,_:=exec.Command("go","list","-f","",".").Output()
-	fmt.Println("目标路径:"+strings.TrimSpace(string(moduleByte)))
-	config:=&render.AGInfraStructrueConfig{
+	moduleByte, _ := exec.Command("go", "list", "-f", "", ".").Output()
+	fmt.Println("目标路径:" + strings.TrimSpace(string(moduleByte)))
+	config := &render.AGInfraStructrueConfig{
 		BaseConfig: render.BaseConfig{
 			// DbTemplatePath: "C:/Users/songbing/Desktop/goerm/mps.erm",
 			DbTemplatePath: "./tm_test.yaml",
 			// DbTemplatePath: "./mps-template.xlsx",
 			PackageNamePrefix: "ag-core-inner-agdb/tool/aggen/gendb",
-			OutputPath: "./",
-			DbType: "mysql",
+			OutputPath:        "./",
+			DbType:            "mysql",
 		},
 		GenerateOptions: render.GenerateOptions{
-			Sqlable: true,
-			Daoable: true,
+			Sqlable:    true,
+			Daoable:    true,
 			Entityable: true,
 		},
 		SupportConfig: render.SupportConfig{
-			SupportDB: []string{"mysql","db2"},
+			SupportDB: []string{"mysql", "db2"},
 			SupportTables: map[string]string{
 				"tm_test": "TmTest",
 			},
@@ -39,7 +39,7 @@ func TestExcelGen(t *testing.T) {
 	// GenerateYamlFile(config)
 }
 
-func TestInsert(t *testing.T){
+func TestInsert(t *testing.T) {
 
 	// dao:=GetRepository()
 	// ctx:=context.Background()
@@ -54,10 +54,7 @@ func TestInsert(t *testing.T){
 	// printEntity("InsertOne",count,err,t)
 }
 
-
-
-
-func TestInsertIgnoreZeroVal(t *testing.T){
+func TestInsertIgnoreZeroVal(t *testing.T) {
 	// dao:=GetRepository()
 	// ctx:=context.Background()
 	// tmTest:=&model.TmTest{
@@ -69,7 +66,7 @@ func TestInsertIgnoreZeroVal(t *testing.T){
 	// count,err:=dao.InsertOneIgnoreZeroVal(ctx,tmTest)
 	// printEntity("InsertOneIgnoreZeroVal",count,err,t)
 }
-func BenchmarkChainWhereQuery(b *testing.B){
+func BenchmarkChainWhereQuery(b *testing.B) {
 
 	// var Cardno, BizDate, Address conditonwhere.IndexField = "CARDNO","BIZ_DATE","ADDRESS"
 	// b.ResetTimer()
@@ -86,28 +83,25 @@ func BenchmarkChainWhereQuery(b *testing.B){
 	// }
 
 }
+
 // func TestQuery(t *testing.T){
 // 	dao:=GetRepository()
 // 	ctx:=context.Background()
 
-	// appidlist:= &model.FindByAppIdArg{
-	// 	AppIdSlice: []string{"1","2"},
-	// }
+// appidlist:= &model.FindByAppIdArg{
+// 	AppIdSlice: []string{"1","2"},
+// }
 
-	// list1,err:=dao.FindByAppId(ctx, appidlist)
-	// printList("FindByAppId",list1,err,t)
-	// arg := &model.FindBySelfColArg{
+// list1,err:=dao.FindByAppId(ctx, appidlist)
+// printList("FindByAppId",list1,err,t)
+// arg := &model.FindBySelfColArg{
 
-	// }
-	// list2,err:=dao.FindBySelfCol(ctx,arg)
-	// printList("FindBySelfCol",list2,err,t)
-
-	
-
+// }
+// list2,err:=dao.FindBySelfCol(ctx,arg)
+// printList("FindBySelfCol",list2,err,t)
 
 // 	list,error:=dao.FindByAddressBizDate(ctx,"上海市浦东新区",time.Date(2025,time.October,11,0,0,0,0,time.Now().Location()))
 // 	printList("FindByAddressBizDate", list, error, t)
-
 
 // 	entity,er:=dao.FindByCardnoBizDate(ctx, "1", time.Date(2025,time.October,11,0,0,0,0,time.Now().Location()))
 // 	printEntity("FindByIdNoIdType", entity, er, t)
@@ -119,7 +113,6 @@ func BenchmarkChainWhereQuery(b *testing.B){
 // 	printEntity("FindByPrimaryKey", entity1, er2, t)
 
 // }
-
 
 // func TestNamingSql(t *testing.T){
 // 	dao:=GetRepository()
@@ -133,7 +126,7 @@ func BenchmarkChainWhereQuery(b *testing.B){
 // }
 
 // TestPageQuery 测试分页查询
-func TestPageQuery(t *testing.T){
+func TestPageQuery(t *testing.T) {
 	// dao:=GetRepository()
 	// ctx:=context.Background()
 	// res,err:=dao.FindAaByPage(ctx, &model.TmTestFindAaByPageArg{
@@ -144,7 +137,7 @@ func TestPageQuery(t *testing.T){
 	// printEntity("Xxxxx",res,err,t)
 }
 
-func TestPageFindAllCols(t *testing.T){
+func TestPageFindAllCols(t *testing.T) {
 	// dao:=GetRepository()
 	// ctx:=context.Background()
 	// res,err:=dao.FindAllColsByPage(ctx, &model.TmTestFindAllColsByPageArg{
@@ -155,8 +148,7 @@ func TestPageFindAllCols(t *testing.T){
 	// printEntity("TestPageFindAllCols",res,err,t)
 }
 
-
-func TestFindAllCols(t *testing.T){
+func TestFindAllCols(t *testing.T) {
 	// dao:=GetRepository()
 	// ctx:=context.Background()
 	// res,err:=dao.FindAllCols(ctx, &model.TmTestFindAllColsArg{
@@ -165,8 +157,7 @@ func TestFindAllCols(t *testing.T){
 	// printEntity("TestFindAllCols",res,err,t)
 }
 
-
-func TestUpdate(t *testing.T){
+func TestUpdate(t *testing.T) {
 	// dao:=GetRepository()
 	// ctx:=context.Background()
 	// test:=&model.TmTest{
@@ -178,7 +169,7 @@ func TestUpdate(t *testing.T){
 	// 	JpaVersion: 2,
 	// }
 
-	// dao.UpdateByPriIngoreNullCols(ctx, test)	
+	// dao.UpdateByPriIngoreNullCols(ctx, test)
 	// tmMediaAct:= &model.TmMediaAct{
 	// 	// Seq: 3,
 	// 	Cardno: "N1234567890",
@@ -221,7 +212,6 @@ func TestUpdate(t *testing.T){
 	// dao.UpdateByPriIngoreNullCols()
 }
 
-
 // func TestDelete(t *testing.T){
 // 	ctx:=context.Background()
 // 	dao:=GetRepository()
@@ -239,35 +229,32 @@ func TestUpdate(t *testing.T){
 
 // }
 
+func printList[T any](name string, list []T, err error, t *testing.T) {
 
-func printList[T any] (name string, list []T, err error, t *testing.T){
-
-	t.Logf(" *** %v *** ",name)
-	if err!=nil{
+	t.Logf(" *** %v *** ", name)
+	if err != nil {
 		t.Log(err.Error())
 		t.Fail()
 	}
-	if len(list) == 0{
+	if len(list) == 0 {
 		t.Log("未查询到预期的数据")
 		t.Fail()
 	}
-	for _,entity:= range list{
+	for _, entity := range list {
 		t.Logf("结果:%v \n", entity)
 	}
 	t.Logf(" *** %v end *** ", name)
 }
 
-func printEntity(name string, entity interface{}, err error, t *testing.T){
-	t.Logf(" *** %v *** ",name)
-	if err!=nil{
+func printEntity(name string, entity interface{}, err error, t *testing.T) {
+	t.Logf(" *** %v *** ", name)
+	if err != nil {
 		t.Log(err.Error())
 		t.Fail()
 	}
-	t.Logf("查询结果%v \n",entity)
+	t.Logf("查询结果%v \n", entity)
 	t.Logf(" *** %v end *** ", name)
 }
-
-
 
 // func GetRepository() dao.ITmTestDao {
 
@@ -300,5 +287,3 @@ func printEntity(name string, entity interface{}, err error, t *testing.T){
 
 // 	return dao.NewTmTestDao(repository)
 // }
-
-

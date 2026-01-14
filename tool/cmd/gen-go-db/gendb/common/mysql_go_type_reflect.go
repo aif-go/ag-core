@@ -11,27 +11,27 @@ var MySQLGoTypeReflect = map[string]string{
 	"LONGTEXT":   "string",
 
 	// 数值整型
-	"TINYINT":    "int8",
-	"BOOL":       "bool",
-	"BOOLEAN":    "bool",
-	"SMALLINT":   "int16",
-	"MEDIUMINT":  "int32",
-	"INT":        "int",
-	"INTEGER":    "int",
-	"BIGINT":     "int64",
+	"TINYINT":   "int8",
+	"BOOL":      "bool",
+	"BOOLEAN":   "bool",
+	"SMALLINT":  "int16",
+	"MEDIUMINT": "int32",
+	"INT":       "int",
+	"INTEGER":   "int",
+	"BIGINT":    "int64",
 
 	// 数值浮点型
-	"FLOAT":      "float32",
-	"DOUBLE":     "float64",
-	"DECIMAL":    "*decimal.Decimal",
-	"NUMERIC":    "*decimal.Decimal",
+	"FLOAT":   "float32",
+	"DOUBLE":  "float64",
+	"DECIMAL": "*decimal.Decimal",
+	"NUMERIC": "*decimal.Decimal",
 
 	// 日期时间类型
-	"DATE":       "time.Time",
-	"TIME":       "time.Time",
-	"DATETIME":   "time.Time",
-	"TIMESTAMP":  "time.Time",
-	"YEAR":       "int16",
+	"DATE":      "time.Time",
+	"TIME":      "time.Time",
+	"DATETIME":  "time.Time",
+	"TIMESTAMP": "time.Time",
+	"YEAR":      "int16",
 
 	// 二进制类型
 	"BINARY":     "[]byte",
@@ -42,5 +42,5 @@ var MySQLGoTypeReflect = map[string]string{
 	"LONGBLOB":   "[]byte",
 
 	// JSON类型
-	"JSON":       "string",
+	"JSON": "string",
 }

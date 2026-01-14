@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func RenerDDLTemplate(config *AGInfraStructrueConfig,tableData *TableData) error {
+func RenerDDLTemplate(config *AGInfraStructrueConfig, tableData *TableData) error {
 
 	// 定义自定义函数
 	// funcMap := template.FuncMap{
@@ -24,12 +24,12 @@ func RenerDDLTemplate(config *AGInfraStructrueConfig,tableData *TableData) error
 	// 	}
 	// }
 
-	templateName:=""
-	switch  config.DbType {
+	templateName := ""
+	switch config.DbType {
 	case MY_SQL:
-		templateName="ddl_table_mysql.tmpl"
+		templateName = "ddl_table_mysql.tmpl"
 	case DB2:
-		templateName="ddl_table_db2.tmpl"
+		templateName = "ddl_table_db2.tmpl"
 	default:
 		return fmt.Errorf("不支持的db类型,当前仅支持db2和mysql")
 	}

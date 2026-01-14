@@ -16,7 +16,6 @@ import (
 
 func GenerateDBGoFile(config *render.AGInfraStructrueConfig) error {
 
-
 	// 校验参数
 	err := verifyConfig(config)
 	if err != nil {
@@ -63,7 +62,7 @@ func GenerateDBGoFile(config *render.AGInfraStructrueConfig) error {
 		if err := execute(config, xlsx); err != nil {
 			return err
 		}
-	case ".yaml",".yml":
+	case ".yaml", ".yml":
 		yaml := &yaml.YamlGenerate{}
 		if err := execute(config, yaml); err != nil {
 			return err
@@ -76,16 +75,15 @@ func GenerateDBGoFile(config *render.AGInfraStructrueConfig) error {
 	return nil
 }
 
-
 // GenerateYamlFile 生成yaml文件
 func GenerateYamlFile(config *render.AGInfraStructrueConfig) error {
 	if config.OutputPath == "" {
 		return errors.New("输出路径未配置")
 	}
-    config.OutputPath=config.OutputPath+render.YamlPathSuffix
+	config.OutputPath = config.OutputPath + render.YamlPathSuffix
 	mkdir(config.OutputPath)
-	err:=yaml.GenerateYamlFromExcel(config)
-	if err!=nil{
+	err := yaml.GenerateYamlFromExcel(config)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -96,15 +94,13 @@ func GenerateExcelFile(config *render.AGInfraStructrueConfig) error {
 	if config.OutputPath == "" {
 		return nil
 	}
-	generate:= &erm.ErmGenerate {
-	}
+	generate := &erm.ErmGenerate{}
 	diagram, err := generate.ParseTemplateFile(config)
 	if err != nil {
 		return err
 	}
-	convert:=&erm.ErmDataConvert{
-	}
-	list:=convert.Convert(diagram)
+	convert := &erm.ErmDataConvert{}
+	list := convert.Convert(diagram)
 	excel.OtherToExcel(config, list)
 	// if err != nil {
 	// 	return err

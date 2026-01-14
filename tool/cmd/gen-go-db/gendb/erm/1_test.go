@@ -9,11 +9,11 @@ import (
 
 func TestERMParse(t *testing.T) {
 
-	config:=&render.AGInfraStructrueConfig{
+	config := &render.AGInfraStructrueConfig{
 		BaseConfig: render.BaseConfig{
-			DbTemplatePath: "C:/Users/songbing/Desktop/goerm/mps.erm",
+			DbTemplatePath:    "C:/Users/songbing/Desktop/goerm/mps.erm",
 			PackageNamePrefix: "ag-core/tool/cmd/gen-go-db/gendb",
-			DbType: "db2",
+			DbType:            "db2",
 		},
 		GenerateOptions: render.GenerateOptions{
 			Sqlable: true,
@@ -22,14 +22,14 @@ func TestERMParse(t *testing.T) {
 		},
 		PathConfig: render.PathConfig{
 			// OutputPath: "C:/Users/songbing/Desktop/goerm/",
-			DaoPath: "C:/Users/songbing/Desktop/goerm/dao/",
+			DaoPath:    "C:/Users/songbing/Desktop/goerm/dao/",
 			EntityPath: "C:/Users/songbing/Desktop/goerm/entity/",
-			SqlPath: "C:/Users/songbing/Desktop/goerm/sql/",
+			SqlPath:    "C:/Users/songbing/Desktop/goerm/sql/",
 		},
-	} 
-	
+	}
+
 	// var generate Generate
-	generate:=&ErmGenerate{}
+	generate := &ErmGenerate{}
 	diagram, err := generate.ParseTemplateFile(config)
 	if err != nil {
 		t.Fatalf("解析模板文件失败: %v", err)

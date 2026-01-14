@@ -14,38 +14,38 @@ import (
 // ConvertToTableData 将解析后的YAML数据转换为render包中的TableData
 func ConvertToTableData(dbTable DatabaseTable, selfQueryRules *yaml.Node) *render.TableData {
 	tableData := &render.TableData{
-		TableName:      dbTable.TableName,
-		ObjectName:      ToCamelCase(dbTable.TableName),
+		TableName:  dbTable.TableName,
+		ObjectName: ToCamelCase(dbTable.TableName),
 		// PackageName:    "model",
-		ColumnDataMap:  make(map[string]*render.ColumnData),
-		ColumnList:     make([]*render.ColumnData, 0),
-		TableModelList: make([]*render.TableModel, 0),
-		GeneralIndexList: make([]*render.IndexData, 0),
-		UniqueIndexList:  make([]*render.IndexData, 0),
-		NamingSqlMap:   make(map[string]*render.NamingSqlData),
+		ColumnDataMap:      make(map[string]*render.ColumnData),
+		ColumnList:         make([]*render.ColumnData, 0),
+		TableModelList:     make([]*render.TableModel, 0),
+		GeneralIndexList:   make([]*render.IndexData, 0),
+		UniqueIndexList:    make([]*render.IndexData, 0),
+		NamingSqlMap:       make(map[string]*render.NamingSqlData),
 		NamingSqlMapEnable: true,
-		PrimaryKeyList: "",
+		PrimaryKeyList:     "",
 		// Engine:         "InnoDB",
 		// Encode:         "utf8mb4",
 		// Sort:           "utf8mb4_unicode_ci",
-		DaoImportsFilterMap: sync.Map{},      // 添加 DaoImportsFilterMap
-		EntityImportsFilterMap: sync.Map{},   // 添加 EntityImportsFilterMap
-		DbType: dbTable.DbType,
+		DaoImportsFilterMap:    sync.Map{}, // 添加 DaoImportsFilterMap
+		EntityImportsFilterMap: sync.Map{}, // 添加 EntityImportsFilterMap
+		DbType:                 dbTable.DbType,
 	}
 
 	// 转换列数据
 	tableData.ColumnDataMap = make(map[string]*render.ColumnData) // 确保map已初始化
 	// 处理列数据
-	processCol(dbTable,tableData)
+	processCol(dbTable, tableData)
 	// 处理主键数据
-	processPrimaryKeys(dbTable,tableData)
-	processIndex(dbTable.Indexes.General,tableData,false)
-	processIndex(dbTable.Indexes.Unique,tableData,true)
+	processPrimaryKeys(dbTable, tableData)
+	processIndex(dbTable.Indexes.General, tableData, false)
+	processIndex(dbTable.Indexes.Unique, tableData, true)
 	// 现在所有列的索引引用信息都已添加，创建TableModel
-	for _, colName := range  dbTable.Columns.Keys(){
+	for _, colName := range dbTable.Columns.Keys() {
 		colData := tableData.ColumnDataMap[strings.ToUpper(colName)]
-		if colData == nil{
-			fmt.Println("未找到指定的列信息:",colName)
+		if colData == nil {
+			fmt.Println("未找到指定的列信息:", colName)
 		}
 		// 使用render.CreateTableModel方法创建TableModel
 		render.CreateTableModel(tableData, colData)
@@ -69,10 +69,10 @@ func ToCamelCase(name string) string {
 		}
 		return name
 	}
-	
+
 	// 如果有下划线，按原来的方式处理
 	parts := strings.Split(name, "_")
-	for i := 0; i < len(parts); i++ {  // 修改这里，从i:=0开始而不是i:=1
+	for i := 0; i < len(parts); i++ { // 修改这里，从i:=0开始而不是i:=1
 		if len(parts[i]) > 0 {
 			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 		}
@@ -113,35 +113,35 @@ func getColumnEndSymbol(column Column) string {
 // generateGoTag 生成Go结构体标签
 func generateGoTag(colName string, column Column, colData *render.ColumnData) string {
 	tags := []string{}
-	
+
 	// JSON标签，使用GoColName而不是原始的colName
 	jsonName := ToCamelCase(colName)
 	tags = append(tags, `json:"`+jsonName+`"`)
-	
+
 	// GORM标签
 	gormTags := []string{}
 	gormTags = append(gormTags, "column:"+column.DbColumn)
-	
+
 	if column.PrimaryKey {
 		gormTags = append(gormTags, "primaryKey")
 	}
-	
+
 	if column.NotNull {
 		gormTags = append(gormTags, "not null")
 	}
-	
+
 	if column.AutoIncrement {
 		gormTags = append(gormTags, "autoIncrement")
 	}
-	
+
 	if column.Length != "" {
 		gormTags = append(gormTags, "size:"+column.Length)
 	}
-	
+
 	if column.DefaultValue != "" {
 		gormTags = append(gormTags, "default:"+column.DefaultValue)
 	}
-	
+
 	// 处理索引信息
 	if colData.ColumnRefIndexList != nil {
 		for _, ref := range colData.ColumnRefIndexList {
@@ -156,9 +156,9 @@ func generateGoTag(colName string, column Column, colData *render.ColumnData) st
 			}
 		}
 	}
-	
+
 	tags = append(tags, `gorm:"`+strings.Join(gormTags, ";")+`"`)
-	
+
 	return strings.Join(tags, " ")
 }
 
@@ -170,7 +170,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 
 	// 初始化空的 NamingSqlList
 	var namingSqlList []*render.NamingSqlData
-	
+
 	// 如果提供了 SelfQueryRules，则处理它们并添加到 NamingSqlList
 	if selfQueryRules != nil && selfQueryRules.Kind != 0 {
 		// 解析有序查询规则
@@ -178,7 +178,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 		if err == nil {
 			// 转换为 NamingSqlData
 			selfQueryNamingSqlList := ConvertSelfQueryRulesToNamingSql(dbTable.TableName, orderedRules, tableData)
-			
+
 			// 将转换后的数据合并到 NamingSqlList 中
 			namingSqlList = append(namingSqlList, selfQueryNamingSqlList...)
 			// 添加调试信息
@@ -189,7 +189,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 	} else {
 		fmt.Println("No selfQueryRules provided or selfQueryRules.Kind is 0")
 	}
-	
+
 	// 添加调试信息
 	fmt.Printf("Total namingSqlList length: %d\n", len(namingSqlList))
 
@@ -244,7 +244,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 					// bindParam.GoColName=sqlParameter.ParameterName
 					// tableData.ColumnDataMap[sqlParameter.ColName].GoColName
 				}
-				bindParam.GoColName = strings.Trim(sqlParameter.ParameterName,"@")
+				bindParam.GoColName = strings.Trim(sqlParameter.ParameterName, "@")
 				list = append(list, bindParam)
 			}
 		}
@@ -276,7 +276,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 			if val, ok := tableData.ColumnDataMap[key]; ok {
 				renderSelectCol.GoType = val.GoType
 				renderSelectCol.Tag = "gorm:\"column:" + selectCol.ColumnName + "\""
-				
+
 				// 处理 SelectColumns 的导入包
 				goType, pkg := render.Imports(val.GoType, "")
 				if pkg != "" {
@@ -358,15 +358,13 @@ func convertNamingSqlMap(yamlMap map[string]*NamingSqlData) map[string]*render.N
 	return result
 }
 
-
-
 // 处理表列的逻辑
-func processCol(dbTable DatabaseTable,tableData	*render.TableData){
-		// 使用orderedmap的Keys()方法获取列名列表，以保持顺序
+func processCol(dbTable DatabaseTable, tableData *render.TableData) {
+	// 使用orderedmap的Keys()方法获取列名列表，以保持顺序
 	columnKeys := dbTable.Columns.Keys()
 	colCount := len(columnKeys)
 	i := 0
-		// 遍历列键来访问列数据
+	// 遍历列键来访问列数据
 	for _, colName := range columnKeys {
 		// colName=strings.ToUpper(colName)
 		// 从orderedmap中获取列值
@@ -374,12 +372,12 @@ func processCol(dbTable DatabaseTable,tableData	*render.TableData){
 		if !exists {
 			continue
 		}
-		
+
 		column, ok := columnValue.(Column) // 类型断言为Column类型
 		if !ok {
 			continue
 		}
-		
+
 		// 解析tag列，处理多标签的问题
 		tagParts := strings.Split(column.Description, ";")
 		omitempty := false
@@ -418,23 +416,20 @@ func processCol(dbTable DatabaseTable,tableData	*render.TableData){
 			Omitempty:     omitempty,
 		}
 
-		
 		// 最后一列的结束符号设置为空
 		if i == colCount-1 {
 			colData.EndSymbol = ""
 		}
-		
+
 		tableData.ColumnDataMap[strings.ToUpper(colName)] = colData
 		tableData.ColumnList = append(tableData.ColumnList, colData)
 		i++
 	}
 }
 
-
-
 // 处理主键的数据
-func processPrimaryKeys(dbTable DatabaseTable, tableData *render.TableData){
-		// 处理主键
+func processPrimaryKeys(dbTable DatabaseTable, tableData *render.TableData) {
+	// 处理主键
 	var primaryKeys []string
 	for _, pk := range dbTable.PrimaryKeys {
 		primaryKeys = append(primaryKeys, pk.Column)
@@ -496,7 +491,7 @@ func processPrimaryKeys(dbTable DatabaseTable, tableData *render.TableData){
 				} else {
 					primryDIndex.HashParamters = primryDIndex.HashParamters + "," + hashParam
 				}
-				
+
 			}
 		}
 
@@ -509,10 +504,8 @@ func processPrimaryKeys(dbTable DatabaseTable, tableData *render.TableData){
 
 }
 
-
-
 // 处理索引数据
-func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool){
+func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool) {
 	indexTypeStr := "General"
 	if uniqueIndex {
 		indexTypeStr = "Unique"
@@ -520,19 +513,19 @@ func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool)
 	// 处理索引 - 先处理索引，添加索引引用信息到列数据中
 	for _, idx := range indexs {
 		indexData := &render.IndexData{
-			IndexName: idx.IndexName,
-			IndexType: indexTypeStr,
+			IndexName:    idx.IndexName,
+			IndexType:    indexTypeStr,
 			IndexColList: strings.Join(idx.Columns, ","),
-			Use: true,
+			Use:          true,
 		}
-		
+
 		// 处理 BindParamList 和 HashParamters
 		bindParamList := []*render.BindParam{}
 		var hashParamters string
 		for i, colName := range idx.Columns {
 			// 通过ColumnDataMap的键查找，使用原始列名（与YAML中列定义的键一致）
 			colData, exists := tableData.ColumnDataMap[strings.ToUpper(colName)]
-			
+
 			if exists {
 				bindParam := &render.BindParam{
 					DbColName: colData.DbColName,
@@ -540,7 +533,7 @@ func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool)
 					GoType:    colData.GoType,
 				}
 				bindParamList = append(bindParamList, bindParam)
-				
+
 				// 构建HashParamters
 				hashParam := colData.GoColName + " " + bindParam.GoType
 				if hashParamters == "" {
@@ -548,14 +541,14 @@ func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool)
 				} else {
 					hashParamters = hashParamters + "," + hashParam
 				}
-				
+
 				// 更新列的ColumnRefIndexList，添加索引引用信息
 				indexRef := &render.ColumnRefIndex{
 					IndexName: idx.IndexName,
 					IndexType: render.General,
-					Priority: strconv.Itoa(i+1),
+					Priority:  strconv.Itoa(i + 1),
 				}
-				
+
 				// 初始化ColumnRefIndexList如果为nil
 				if colData.ColumnRefIndexList == nil {
 					colData.ColumnRefIndexList = []*render.ColumnRefIndex{}
@@ -567,19 +560,19 @@ func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool)
 		}
 		indexData.BindParamList = bindParamList
 		indexData.HashParamters = hashParamters
-		
+
 		// 生成MethodName - 与excel_data_convert.go保持一致
 		var methodNameBuilder strings.Builder
 		for _, colName := range idx.Columns {
 			// 通过ColumnDataMap的键查找，使用原始列名（与YAML中列定义的键一致）
 			colData, exists := tableData.ColumnDataMap[strings.ToUpper(colName)]
-			
+
 			if exists {
 				methodNameBuilder.WriteString(colData.GoColName)
 			}
 		}
 		indexData.MethodName = methodNameBuilder.String()
-		
+
 		// 处理 Imports
 		for _, bindParam := range indexData.BindParamList {
 			goType, pkg := render.Imports(bindParam.GoType, "")
@@ -592,9 +585,9 @@ func processIndex(indexs []Index, tableData *render.TableData, uniqueIndex bool)
 				bindParam.GoType = goType
 			}
 		}
-		if uniqueIndex	{
+		if uniqueIndex {
 			tableData.UniqueIndexList = append(tableData.UniqueIndexList, indexData)
-		}else{
+		} else {
 			tableData.GeneralIndexList = append(tableData.GeneralIndexList, indexData)
 		}
 	}

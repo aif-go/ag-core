@@ -10,7 +10,7 @@ func (convert *YamlDataConvert) Convert(yamlDataList []*YamlDataConfig) []*rende
 
 	list := []*render.TableData{}
 	for _, yamlData := range yamlDataList {
-		renderTableData:=ConvertConfigToRenderTableData(*yamlData)
+		renderTableData := ConvertConfigToRenderTableData(*yamlData)
 		list = append(list, renderTableData)
 	}
 	return list

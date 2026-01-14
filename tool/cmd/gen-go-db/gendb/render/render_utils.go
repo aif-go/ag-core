@@ -16,23 +16,23 @@ func CreateTableModel(tableData *TableData, columnData *ColumnData) {
 	}
 
 	// if _, ok := filterRepeatTypeMap[columnData.GoType]; !ok {
-	goType,pck:=Imports(columnData.GoType,"")
-	if pck!=""{
-		if _,ok:=tableData.EntityImportsFilterMap.LoadOrStore(pck,pck);!ok{
+	goType, pck := Imports(columnData.GoType, "")
+	if pck != "" {
+		if _, ok := tableData.EntityImportsFilterMap.LoadOrStore(pck, pck); !ok {
 			// map中不存在的场景才需要放入
 			tableData.Imports = append(tableData.Imports, pck)
 			// entityImportFilterMap[pck] = pck
 		}
-		columnData.GoType=goType
+		columnData.GoType = goType
 	}
-		// 目前只要time需要额外的添加
-		// if strings.Contains(columnData.GoType, "time") {
-		// 	// map中不存在的场景才需要放入
-		// 	filterRepeatTypeMap["time"] = "time"
-		// 	tableData.Imports = append(tableData.Imports, "time")
-		// }
-		// 对于自定义的枚举类，根据标注引入的对应的包
-		// TODO dao里面的imports怎么办?
+	// 目前只要time需要额外的添加
+	// if strings.Contains(columnData.GoType, "time") {
+	// 	// map中不存在的场景才需要放入
+	// 	filterRepeatTypeMap["time"] = "time"
+	// 	tableData.Imports = append(tableData.Imports, "time")
+	// }
+	// 对于自定义的枚举类，根据标注引入的对应的包
+	// TODO dao里面的imports怎么办?
 	// }
 
 	tableData.TableModelList = append(tableData.TableModelList, &TableModel{
@@ -57,7 +57,7 @@ func CreateTag(columnData *ColumnData) string {
 	}
 	if columnData.Omitempty {
 		builder.WriteString("omitempty;")
-	}		
+	}
 	builder.WriteString(`column:`)
 
 	builder.WriteString(columnData.DbColName)
@@ -75,8 +75,8 @@ func CreateTag(columnData *ColumnData) string {
 
 	// TODO 如果一列数据被使用到多个
 	if columnData.ColumnRefIndexList != nil {
-		for _, ref:=range columnData.ColumnRefIndexList{
-			if ref == nil{
+		for _, ref := range columnData.ColumnRefIndexList {
+			if ref == nil {
 				continue
 			}
 			switch ref.IndexType {
@@ -113,5 +113,3 @@ func CreateTag(columnData *ColumnData) string {
 
 	return builder.String()
 }
-
-

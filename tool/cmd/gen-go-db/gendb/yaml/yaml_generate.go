@@ -17,13 +17,13 @@ type YamlGenerate struct {
 // ParseTemplateFile 解析模板文件
 func (generate *YamlGenerate) ParseTemplateFile(config *render.AGInfraStructrueConfig) (*YamlAllTableData, error) {
 
-	listyaml, err:= findYamlFiles(config.DbTemplatePath,false)
-	if err!=nil{
-		fmt.Printf("获取路径:%v下的yaml文件列表失败：%v\n", config.OutputPath,err)
-		return nil,err
+	listyaml, err := findYamlFiles(config.DbTemplatePath, false)
+	if err != nil {
+		fmt.Printf("获取路径:%v下的yaml文件列表失败：%v\n", config.OutputPath, err)
+		return nil, err
 	}
-	yamlDataList:=make([]*YamlDataConfig,0)
-	for _, yamlfilepath:=range listyaml{
+	yamlDataList := make([]*YamlDataConfig, 0)
+	for _, yamlfilepath := range listyaml {
 		// 1. 读取YAML文件
 		yamlFile, err := os.ReadFile(yamlfilepath)
 		if err != nil {
@@ -31,25 +31,25 @@ func (generate *YamlGenerate) ParseTemplateFile(config *render.AGInfraStructrueC
 			continue
 		}
 		// 2. 解析YAML到结构体
-		var yamlFileData *YamlDataConfig=&YamlDataConfig{}
+		var yamlFileData *YamlDataConfig = &YamlDataConfig{}
 		err = yaml.Unmarshal(yamlFile, yamlFileData)
 		if err != nil {
 			fmt.Printf("解析YAML失败：%v\n", err)
 			continue
 		}
 		// 设置数据库类型
-		yamlFileData.DatabaseTable.DbType=config.DbType
+		yamlFileData.DatabaseTable.DbType = config.DbType
 		yamlDataList = append(yamlDataList, yamlFileData)
 	}
-	
-	return 	&YamlAllTableData{yamlDataList}, nil 
+
+	return &YamlAllTableData{yamlDataList}, nil
 }
 
 // Generate 构建dao,entity,sql文件的方法
 func (generate *YamlGenerate) Generate(config *render.AGInfraStructrueConfig, yamlAllTableData *YamlAllTableData) error {
 	dataConvert := YamlDataConvert{}
 	tableDataList := dataConvert.Convert(yamlAllTableData.YamlDataList)
-	supportTableSize:=len(config.SupportTables)
+	supportTableSize := len(config.SupportTables)
 	// 过滤需要生成的表
 	filteredTables := make([]*render.TableData, 0, len(tableDataList))
 	for _, tableData := range tableDataList {
@@ -131,14 +131,16 @@ func (generate *YamlGenerate) Generate(config *render.AGInfraStructrueConfig, ya
 	return nil
 }
 
-
 // FindYamlFiles 查找指定目录下所有.yaml/.yml文件（支持递归子目录）
 // 参数：
-//   rootDir: 根目录路径
-//   recursive: 是否递归遍历子目录
+//
+//	rootDir: 根目录路径
+//	recursive: 是否递归遍历子目录
+//
 // 返回：
-//   []string: 符合条件的文件路径列表
-//   error: 错误信息
+//
+//	[]string: 符合条件的文件路径列表
+//	error: 错误信息
 func findYamlFiles(rootDir string, recursive bool) ([]string, error) {
 	var yamlFiles []string
 

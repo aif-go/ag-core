@@ -52,7 +52,7 @@ func GetTemplate(name string, funcMap template.FuncMap) (*template.Template, err
 // RenderEnityTemplate
 // 根据 entity模板渲染出一个Entity xxx.go
 func RenderEnityTemplate(targetPath string, tableData *TableData) error {
-	// 定义自定义函数 
+	// 定义自定义函数
 	funcMap := template.FuncMap{
 		"unescaped": func(s string) template.HTML {
 			return template.HTML(s)
@@ -65,11 +65,11 @@ func RenderEnityTemplate(targetPath string, tableData *TableData) error {
 		return err
 	}
 
-	fileName:=tableData.ObjectName+".go"
+	fileName := tableData.ObjectName + ".go"
 
 	// 创建输出文件
 	file, err := os.Create(filepath.Join(targetPath, fileName))
-	if err!=nil{
+	if err != nil {
 		return fmt.Errorf("创建文件 %s 失败: %w", fileName, err)
 	}
 
