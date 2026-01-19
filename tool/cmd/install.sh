@@ -8,6 +8,7 @@ plugins=(
     "protoc-gen-go-agservice"
     "protoc-gen-go-aggenall"
     "protoc-gen-go-agapi"
+    "gen-go-db"
 )
 
 for i in ${plugins[@]}

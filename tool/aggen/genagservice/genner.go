@@ -56,8 +56,8 @@ var ServiceScopeTaskGen = func(geni *types.GennerInfo) ([]*types.Task, error) {
 	proxyTask := &types.Task{
 		Name:      proxyName,
 		Path:      path.Join(proxyPath, proxyName),
-		Text:      tpl.ProxyTpl,
-		SetImport: tpl.ProxyImportsSetter,
+		Text:      tpl.ProxyTpl_v2,
+		SetImport: tpl.ProxyImportsSetter_v2,
 	}
 	tasks = append(tasks, proxyTask)
 
@@ -90,11 +90,14 @@ var PackageGroupScopeTaskGen = func(geni *types.GennerInfo) ([]*types.Task, erro
 	fxProxyPath := path.Join("internal", "svcgen")
 	fxProxyName := fmt.Sprintf("%s_%s%s", "zfx_agservice_proxy", lowerPkgRefName, ".go")
 	fxProxyTask := &types.Task{
-		Name:      fxProxyName,
-		Path:      path.Join(fxProxyPath, fxProxyName),
-		Text:      tpl.FxProxyTpl,
-		SetImport: tpl.FxProxyImportsSetter,
-		IsSkip:    tpl.FxProxyIsSkip,
+		Name: fxProxyName,
+		Path: path.Join(fxProxyPath, fxProxyName),
+		// Text:      tpl.FxProxyTpl,
+		// SetImport: tpl.FxProxyImportsSetter,
+		// IsSkip:    tpl.FxProxyIsSkip,
+		Text:      tpl.FxProxyTpl_v2,
+		SetImport: tpl.FxProxyImportsSetter_v2,
+		IsSkip:    tpl.FxProxyIsSkip_v2,
 	}
 	tasks = append(tasks, fxProxyTask)
 
