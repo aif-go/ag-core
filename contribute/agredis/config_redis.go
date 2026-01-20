@@ -28,6 +28,7 @@ type AgRedisProperties struct {
 	Replicas []AgUniversalOptionsProperties `json:",omitempty"`
 }
 
+// AgUniversalOptionsProperties 通用配置
 type AgUniversalOptionsProperties struct {
 	// Either a single address or a seed list of host:port addresses
 	// of cluster/sentinel nodes.
@@ -49,14 +50,13 @@ type AgUniversalOptionsProperties struct {
 	SentinelUsername string
 	SentinelPassword string
 
-	MaxRetries int
-	// MinRetryBackoff time.Duration
-	MinRetryBackoff int
-	MaxRetryBackoff time.Duration
+	MaxRetries      int
+	MinRetryBackoff time.Duration // 单位：毫秒
+	MaxRetryBackoff time.Duration // 单位：毫秒
 
-	DialTimeout           time.Duration
-	ReadTimeout           time.Duration
-	WriteTimeout          time.Duration
+	DialTimeout           time.Duration // 单位：毫秒
+	ReadTimeout           time.Duration // 单位：毫秒
+	WriteTimeout          time.Duration // 单位：毫秒
 	ContextTimeoutEnabled bool
 
 	// ReadBufferSize is the size of the bufio.Reader buffer for each connection.
@@ -77,12 +77,12 @@ type AgUniversalOptionsProperties struct {
 	PoolFIFO bool
 
 	PoolSize        int
-	PoolTimeout     time.Duration
+	PoolTimeout     time.Duration // 单位：毫秒
 	MinIdleConns    int
 	MaxIdleConns    int
 	MaxActiveConns  int
-	ConnMaxIdleTime time.Duration
-	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration // 单位：毫秒
+	ConnMaxLifetime time.Duration // 单位：毫秒
 
 	// Only cluster clients.
 

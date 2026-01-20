@@ -28,13 +28,13 @@ func NewUniversalOptionsWithAgUniversalProperties(props AgUniversalOptionsProper
 
 		// 重试配置
 		MaxRetries:      props.MaxRetries,
-		MinRetryBackoff: time.Duration(props.MinRetryBackoff) * time.Millisecond,
-		MaxRetryBackoff: props.MaxRetryBackoff,
+		MinRetryBackoff: unitToMillisecond(props.MinRetryBackoff),
+		MaxRetryBackoff: unitToMillisecond(props.MaxRetryBackoff),
 
 		// 超时配置
-		DialTimeout:           props.DialTimeout,
-		ReadTimeout:           props.ReadTimeout,
-		WriteTimeout:          props.WriteTimeout,
+		DialTimeout:           unitToMillisecond(props.DialTimeout),
+		ReadTimeout:           unitToMillisecond(props.ReadTimeout),
+		WriteTimeout:          unitToMillisecond(props.WriteTimeout),
 		ContextTimeoutEnabled: props.ContextTimeoutEnabled,
 
 		// 缓冲区配置
@@ -44,12 +44,12 @@ func NewUniversalOptionsWithAgUniversalProperties(props AgUniversalOptionsProper
 		// 连接池配置
 		PoolFIFO:        props.PoolFIFO,
 		PoolSize:        props.PoolSize,
-		PoolTimeout:     props.PoolTimeout,
+		PoolTimeout:     unitToMillisecond(props.PoolTimeout),
 		MinIdleConns:    props.MinIdleConns,
 		MaxIdleConns:    props.MaxIdleConns,
 		MaxActiveConns:  props.MaxActiveConns,
-		ConnMaxIdleTime: props.ConnMaxIdleTime,
-		ConnMaxLifetime: props.ConnMaxLifetime,
+		ConnMaxIdleTime: unitToMillisecond(props.ConnMaxIdleTime),
+		ConnMaxLifetime: unitToMillisecond(props.ConnMaxLifetime),
 
 		// 集群相关配置
 		MaxRedirects:   props.MaxRedirects,
@@ -88,4 +88,9 @@ func NewUniversalOptionsWithAgUniversalProperties(props AgUniversalOptionsProper
 
 	}
 	return uniopt
+}
+
+// 单位毫秒
+func unitToMillisecond(d time.Duration) time.Duration {
+	return d * time.Millisecond
 }
