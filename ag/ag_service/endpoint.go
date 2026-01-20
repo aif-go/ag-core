@@ -22,8 +22,8 @@ type PrioritizedMiddlewareProvider interface {
 	// GetOrder 优先级，数值越小优先级越高
 	GetOrder() int
 
-	// GetMiddleware 获取实际的中间件函数
-	GetMiddleware() MiddlewareFunc
+	// Middleware 获取实际的中间件函数
+	Middleware() MiddlewareFunc
 }
 
 // middlewareProviderSorter 实现 sort.Interface 用于排序
@@ -35,15 +35,15 @@ func (p middlewareProviderSorter) Less(i, j int) bool { return p[i].GetOrder() <
 
 // MiddlewareProvider 服务中间件提供者接口
 type MiddlewareProvider interface {
-	// GetMiddleware 获取中间件函数
-	GetMiddleware() MiddlewareFunc
+	// Middleware 获取中间件函数
+	Middleware() MiddlewareFunc
 }
 
 type SimpleMiddleware struct {
 	Mw MiddlewareFunc
 }
 
-func (p *SimpleMiddleware) GetMiddleware() MiddlewareFunc {
+func (p *SimpleMiddleware) Middleware() MiddlewareFunc {
 	return p.Mw
 }
 
@@ -56,6 +56,6 @@ func (p *SimplePrioritizedMiddleware) GetOrder() int {
 	return p.Order
 }
 
-func (p *SimplePrioritizedMiddleware) GetMiddleware() MiddlewareFunc {
+func (p *SimplePrioritizedMiddleware) Middleware() MiddlewareFunc {
 	return p.Mw
 }

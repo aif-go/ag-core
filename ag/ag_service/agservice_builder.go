@@ -10,8 +10,14 @@ type AgServiceBuilder interface {
 }
 
 // NewAgServiceBuilder 创建服务调用链构建器
-func NewAgServiceBuilder(ciOpts []CallInfoOpt, globalMWs []MiddlewareProvider, globalMWFuns []MiddlewareFunc) (AgServiceBuilder, error) {
+func NewAgServiceBuilder(ciOpts []CallInfoOpt, globalMWs []MiddlewareProvider, gpMWs []PrioritizedMiddlewareProvider, globalMWFuns []MiddlewareFunc) (AgServiceBuilder, error) {
 	mws := globalMWs
+
+	// 合并全局中间件和全局优先中间件
+	for _, gpMw := range gpMWs {
+		mws = append(mws, gpMw)
+	}
+
 	for _, mw := range globalMWFuns {
 		mws = append(mws, &SimpleMiddleware{
 			Mw: mw,
@@ -57,7 +63,7 @@ func buildEndpointChain(cinfo CallInfo, middlewares []MiddlewareProvider, actual
 		} else {
 			pmws = append(pmws, &SimplePrioritizedMiddleware{
 				Order: ServiceInfoMiddlewarePriorityNormal, // 默认优先级为普通优先级
-				Mw:    mw.GetMiddleware(),
+				Mw:    mw.Middleware(),
 			})
 		}
 	}
@@ -68,7 +74,7 @@ func buildEndpointChain(cinfo CallInfo, middlewares []MiddlewareProvider, actual
 	// 构建责任链
 	endpintChain := actual
 	for i := len(pmws) - 1; i >= 0; i-- {
-		endpintChain = pmws[i].GetMiddleware()(endpintChain)
+		endpintChain = pmws[i].Middleware()(endpintChain)
 	}
 	return endpintChain, nil
 }
