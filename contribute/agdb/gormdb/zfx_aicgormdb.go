@@ -12,6 +12,6 @@ var FxAicGromdbModule = fx.Module(
 		NewTransactionManager, // TODO db模块,还需进一步进行抽象设计
 		// NewZapGormLog,
 		NewSLogGormLog,
-		NewTmMiddlewareContext,
+		// NewTmMiddlewareContext,
 	),
 )
