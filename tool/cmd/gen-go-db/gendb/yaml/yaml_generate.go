@@ -89,7 +89,8 @@ func (generate *YamlGenerate) Generate(config *render.AGInfraStructrueConfig, ya
 
 			// 构建dao.go文件
 			if config.Daoable {
-				if err := render.RenderDaoTemplate(config.DaoPath, data); err != nil {
+				// if err := render.RenderDaoTemplate(config.DaoPath, data); err != nil {
+				if err := render.RenderDaoTemplate_hzw(config.DaoPath, data); err != nil {
 					errCh <- err
 					return
 				}
