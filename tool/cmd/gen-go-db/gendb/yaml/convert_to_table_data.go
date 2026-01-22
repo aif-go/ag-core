@@ -228,6 +228,10 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 		// 处理参数列表
 		list := []*render.BindParam{}
 		for _, sqlParameter := range sqlData.ParamColNameList {
+			// 标识该自定义方法涉及到切片类型的参数，后续使用的时候需要切换为map[string]interface{}的模式
+			if sqlParameter.IsSlice {
+				template.ToMap = true
+			}
 			bindParam := &render.BindParam{}
 			// 应该根据列名去找对应的变量对应的类型
 			if colData, ok := tableData.ColumnDataMap[strings.ToUpper(sqlParameter.ColName)]; !ok {

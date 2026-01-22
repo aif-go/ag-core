@@ -49,6 +49,48 @@ func GetTemplate(name string, funcMap template.FuncMap) (*template.Template, err
 	return tmpl, nil
 }
 
+// func RenderEnityTemplate(targetPath string, tableData *TableData) error {
+// 	// 定义自定义函数
+// 	funcMap := template.FuncMap{
+// 		"unescaped": func(s string) template.HTML {
+// 			return template.HTML(s)
+// 		},
+// 	}
+
+// 	tmpl, err := template.New("entity.tmpl").Funcs(funcMap).Parse(templates.EntityTemplate)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	fileName := tableData.ObjectName + ".go"
+
+// 	var buf bytes.Buffer
+// 	// 渲染模板并写入文件
+// 	// err = tmpl.Execute(file, tableData)
+// 	err = tmpl.Execute(&buf, tableData)
+// 	if err != nil {
+// 		return fmt.Errorf("渲染模板 %s 失败: %w", fileName, err)
+// 	}
+
+// 	content := buf.String()
+// 	formated, err := format.Source([]byte(content))
+// 	if err != nil {
+// 		return fmt.Errorf("格式化代码失败: %w", err)
+// 	}
+
+// 	fn := filepath.Join(targetPath, fileName)
+// 	err = os.MkdirAll(filepath.Dir(fn), 0o755)
+// 	if err == nil {
+// 		err = os.WriteFile(fn, formated, 0o644)
+// 	}
+// 	if err != nil {
+// 		return fmt.Errorf("写入文件 %s 失败: %w", fileName, err)
+// 	}
+
+// 	log.Println(fileName, " generated successfully")
+// 	return nil
+// }
+
 // RenderEnityTemplate
 // 根据 entity模板渲染出一个Entity xxx.go
 func RenderEnityTemplate(targetPath string, tableData *TableData) error {

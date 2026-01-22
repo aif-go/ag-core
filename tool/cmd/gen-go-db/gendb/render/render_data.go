@@ -153,6 +153,7 @@ type NamingSqlTemplate struct {
 	GenerateBol   bool            `yaml:"-"`
 	PageCountSql  string          `yaml:"-"`
 	SelectAllCol  bool            `yaml:"-"`
+	ToMap         bool            `yaml:"-"` // 当自定义规则的where条件中存在切片的参数类型时为true
 	// DbType string
 }
 
