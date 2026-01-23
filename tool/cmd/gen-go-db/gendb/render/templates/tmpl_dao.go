@@ -14,6 +14,7 @@ import (
 {{- end}}
 
     agdao "ag-core/contribute/agdb/agdao"
+    "strings"
 {{- if .NamingSqlMapEnable}}    
     "gorm.io/gorm"
 {{- end}}    
@@ -85,20 +86,31 @@ func New{{.ObjectName}}Dao(repository *db.Repository, baseDao agdao.BaseDao) I{{
 
 // InsertOne 插入数据
 func (dao *{{.ObjectName}}Dao) InsertOne(ctx context.Context, arg *model.{{.ObjectName}})(int64, error) {
-    result:=dao.DB(ctx).Create(arg)
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+    result:=db.Create(arg)
     return result.RowsAffected, result.Error
 }
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *{{.ObjectName}}Dao) InsertOneIgnorenNullCols(ctx context.Context, arg *model.{{.ObjectName}})(int64, error) {
     insertIgnoreZeroValSlice := db.CollectZeroValWithOmitEmpty(arg)
-    result:=dao.DB(ctx).Omit(insertIgnoreZeroValSlice...).Create(arg)
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+    result:=db.Omit(insertIgnoreZeroValSlice...).Create(arg)
     return result.RowsAffected, result.Error
 }
 
 func (dao *{{.ObjectName}}Dao) {{.PrimryRIndex.IndexName}}(ctx context.Context, {{.PrimryRIndex.HashParamters}}) (*model.{{.ObjectName}}, error) {
     findRes :=&model.{{.ObjectName}}{}
-    db:= dao.newDB(ctx)
+    db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
     {{- range .PrimryRIndex.BindParamList}}
         db = db.Where("{{.DbColName}}",{{.GoColName}})
     {{- end}}
@@ -110,7 +122,10 @@ func (dao *{{.ObjectName}}Dao) {{.PrimryRIndex.IndexName}}(ctx context.Context, 
 // UpdateByPrimaryKey 根据主键更新，该操作只适合从数据库查询原实体修改值之后使用
 func (dao *{{.ObjectName}}Dao) UpdateByPrimaryKey(ctx context.Context, arg *model.{{.ObjectName}})(int64, error){
       
-    db:= dao.newDB(ctx)
+    db, err:= dao.newDB(ctx)
+    if err!= nil {
+		return 0, err
+	}
     result:=db.Save(arg)
     return result.RowsAffected, result.Error
 }
@@ -119,14 +134,20 @@ func (dao *{{.ObjectName}}Dao) UpdateByPrimaryKey(ctx context.Context, arg *mode
 // UpdateByPriIngoreNullCols 根据主键更新，自动剔除参数中的零值列
 func (dao *{{.ObjectName}}Dao) UpdateByPriIngoreNullCols(ctx context.Context, arg *model.{{.ObjectName}})(int64, error){
       
-    db:= dao.newDB(ctx)
+    db, err := dao.newDB(ctx)
+    if err != nil {
+		return 0, err
+	}
     result:=db.Model(arg).Updates(arg)
     return result.RowsAffected, result.Error
 }
 
 func (dao *{{.ObjectName}}Dao) {{.PrimryDIndex.IndexName}}(ctx context.Context, {{.PrimryDIndex.HashParamters}})(int64, error){
       
-    db:= dao.newDB(ctx)
+    db, err:= dao.newDB(ctx)
+    if err!= nil {
+		return 0, err
+	}
     result:=db{{- range .PrimryDIndex.BindParamList}}.Where("{{.DbColName}}",{{.GoColName}}){{- end}}.Delete(&model.{{.ObjectName}}{})
     return result.RowsAffected, result.Error
 }
@@ -135,7 +156,10 @@ func (dao *{{.ObjectName}}Dao) {{.PrimryDIndex.IndexName}}(ctx context.Context, 
 
 func (dao *{{$.ObjectName}}Dao) FindBy{{ .MethodName }}(ctx context.Context, {{.HashParamters}})([]model.{{$.ObjectName}}, error){
    var list []model.{{$.ObjectName}}
-   db:= dao.newDB(ctx)
+   db, err := dao.newDB(ctx)
+   if err != nil {
+		return nil, err
+	}
    result:=db{{- range .BindParamList}}.Where("{{.DbColName}}", {{ .GoColName }}){{- end}}.Find(&list)
    return list, result.Error
 } 
@@ -147,21 +171,30 @@ func (dao *{{$.ObjectName}}Dao) FindBy{{ .MethodName }}(ctx context.Context, {{.
 
 func (dao *{{$.ObjectName}}Dao) FindBy{{ .MethodName }}(ctx context.Context, {{.HashParamters}})(*model.{{$.ObjectName}}, error){
    findRes :=&model.{{$.ObjectName}}{}
-   db:= dao.newDB(ctx)
+   db, err := dao.newDB(ctx)
+   if err != nil {
+		return nil, err
+	}
    result:=db{{- range .BindParamList}}.Where("{{.DbColName}}",{{.GoColName }}){{- end}}.Find(findRes)
    return findRes, result.Error
 } 
 
 // UpdateBy{{ .MethodName }} 根据唯一索引更新数据,自动剔除零值的列
 func (dao *{{$.ObjectName}}Dao) UpdateBy{{ .MethodName }} (ctx context.Context, {{.HashParamters}}, arg *model.{{$.ObjectName}})(int64, error){
-   db:= dao.newDB(ctx)
+   db, err := dao.newDB(ctx)
+   if err != nil {
+		return 0, err
+	}
    result:=db.Model(&model.{{$.ObjectName}}{}){{- range .BindParamList}}.Where("{{.DbColName}}", {{ .GoColName }}){{- end}}.Updates(arg)
    return result.RowsAffected, result.Error
 } 
 
 // DeleteBy{{ .MethodName }} 根据唯一索引作为条件,删除满足条件的数据
 func (dao *{{$.ObjectName}}Dao)  DeleteBy{{ .MethodName }}(ctx context.Context, {{.HashParamters}})(int64, error) {
-   db:= dao.newDB(ctx)
+   db, err := dao.newDB(ctx)
+   if err != nil {
+		return 0, err
+	}
    result:=db{{- range .BindParamList}}.Where("{{.DbColName}}", {{ .GoColName }}){{- end}}.Delete(&model.{{$.ObjectName}}{})
    return result.RowsAffected, result.Error
 }
@@ -182,18 +215,24 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    if sqlName == "" {
       return nil, errors.New("不支持的db类型")
    }
+
    // 先查询总数
    countSql:={{$.ObjectName}}NamingSqlMap[dao.DbType+"_{{$.ObjectName}}_{{.MethodName}}_Count"]
    if countSql == "" {
       return nil, errors.New("不支持的db类型")
    }
+   newTableName := dao.getApplyInfo(ctx).TableName
+   if newTableName != "" {
+		enity := &model.{{$.ObjectName}}{}
+        sqlName = strings.ReplaceAll(sqlName, enity.TableName(), newTableName)
+        countSql = strings.ReplaceAll(countSql, enity.TableName(), newTableName)
+    }      
    var count int64
-   db:= dao.newDB(ctx)
  {{- if .ToMap}}
    paraterMap:=arg.ToMap()
-   countResult:=db.Raw(countSql, paraterMap).Scan(&count)
+   countResult:=dao.DB(ctx).Raw(countSql, paraterMap).Scan(&count)
 {{- else }}
-   countResult:=db.Raw(countSql, arg).Scan(&count)    
+   countResult:=dao.DB(ctx).Raw(countSql, arg).Scan(&count)    
 {{- end}}  
    if countResult.Error!= nil {
       return nil, countResult.Error
@@ -212,11 +251,10 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    if startRecord == 0 && endRecord == 0 {
       return res, nil
    }
-   db:= dao.newDB(ctx)
 {{- if .ToMap}}
-   result:=db.Raw(sqlName, paraterMap).Find(&list)
+   result:=dao.DB(ctx).Raw(sqlName, paraterMap).Find(&list)
 {{- else }}
-   result:=db.Raw(sqlName, arg).Find(&list)    
+   result:=dao.DB(ctx).Raw(sqlName, arg).Find(&list)    
 {{- end}}   
    res.DataRes=list
    return res, result.Error
@@ -235,12 +273,16 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    if sqlName == "" {
       return nil, errors.New("不支持的db类型")
    }
-   db:= dao.newDB(ctx)
+   newTableName := dao.getApplyInfo(ctx).TableName
+   if newTableName != "" {
+		enity := &model.{{$.ObjectName}}{}
+        sqlName = strings.ReplaceAll(sqlName, enity.TableName(), newTableName)
+    }
 {{- if .ToMap}}
    paraterMap:=arg.ToMap()
-   result:=db.Raw(sqlName, paraterMap).Find(&list)
+   result:=dao.DB(ctx).Raw(sqlName, paraterMap).Find(&list)
 {{- else }}
-   result:=db.Raw(sqlName, arg).Find(&list)    
+   result:=dao.DB(ctx).Raw(sqlName, arg).Find(&list)    
 {{- end}}   
    return list, result.Error
 }
@@ -259,9 +301,9 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
       db:= dao.newDB(ctx)
       {{- if .ToMap}}
       paraterMap:=arg.ToMap()
-      result:=db.Exec(sqlName, paraterMap)
+      result:=dao.DB(ctx).Exec(sqlName, paraterMap)
       {{- else }}
-      result:=db.Exec(sqlName, arg)
+      result:=dao.DB(ctx).Exec(sqlName, arg)
       {{- end}}  
 
       return result.RowsAffected, result.Error
@@ -280,13 +322,16 @@ func (dao *{{.ObjectName}}Dao) getApplyInfo(ctx context.Context) agdao.TableInfo
 }
 
 // newDB 创建一个新的DB实例，应用增强后的TableInfo
-func (dao *{{.ObjectName}}Dao) newDB(ctx context.Context) *gorm.DB {
+func (dao *{{.ObjectName}}Dao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db := dao.DB(ctx)
 
     info := dao.getApplyInfo(ctx)
 
     tbname := info.TableName
+    if tbname == "" {
+        return nil, errors.New("表名不能为空")
+    }
 	db = db.Table(tbname)
-    return db
+    return db, nil
 }
 `
