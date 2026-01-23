@@ -384,12 +384,12 @@ func processCol(dbTable DatabaseTable, tableData *render.TableData) {
 
 		// 解析tag列，处理多标签的问题
 		tagParts := strings.Split(column.Description, ";")
-		omitempty := false
+		jpaversion := false
 		autoCreate := false
 		autoUpdate := false
 		for _, tag := range tagParts {
-			if strings.TrimSpace(tag) == "///@omitempty" {
-				omitempty = true
+			if strings.TrimSpace(tag) == "///@jpaversion" {
+				jpaversion = true
 				continue
 			}
 			if strings.TrimSpace(tag) == "///@create" {
@@ -417,7 +417,7 @@ func processCol(dbTable DatabaseTable, tableData *render.TableData) {
 			EndSymbol:     ",", // 默认设置为逗号
 			AutoUpdate:    autoUpdate,
 			AutoCreate:    autoCreate,
-			Omitempty:     omitempty,
+			JPAVersion:    jpaversion,
 		}
 
 		// 最后一列的结束符号设置为空

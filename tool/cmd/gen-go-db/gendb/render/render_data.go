@@ -51,7 +51,7 @@ type ColumnData struct {
 	AutoUpdate         bool              `yaml:"AutoUpdate"`
 	AutoCreate         bool              `yaml:"AutoCreate"`
 	AutoIncrement      bool              `yaml:"AutoIncrement"`
-	Omitempty          bool              `yaml:"-"`
+	JPAVersion         bool              `yaml:"-"`
 	EndSymbol          string            `yaml:"-"`
 }
 

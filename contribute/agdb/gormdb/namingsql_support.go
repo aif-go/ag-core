@@ -139,7 +139,7 @@ func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType
 }
 
 // collectZeroValWithOmitEmpty 收集：有 json omitempty 标记 + 值为零值 的字段名
-func CollectZeroValWithOmitEmpty(obj interface{}) []string {
+func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []string {
 	var result []string
 	// 1. 解析入参：支持结构体或结构体指针
 	val := reflect.ValueOf(obj)
@@ -154,6 +154,9 @@ func CollectZeroValWithOmitEmpty(obj interface{}) []string {
 	for i := 0; i < typ.NumField(); i++ {
 		fieldTyp := typ.Field(i) // 字段类型（含 tag）
 		fieldVal := val.Field(i) // 字段实际值
+		if _, ok := excludeCols[fieldTyp.Name]; ok {
+			continue // 排除指定字段
+		}
 		// 2.1 判断是否有 gorm omitempty 标记
 		// gormTag := fieldTyp.Tag.Get("gorm")
 		// hasOmitEmpty := false
