@@ -26,7 +26,7 @@ var {{.ObjectName}}NamingSqlMap = map[string]string{}
 {{- end}}
 
 // insert忽略空值时标记哪些字段需要排除在外
-var excludeZeroColNames = map[string]int {
+var exclude{{.ObjectName}}ZeroColNames = map[string]int {
 {{- range .ColumnList}} 
 {{- if or .AutoCreate .AutoUpdate .JPAVersion }}"{{.GoColName}}": 0,{{- end}} 
 {{- end}}
@@ -103,7 +103,7 @@ func (dao *{{.ObjectName}}Dao) InsertOne(ctx context.Context, arg *model.{{.Obje
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *{{.ObjectName}}Dao) InsertOneIgnorenNullCols(ctx context.Context, arg *model.{{.ObjectName}})(int64, error) {
-    insertIgnoreZeroValSlice := db.CollectZeroValWithOmitEmpty(arg, excludeZeroColNames)
+    insertIgnoreZeroValSlice := db.CollectZeroValWithOmitEmpty(arg, exclude{{.ObjectName}}ZeroColNames)
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
