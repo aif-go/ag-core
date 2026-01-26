@@ -231,8 +231,8 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    newTableName := dao.getApplyInfo(ctx).TableName
    if newTableName != "" {
 		enity := &model.{{$.ObjectName}}{}
-        sqlName = strings.ReplaceAll(sqlName, enity.TableName(), newTableName)
-        countSql = strings.ReplaceAll(countSql, enity.TableName(), newTableName)
+        sqlName = strings.ReplaceAll(sqlName, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+        countSql = strings.ReplaceAll(countSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
     }      
    var count int64
  {{- if .ToMap}}
@@ -283,7 +283,7 @@ func (dao *{{$.ObjectName}}Dao) {{.MethodName}} (ctx context.Context, arg *model
    newTableName := dao.getApplyInfo(ctx).TableName
    if newTableName != "" {
 		enity := &model.{{$.ObjectName}}{}
-        sqlName = strings.ReplaceAll(sqlName, enity.TableName(), newTableName)
+        sqlName = strings.ReplaceAll(sqlName, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
     }
 {{- if .ToMap}}
    paraterMap:=arg.ToMap()
