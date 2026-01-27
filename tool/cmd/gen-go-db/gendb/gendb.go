@@ -48,29 +48,29 @@ func GenerateDBGoFile(config *render.AGInfraStructrueConfig) error {
 		}
 	}
 	// 截取DB文件数据的后缀名
-	filenamesuffix := filepath.Ext(config.DbTemplatePath)
+	// filenamesuffix := filepath.Ext(config.DbTemplatePath)
 
 	// var generate generate.Generate[any]
-	switch filenamesuffix {
-	case ".erm":
-		erm := &erm.ErmGenerate{}
-		if err := execute(config, erm); err != nil {
-			return err
-		}
-	case ".xlsx":
-		xlsx := &excel.ExcelGenerate{}
-		if err := execute(config, xlsx); err != nil {
-			return err
-		}
-	case ".yaml", ".yml":
+	// switch filenamesuffix {
+	// case ".erm":
+	// 	erm := &erm.ErmGenerate{}
+	// 	if err := execute(config, erm); err != nil {
+	// 		return err
+	// 	}
+	// case ".xlsx":
+	// 	xlsx := &excel.ExcelGenerate{}
+	// 	if err := execute(config, xlsx); err != nil {
+	// 		return err
+	// 	}
+	// case ".yaml", ".yml":
 		yaml := &yaml.YamlGenerate{}
 		if err := execute(config, yaml); err != nil {
 			return err
 		}
 
-	default:
-		return errors.New("当前仅支持erm,excel,yaml文件")
-	}
+	// default:
+	// 	return errors.New("当前仅支持erm,excel,yaml文件")
+	// }
 	log.Println("构建go文件执行完毕")
 	return nil
 }
@@ -133,9 +133,9 @@ func verifyConfig(config *render.AGInfraStructrueConfig) error {
 		if config.PackageNamePrefix == "" {
 			return errors.New("go模块的前缀不能为空")
 		}
-		if config.DbType == "" {
-			return errors.New("数据库的类型不能为空")
-		}
+		// if config.DbType == "" {
+		// 	return errors.New("数据库的类型不能为空")
+		// }
 	}
 	return nil
 }

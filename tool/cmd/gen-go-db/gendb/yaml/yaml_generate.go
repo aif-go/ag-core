@@ -132,7 +132,7 @@ func (generate *YamlGenerate) Generate(config *render.AGInfraStructrueConfig, ya
 	return nil
 }
 
-// FindYamlFiles 查找指定目录下所有.yaml/.yml文件（支持递归子目录）
+// findYamlFiles 查找指定目录下所有.yaml/.yml文件（支持递归子目录）
 // 参数：
 //
 //	rootDir: 根目录路径
@@ -145,23 +145,37 @@ func (generate *YamlGenerate) Generate(config *render.AGInfraStructrueConfig, ya
 func findYamlFiles(rootDir string, recursive bool) ([]string, error) {
 	var yamlFiles []string
 
-	// 遍历目录
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		// 处理遍历过程中的错误（如权限不足）
+	// 检查 rootDir 是否为文件
+	info, err := os.Stat(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("访问路径失败: %w", err)
+	}
+
+	// 如果是文件，检查扩展名
+	if !info.IsDir() {
+		ext := strings.ToLower(filepath.Ext(rootDir))
+		if ext == ".yaml" || ext == ".yml" {
+			return []string{rootDir}, nil
+		}
+		// 如果不是 YAML 文件，返回空列表
+		return []string{}, nil
+	}
+
+	// 如果是目录，遍历查找 YAML 文件
+	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("访问路径 %s 失败：%v", path, err)
+			return err
 		}
 
-		// 跳过目录（仅处理文件）
 		if info.IsDir() {
-			// 如果不递归，跳过当前目录以外的子目录
+			// 如果不递归且不是根目录，则跳过子目录
 			if !recursive && path != rootDir {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// 过滤.yaml/.yml后缀的文件（忽略大小写）
+		// 检查文件扩展名是否为 .yaml 或 .yml
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".yaml" || ext == ".yml" {
 			yamlFiles = append(yamlFiles, path)
@@ -171,7 +185,7 @@ func findYamlFiles(rootDir string, recursive bool) ([]string, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("遍历目录失败：%v", err)
+		return nil, fmt.Errorf("遍历目录失败: %w", err)
 	}
 
 	return yamlFiles, nil

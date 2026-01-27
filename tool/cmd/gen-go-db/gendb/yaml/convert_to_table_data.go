@@ -205,7 +205,7 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 	// 处理每个自定义SQL
 	for _, sqlData := range namingSqlList {
 		// 非默认或者匹配的db类型不处理
-		if sqlData.DbType != "" && sqlData.DbType != " " && sqlData.DbType != tableData.DbType {
+		if sqlData.DbType != "" && sqlData.DbType != " " && (tableData.DbType != "" && sqlData.DbType != tableData.DbType) {
 			continue
 		}
 
@@ -218,6 +218,8 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 		if value, ok := namingsqlMap[key]; ok {
 			// 更新sqlData为NamingsqlMap中的值
 			sqlData = value
+		}else{
+			namingsqlMap[key] = sqlData
 		}
 
 		template.MethodName = sqlData.MethodName
@@ -325,42 +327,42 @@ func createNamingSqlData(dbTable *DatabaseTable, tableData *render.TableData, wa
 }
 
 // convertNamingSqlMap 转换 YAML 的 NamingSqlMap 到 render 的 NamingSqlMap
-func convertNamingSqlMap(yamlMap map[string]*NamingSqlData) map[string]*render.NamingSqlData {
-	if yamlMap == nil {
-		return nil
-	}
+// func convertNamingSqlMap(yamlMap map[string]*NamingSqlData) map[string]*render.NamingSqlData {
+// 	if yamlMap == nil {
+// 		return nil
+// 	}
 
-	result := make(map[string]*render.NamingSqlData)
-	for k, v := range yamlMap {
-		// 转换 ParamColNameList
-		paramList := make([]render.SqlParameter, len(v.ParamColNameList))
-		for i, p := range v.ParamColNameList {
-			paramList[i] = render.SqlParameter{
-				ColName:       p.ColName,
-				ParameterName: p.ParameterName,
-				IsSlice:       p.IsSlice,
-			}
-		}
+// 	result := make(map[string]*render.NamingSqlData)
+// 	for k, v := range yamlMap {
+// 		// 转换 ParamColNameList
+// 		paramList := make([]render.SqlParameter, len(v.ParamColNameList))
+// 		for i, p := range v.ParamColNameList {
+// 			paramList[i] = render.SqlParameter{
+// 				ColName:       p.ColName,
+// 				ParameterName: p.ParameterName,
+// 				IsSlice:       p.IsSlice,
+// 			}
+// 		}
 
-		// 转换 SelectColumns
-		selectCols := make([]*render.SelectColumn, len(v.SelectColumns))
-		for i, s := range v.SelectColumns {
-			selectCols[i] = &render.SelectColumn{
-				ColumnName: s.ColumnName,
-				Alias:      s.Alias,
-			}
-		}
+// 		// 转换 SelectColumns
+// 		selectCols := make([]*render.SelectColumn, len(v.SelectColumns))
+// 		for i, s := range v.SelectColumns {
+// 			selectCols[i] = &render.SelectColumn{
+// 				ColumnName: s.ColumnName,
+// 				Alias:      s.Alias,
+// 			}
+// 		}
 
-		result[k] = &render.NamingSqlData{
-			MethodName:       v.MethodName,
-			NamingSql:        v.NamingSql,
-			DbType:           v.DbType,
-			ParamColNameList: paramList,
-			SelectColumns:    selectCols,
-		}
-	}
-	return result
-}
+// 		result[k] = &render.NamingSqlData{
+// 			MethodName:       v.MethodName,
+// 			NamingSql:        v.NamingSql,
+// 			DbType:           v.DbType,
+// 			ParamColNameList: paramList,
+// 			SelectColumns:    selectCols,
+// 		}
+// 	}
+// 	return result
+// }
 
 // 处理表列的逻辑
 func processCol(dbTable DatabaseTable, tableData *render.TableData) {

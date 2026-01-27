@@ -135,20 +135,28 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 				// 解析主键定义
 				if len(row.Cells) > 1 {
 					keyName := strings.TrimSpace(row.Cells[0].String())
-					columnName := strings.TrimSpace(row.Cells[1].String())
-
-					// 如果主键名称是PRIMARY_KEY，则记录主键信息
-					if keyName == "PRIMARY_KEY" && columnName != "" {
-						primaryKeys = append(primaryKeys, PrimaryKeyInfo{Column: columnName})
-
-						// 同时标记对应列为主键
-						for j := range columns {
-							if columns[j].Name == columnName {
-								columns[j].IsPrimaryKey = true
-								break
+					for indexColumns, cell := range row.Cells {
+						if indexColumns == 0 {
+							continue
+						}
+						cellVal := cell.Value
+						if cellVal == "" {
+							break
+						}
+						columnName := strings.TrimSpace(cellVal)
+						// 如果主键名称是PRIMARY_KEY，则记录主键信息
+						if keyName == "PRIMARY_KEY" && columnName != "" {
+							primaryKeys = append(primaryKeys, PrimaryKeyInfo{Column: columnName})
+							// 同时标记对应列为主键
+							for j := range columns {
+								if columns[j].Name == columnName {
+									columns[j].IsPrimaryKey = true
+									break
+								}
 							}
 						}
 					}
+
 				}
 				continue
 			}
@@ -276,7 +284,8 @@ func ParseGenericExcelSheet(sheet *xlsx.Sheet) ([]GenericColumn, []GenericRule, 
 func parseGenericRuleRow(row *xlsx.Row) GenericRule {
 	// 确保行有足够的单元格 (方法名字, 查询列, 聚合函数, 聚合类型, 检索条件, 排序条件, 分组条件, 分页,数据库类型)
 	// 至少需要8列
-	if len(row.Cells) < 9 {
+	elementNum := len(row.Cells)
+	if elementNum < 8 {
 		return GenericRule{}
 	}
 	// 解析规则字段
@@ -297,8 +306,11 @@ func parseGenericRuleRow(row *xlsx.Row) GenericRule {
 	// 解析分组条件
 	grouping := strings.TrimSpace(row.Cells[6].String())    // 分组条件 (目前未使用)
 	page := strings.TrimSpace(row.Cells[7].String()) == "Y" // 分页
-	// 解析数据库类型
-	dbTypes := strings.TrimSpace(row.Cells[8].String()) // 数据库类型
+	dbTypes := ""
+	if elementNum > 8 {
+		// 解析数据库类型
+		dbTypes = strings.TrimSpace(row.Cells[8].String()) // 数据库类型
+	}
 	// 创建条件列表
 	// var conditions []RuleCondition
 	// if conditionStr != "" {
@@ -697,6 +709,7 @@ func ConvertGenericToYAML(tableName string, columns []GenericColumn, queryRules 
 			queryRule := QueryRule{
 				SelectFields: rule.SelectFields,
 				Page:         rule.Page,
+				DbType: rule.DBTypes,
 			}
 
 			// 添加where子句
