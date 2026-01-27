@@ -4,7 +4,9 @@ import (
 	// "ag-core-inner-agdb/ag/ag_db/conditonwhere"
 	"ag-core/tool/cmd/gen-go-db/gendb/render"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	// "gorm.io/driver/mysql"
@@ -12,16 +14,20 @@ import (
 
 func TestExcelGen(t *testing.T) {
 	//{{.Module}}
-	moduleByte, _ := exec.Command("go", "list", "-f", "", ".").Output()
-	fmt.Println("目标路径:" + strings.TrimSpace(string(moduleByte)))
+	moduleByte, _ := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
+	packagePath:= strings.TrimSpace(string(moduleByte))
+	fmt.Println("目标路径:" + packagePath)
 	config := &render.AGInfraStructrueConfig{
 		BaseConfig: render.BaseConfig{
 			// DbTemplatePath: "C:/Users/songbing/Desktop/goerm/mps.erm",
-			DbTemplatePath: "./tm_test.yaml",
-			// DbTemplatePath: "./mps-template.xlsx",
-			PackageNamePrefix: "ag-core-inner-agdb/tool/aggen/gendb",
-			OutputPath:        "./",
-			DbType:            "mysql",
+			DbTemplatePath: "./repository/yaml/",
+			// DbTemplatePath:    "./mps-template.xlsx",
+			// DbTemplatePath:    "C:/Users/songbing/Desktop/generate/mps-template.xlsx",
+			// DbTemplatePath: "C:/Users/songbing/Desktop/generate/repository/yaml/",
+			PackageNamePrefix: packagePath,
+			// OutputPath:        "C:/Users/songbing/Desktop/generate/",
+			OutputPath: "./",
+			DbType:            "",
 		},
 		GenerateOptions: render.GenerateOptions{
 			Sqlable:    true,
@@ -31,11 +37,14 @@ func TestExcelGen(t *testing.T) {
 		SupportConfig: render.SupportConfig{
 			SupportDB: []string{"mysql", "db2"},
 			SupportTables: map[string]string{
-				"tm_test": "TmTest",
+				// "tbl_3ds_request": "1",
 			},
 		},
 	}
-	GenerateDBGoFile(config)
+	err := GenerateDBGoFile(config)
+	if err != nil {
+		t.Log("生成失败:", err)
+	}
 	// GenerateYamlFile(config)
 }
 
@@ -287,3 +296,58 @@ func printEntity(name string, entity interface{}, err error, t *testing.T) {
 
 // 	return dao.NewTmTestDao(repository)
 // }
+
+func TestFileList(t *testing.T) {
+	var yamlFiles []string
+	// 检查 rootDir 是否为文件
+	rootDir := "./tm_test.yaml"
+	info, err := os.Stat(rootDir)
+	if err != nil {
+		t.Log(fmt.Errorf("访问路径失败: %w", err).Error())
+		t.Fail()
+		return
+	}
+
+	// 如果是文件，检查扩展名
+	if !info.IsDir() {
+		ext := strings.ToLower(filepath.Ext(rootDir))
+		if ext == ".yaml" || ext == ".yml" {
+			t.Log("是yaml文件")
+			return
+		}
+	}
+
+	// 如果是目录，遍历查找 YAML 文件
+	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			t.Log(fmt.Errorf("遍历文件失败: %w", err).Error())
+			t.Fail()
+			return err
+		}
+
+		if info.IsDir() {
+			// 如果不递归且不是根目录，则跳过子目录
+			if path != rootDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// 检查文件扩展名是否为 .yaml 或 .yml
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".yaml" || ext == ".yml" {
+			yamlFiles = append(yamlFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Log(fmt.Errorf("遍历目录失败: %w", err).Error())
+		t.Fail()
+	}
+
+	for _, yamlFile := range yamlFiles {
+		t.Logf("找到 YAML 文件: %s", yamlFile)
+	}
+
+}

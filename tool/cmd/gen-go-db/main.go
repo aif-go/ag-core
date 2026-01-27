@@ -66,8 +66,13 @@ func DbCommand() *cobra.Command {
 			packagename, _ := cmd.Flags().GetString("packagename")
 			inpath, _ := cmd.Flags().GetString("ipath")
 			tablenames, _ := cmd.Flags().GetString("tablenames")
+			fmt.Println("命令执行开始....")
 			if packagename == "" {
-				moduleByte, _ := exec.Command("go", "list", "-f", "", ".").Output()
+				moduleByte, err := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
+				if err != nil {
+					fmt.Println("获取模块路径失败:", err)
+					return
+				}
 				packagename = strings.TrimSpace(string(moduleByte))
 				fmt.Println(packagename)
 			}
@@ -84,7 +89,10 @@ func DbCommand() *cobra.Command {
 			agconfig.Entityable = true
 			agconfig.Daoable = true
 			agconfig.Sqlable = true
-			gendb.GenerateDBGoFile(agconfig)
+			err := gendb.GenerateDBGoFile(agconfig)
+			if err != nil {
+				fmt.Println("生成失败:", err)
+			}
 		},
 	}
 	// 以下动作帮助--help命令的时候展示出对应的flags
