@@ -2,4 +2,5 @@
 examples/hello/storage
 **/go.work
 **/go.work.sum
+/*.sh
 
