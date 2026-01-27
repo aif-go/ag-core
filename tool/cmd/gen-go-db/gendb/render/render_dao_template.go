@@ -99,9 +99,11 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 	// 保证即使切换db的时候,只是新增内容，但是对应的数据是不会变的
 	targetPath := config.DaoPath
 	for _, support := range config.SupportDB {
+		
 		dbType := strings.ToUpper(support)
 		fileName := dbType + "_" + tableData.ObjectName + "_NamingSql.go"
-		if support != tableData.DbType {
+		// 为nil的时候如何处理，此时全部生成
+		if  config.DbType == "" {
 			_, err := os.Stat(targetPath + fileName)
 			// 说明文件存在
 			if err == nil {
@@ -112,9 +114,11 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 			// 1. 对应的db文件不存在，则生成新的文件按照配置命名sql，但是sql内容为空，存在则跳过处理
 			if os.IsExist(err) {
 				continue
-			}
-
-			nullData := &TableData{
+			}			
+		}else if tableData.DbType != dbType {
+			continue
+		}
+		nullData := &TableData{
 				DbType:           dbType,
 				ObjectName:       tableData.ObjectName,
 				RNamingSqlList:   []*NamingSqlTemplate{},
@@ -140,9 +144,7 @@ func RenderNamingSqlConstant(config *AGInfraStructrueConfig, tableData *TableDat
 				nullData.RNamingSqlList = append(nullData.RNamingSqlList,
 					&NamingSqlTemplate{NamingSql: sql, MethodName: namingsql.MethodName, PageCountSql: namingsql.PageCountSql})
 			}
-			tableData = nullData
-		}
-
+		tableData = nullData
 		// 创建输出文件
 		file, err := os.Create(filepath.Join(targetPath, fileName))
 		if err != nil {
@@ -184,8 +186,12 @@ func RenderTableNamingSql(config *AGInfraStructrueConfig, tableData *TableData) 
 	defer file.Close()
 
 	renderData := []string{}
+	if config.DbType == "" {
 	for _, dbType := range config.SupportDB {
 		renderData = append(renderData, strings.ToUpper(dbType))
+	}
+	} else {	
+		renderData = append(renderData, strings.ToUpper(config.DbType))
 	}
 	data := &TableNamingInitMethodData{
 		ObjectName:  tableData.ObjectName,

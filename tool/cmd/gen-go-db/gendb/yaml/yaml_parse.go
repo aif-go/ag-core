@@ -413,11 +413,14 @@ func ConvertSelfQueryRulesToNamingSql(tableName string, orderedRules []OrderedQu
 			// 假设分页查询的SQL为：SELECT COUNT(*) FROM (SELECT %s FROM %s %s %s) t
 			pageCountSql = fmt.Sprintf("SELECT COUNT(*) %s %s", sqlParts[1], sqlParts[2])
 		}
+		if rule.DbType == ""{
+			rule.DbType = " "
+		}
 		// 创建NamingSqlData
 		namingSqlData := &render.NamingSqlData{
 			MethodName:       methodName,
 			NamingSql:        finalSQL,
-			DbType:           " ", // 设置默认值为空格字符，表示适用于所有数据库类型
+			DbType:           rule.DbType, // 设置默认值为空格字符，表示适用于所有数据库类型
 			ParamColNameList: renderParams,
 			SelectColumns:    renderSelectColumns,
 			PageCountSql:     pageCountSql,

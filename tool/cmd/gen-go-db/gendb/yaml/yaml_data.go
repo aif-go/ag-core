@@ -265,6 +265,7 @@ type QueryRule struct {
 	OrderBy      string       `yaml:"order_by,omitempty"`
 	Where        *WhereNode   `yaml:"where,omitempty"`
 	Page         bool         `yaml:"page,omitempty"`
+	DbType 	     string       `yaml:"dbtype,omitempty"`
 }
 
 // 聚合函数配置
