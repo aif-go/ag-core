@@ -1,9 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"ag-core/tool/cmd/gen-go-db/gendb"
@@ -68,12 +69,13 @@ func DbCommand() *cobra.Command {
 			tablenames, _ := cmd.Flags().GetString("tablenames")
 			fmt.Println("命令执行开始....")
 			if packagename == "" {
-				moduleByte, err := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
+				// moduleByte, err := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
+				getModulePath, err := getModulePath()
 				if err != nil {
 					fmt.Println("获取模块路径失败:", err)
 					return
 				}
-				packagename = strings.TrimSpace(string(moduleByte))
+				packagename = strings.TrimSpace(getModulePath)
 				fmt.Println(packagename)
 			}
 			agconfig.PackageNamePrefix = packagename
@@ -120,7 +122,10 @@ func ExcelCommand() *cobra.Command {
 				tableMap = lo.SliceToMap(strings.Split(strings.ToLower(tablenames), ","), func(s string) (string, string) { return strings.ToUpper(s), s })
 			}
 			agconfig.SupportTables = tableMap
-			gendb.GenerateExcelFile(agconfig)
+			err := gendb.GenerateExcelFile(agconfig)
+			if err != nil {
+				fmt.Println("生成失败:", err)
+			}
 		},
 	}
 	// 以下动作帮助--help命令的时候展示出对应的flags
@@ -147,7 +152,10 @@ func YamlCommand() *cobra.Command {
 				tableMap = lo.SliceToMap(strings.Split(strings.ToLower(tablenames), ","), func(s string) (string, string) { return strings.ToUpper(s), s })
 			}
 			agconfig.SupportTables = tableMap
-			gendb.GenerateYamlFile(agconfig)
+			err := gendb.GenerateYamlFile(agconfig)
+			if err != nil {
+				fmt.Println("生成失败:", err)
+			}
 		},
 	}
 	// 以下动作帮助--help命令的时候展示出对应的flags
@@ -155,4 +163,42 @@ func YamlCommand() *cobra.Command {
 	excelCommand.Flags().StringP("ipath", "i", "", "目标文件位置")
 	excelCommand.Flags().StringP("tablenames", "t", "", "指定模板中对应的表名,默认模板中全部的表名")
 	return excelCommand
+}
+
+// 自动查找当前目录及上级目录的 go.mod，返回模块路径
+func getModulePath() (string, error) {
+	// 获取当前程序执行目录
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	// 向上遍历目录，查找 go.mod
+	for {
+		goModPath := filepath.Join(currentDir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// 找到 go.mod，解析第一行 module 声明
+			file, err := os.Open(goModPath)
+			if err != nil {
+				return "", err
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if strings.HasPrefix(line, "module ") {
+					return strings.TrimPrefix(line, "module "), nil
+				}
+			}
+			return "", fmt.Errorf("go.mod 中未找到 module 声明")
+		}
+
+		// 到达根目录仍未找到
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			return "", fmt.Errorf("未找到 go.mod 文件")
+		}
+		currentDir = parentDir
+	}
 }

@@ -3,6 +3,7 @@ package gendb
 import (
 	// "ag-core-inner-agdb/ag/ag_db/conditonwhere"
 	"ag-core/tool/cmd/gen-go-db/gendb/render"
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -349,5 +350,48 @@ func TestFileList(t *testing.T) {
 	for _, yamlFile := range yamlFiles {
 		t.Logf("找到 YAML 文件: %s", yamlFile)
 	}
+
+}
+
+
+func TestSearchGoMod(t *testing.T) {
+	// 获取当前程序执行目录
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Log(err)
+		return
+	}
+
+	// 向上遍历目录，查找 go.mod
+	for {
+		goModPath := filepath.Join(currentDir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// 找到 go.mod，解析第一行 module 声明
+			file, err := os.Open(goModPath)
+			if err != nil {
+				t.Log(err)
+				return
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if strings.HasPrefix(line, "module ") {
+					t.Logf("module name: %s", strings.TrimPrefix(line, "module "))
+					return
+				}
+			}
+		}
+
+		// 到达根目录仍未找到
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			t.Log("未找到 go.mod 文件")
+			return
+		}
+		currentDir = parentDir
+	}
+	
 
 }
