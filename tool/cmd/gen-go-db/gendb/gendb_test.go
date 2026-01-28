@@ -16,7 +16,10 @@ import (
 func TestExcelGen(t *testing.T) {
 	//{{.Module}}
 	moduleByte, _ := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
-	packagePath:= strings.TrimSpace(string(moduleByte))
+	packagePath := strings.TrimSpace(string(moduleByte))
+	fmt.Println("目标路径:" + packagePath)
+	moduleByte, _ := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
+	packagePath := strings.TrimSpace(string(moduleByte))
 	fmt.Println("目标路径:" + packagePath)
 	config := &render.AGInfraStructrueConfig{
 		BaseConfig: render.BaseConfig{
@@ -27,8 +30,16 @@ func TestExcelGen(t *testing.T) {
 			// DbTemplatePath: "C:/Users/songbing/Desktop/generate/repository/yaml/",
 			PackageNamePrefix: packagePath,
 			// OutputPath:        "C:/Users/songbing/Desktop/generate/",
+			OutputPath:     "./",
+			DbType:         "",
+			DbTemplatePath: "./repository/yaml/",
+			// DbTemplatePath:    "./mps-template.xlsx",
+			// DbTemplatePath:    "C:/Users/songbing/Desktop/generate/mps-template.xlsx",
+			// DbTemplatePath: "C:/Users/songbing/Desktop/generate/repository/yaml/",
+			PackageNamePrefix: packagePath,
+			// OutputPath:        "C:/Users/songbing/Desktop/generate/",
 			OutputPath: "./",
-			DbType:            "",
+			DbType:     "",
 		},
 		GenerateOptions: render.GenerateOptions{
 			Sqlable:    true,
@@ -36,7 +47,7 @@ func TestExcelGen(t *testing.T) {
 			Entityable: true,
 		},
 		SupportConfig: render.SupportConfig{
-			SupportDB: []string{"mysql", "db2"},
+			SupportDB:     []string{"mysql", "db2"},
 			SupportTables: map[string]string{
 				// "tbl_3ds_request": "1",
 			},
@@ -353,7 +364,6 @@ func TestFileList(t *testing.T) {
 
 }
 
-
 func TestSearchGoMod(t *testing.T) {
 	// 获取当前程序执行目录
 	currentDir, err := os.Getwd()
@@ -392,6 +402,5 @@ func TestSearchGoMod(t *testing.T) {
 		}
 		currentDir = parentDir
 	}
-	
 
 }
