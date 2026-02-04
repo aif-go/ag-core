@@ -1,0 +1,173 @@
+package excel
+
+import (
+	"strings"
+
+	"github.com/360EntSecGroup-Skylar/excelize"
+)
+
+// ParseExcel 解析Excel文件，返回表结构信息
+func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
+	// 打开Excel文件
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// 存储所有表信息
+	tables := make(map[string]*ExcelInfo)
+
+	// 遍历所有工作表
+	for _, sheetName := range f.GetSheetMap() {
+		table := &ExcelInfo{
+			Name:        sheetName,
+			Columns:     []*ColumnInfo{},
+			PrimaryKey:  []string{},
+			Constraints: []*ConstraintInfo{},
+			Indexes:     []*IndexInfo{},
+			SelfQueries: make(map[string]*SelfQueryInfo),
+		}
+
+		// 解析工作表内容
+		rows := f.GetRows(sheetName)
+		if len(rows) == 0 {
+			continue
+		}
+
+		// 解析列信息
+		inColumns := false
+		inPrimaryKey := false
+		inConstraints := false
+		inIndexes := false
+		inSelfQueries := false
+
+		for _, row := range rows {
+			// 跳过空行
+			if len(row) == 0 || strings.TrimSpace(row[0]) == "" {
+				continue
+			}
+
+			// 检查当前区域
+			if strings.TrimSpace(row[0]) == "列名" {
+				inColumns = true
+				inPrimaryKey = false
+				inConstraints = false
+				inIndexes = false
+				inSelfQueries = false
+				continue
+			} else if strings.TrimSpace(row[0]) == "主键" {
+				inColumns = false
+				inPrimaryKey = true
+				inConstraints = false
+				inIndexes = false
+				inSelfQueries = false
+				continue
+			} else if strings.TrimSpace(row[0]) == "约束" {
+				inColumns = false
+				inPrimaryKey = false
+				inConstraints = true
+				inIndexes = false
+				inSelfQueries = false
+				continue
+			} else if strings.TrimSpace(row[0]) == "索引" {
+				inColumns = false
+				inPrimaryKey = false
+				inConstraints = false
+				inIndexes = true
+				inSelfQueries = false
+				continue
+			} else if strings.TrimSpace(row[0]) == "方法名字" {
+				inColumns = false
+				inPrimaryKey = false
+				inConstraints = false
+				inIndexes = false
+				inSelfQueries = true
+				continue
+			}
+
+			// 解析列信息
+			if inColumns {
+				if len(row) >= 9 {
+					column := &ColumnInfo{
+						Name:          strings.TrimSpace(row[0]),
+						Type:          strings.TrimSpace(row[1]),
+						Length:        strings.TrimSpace(row[2]),
+						NotNull:       strings.TrimSpace(row[3]) == "Y",
+						Default:       strings.TrimSpace(row[4]),
+						AutoIncrement: strings.TrimSpace(row[5]) == "Y",
+						SupportUpdate: strings.TrimSpace(row[6]) == "Y",
+						Description:   strings.TrimSpace(row[7]),
+						Tag:           strings.TrimSpace(row[8]),
+					}
+					table.Columns = append(table.Columns, column)
+				}
+			}
+
+			// 解析主键
+			if inPrimaryKey {
+				if len(row) >= 2 && strings.TrimSpace(row[0]) == "PRIMARY_KEY" {
+					pkColumns := strings.Split(strings.TrimSpace(row[1]), ",")
+					for _, col := range pkColumns {
+						if strings.TrimSpace(col) != "" {
+							table.PrimaryKey = append(table.PrimaryKey, strings.TrimSpace(col))
+						}
+					}
+				}
+			}
+
+			// 解析约束
+			if inConstraints {
+				if len(row) >= 2 && strings.TrimSpace(row[0]) != "" {
+					constraint := &ConstraintInfo{
+						Name:    strings.TrimSpace(row[0]),
+						Columns: []string{},
+					}
+					for j := 1; j < len(row); j++ {
+						if strings.TrimSpace(row[j]) != "" {
+							constraint.Columns = append(constraint.Columns, strings.TrimSpace(row[j]))
+						}
+					}
+					table.Constraints = append(table.Constraints, constraint)
+				}
+			}
+
+			// 解析索引
+			if inIndexes {
+				if len(row) >= 2 && strings.TrimSpace(row[0]) != "" {
+					index := &IndexInfo{
+						Name:    strings.TrimSpace(row[0]),
+						Columns: []string{},
+					}
+					for j := 1; j < len(row); j++ {
+						if strings.TrimSpace(row[j]) != "" {
+							index.Columns = append(index.Columns, strings.TrimSpace(row[j]))
+						}
+					}
+					table.Indexes = append(table.Indexes, index)
+				}
+			}
+
+			// 解析自定义查询
+			if inSelfQueries {
+				if len(row) >= 8 && strings.TrimSpace(row[0]) != "" {
+					query := &SelfQueryInfo{
+						SelectFields: strings.TrimSpace(row[1]),
+						Page:         strings.TrimSpace(row[7]) == "Y",
+					}
+
+					// 解析WHERE子句
+					whereExpr := strings.TrimSpace(row[4])
+					if whereExpr != "" {
+						query.Where = ParseWhereCondition(whereExpr)
+					}
+
+					table.SelfQueries[strings.TrimSpace(row[0])] = query
+				}
+			}
+		}
+
+		tables[sheetName] = table
+	}
+
+	return tables, nil
+}

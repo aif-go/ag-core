@@ -177,3 +177,27 @@ func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []
 
 	return result
 }
+
+// NamingSqlArg 支持将命名SQL参数转换为map,以解决命名SQL参数中包含in语句的问题
+type NamingSqlArg interface {
+	ConvertToMap() map[string]interface{}
+}
+
+type NamingSqlPage interface {
+	// 设置分页结果
+	SetPageResult(PageResult)
+	// 设置DB层返回的数据实体
+	SetResultList(any)
+}
+
+type NameingSqlArgInfo struct {
+	SqlName  string
+	ReqType  interface{}
+	RespType interface{}
+}
+
+// 定义自定义规则sql的返回对象的名字
+// 分页的数据如何处理
+// type NamingSqlMethod struct {
+// 	DbResultObjName []interface{}
+// }

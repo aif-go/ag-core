@@ -34,6 +34,7 @@ database_table:
             go_type: int
             comment: JPA_VERSION
             not_null: true
+            description: ///@jpaversion            
         CREATED_TIME:
             db_column: CREATED_TIME
             go_type: time.Time
@@ -60,7 +61,7 @@ self_query_rules:
     FindAaByPage:
         select_fields: SEQ,SEX,NAME,PHONE,ADDRESS
         where:
-            expr: ADDRESS = @Address
+            expr: ADDRESS in @AddressSlice
         page: true
     FindAllCols:
         select_fields: '*'

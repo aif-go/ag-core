@@ -2,7 +2,7 @@ module ag-core/tool/cmd/gen-go-db
 
 go 1.24.0
 
-toolchain go1.24.2
+toolchain go1.24.8
 
 require (
 	github.com/samber/lo v1.52.0

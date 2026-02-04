@@ -18,22 +18,11 @@ func TestExcelGen(t *testing.T) {
 	moduleByte, _ := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
 	packagePath := strings.TrimSpace(string(moduleByte))
 	fmt.Println("目标路径:" + packagePath)
-	moduleByte, _ := exec.Command("go", "list", "-f", "{{.Module.Path}}", ".").Output()
-	packagePath := strings.TrimSpace(string(moduleByte))
-	fmt.Println("目标路径:" + packagePath)
 	config := &render.AGInfraStructrueConfig{
 		BaseConfig: render.BaseConfig{
 			// DbTemplatePath: "C:/Users/songbing/Desktop/goerm/mps.erm",
 			DbTemplatePath: "./repository/yaml/",
-			// DbTemplatePath:    "./mps-template.xlsx",
-			// DbTemplatePath:    "C:/Users/songbing/Desktop/generate/mps-template.xlsx",
-			// DbTemplatePath: "C:/Users/songbing/Desktop/generate/repository/yaml/",
-			PackageNamePrefix: packagePath,
-			// OutputPath:        "C:/Users/songbing/Desktop/generate/",
-			OutputPath:     "./",
-			DbType:         "",
-			DbTemplatePath: "./repository/yaml/",
-			// DbTemplatePath:    "./mps-template.xlsx",
+			// DbTemplatePath: "./mps-template.xlsx",
 			// DbTemplatePath:    "C:/Users/songbing/Desktop/generate/mps-template.xlsx",
 			// DbTemplatePath: "C:/Users/songbing/Desktop/generate/repository/yaml/",
 			PackageNamePrefix: packagePath,
@@ -54,10 +43,11 @@ func TestExcelGen(t *testing.T) {
 		},
 	}
 	err := GenerateDBGoFile(config)
+	// err := GenerateYamlFile(config)
 	if err != nil {
 		t.Log("生成失败:", err)
 	}
-	// GenerateYamlFile(config)
+
 }
 
 func TestInsert(t *testing.T) {
