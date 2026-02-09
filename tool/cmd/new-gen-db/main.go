@@ -17,6 +17,7 @@ var (
 	testMode   bool
 	tableName  string
 	moduleName string
+	dbType     string
 )
 
 func main() {
@@ -54,6 +55,7 @@ func main() {
 	dbCmd.Flags().StringVarP(&outputDir, "output", "o", "", "最后存放model和DAO文件的位置")
 	dbCmd.Flags().StringVarP(&tableName, "table", "T", "", "指定表名，只生成该表的文件")
 	dbCmd.Flags().StringVarP(&moduleName, "module", "m", "", "模块的名字，如果未指定，则查找当前位置的go.mod的值")
+	dbCmd.Flags().StringVarP(&dbType, "dbtype", "d", "", "指定数据库类型，可选值：mysql, db2，不指定时默认生成两种")
 
 	// 将子命令添加到主命令
 	rootCmd.AddCommand(yamlCmd)
@@ -95,7 +97,7 @@ func runDbCommand(cmd *cobra.Command, args []string) {
 	}
 
 	// 使用dao包中的GenerateDAOFromYAML函数生成DAO文件
-	if err := dao.GenerateDAOFromYAML(inputFile, outputDir, tableName, moduleName); err != nil {
+	if err := dao.GenerateDAOFromYAML(inputFile, outputDir, tableName, moduleName, dbType); err != nil {
 		log.Fatalf("生成DAO文件失败: %v", err)
 	}
 

@@ -27,6 +27,7 @@ type ColumnData struct {
 	IsPrimaryKey    bool
 	IsAutoCreate    bool
 	IsAutoUpdate    bool
+	IsJavaVersion   bool
 	SupportUpdate   bool           // 是否支持更新
 	IndexPriorities map[string]int // 索引优先级映射
 }

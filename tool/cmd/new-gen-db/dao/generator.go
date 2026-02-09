@@ -12,7 +12,7 @@ import (
 )
 
 // GenerateDAOFromYAML 从YAML文件生成DAO文件
-func GenerateDAOFromYAML(inputFile string, outputDir string, tableName string, moduleName string) error {
+func GenerateDAOFromYAML(inputFile string, outputDir string, tableName string, moduleName string, dbType string) error {
 	// 确保输出目录存在，在用户输入的基础上拼接repository/dao和repository/model
 	daoOutputDir := outputDir
 	if daoOutputDir != "" {
@@ -69,15 +69,16 @@ func GenerateDAOFromYAML(inputFile string, outputDir string, tableName string, m
 
 		// 生成模型文件
 		fmt.Printf("正在生成%s的模型文件...\n", tableData.TableName)
-		modelPath := filepath.Join(modelOutputDir, strings.ToLower(tableData.TableName)+".go")
+		modelPath := filepath.Join(modelOutputDir, strings.ToLower(tableData.TableName)+"_model.go")
 		if err := model.GenerateModel(tableData, modelPath); err != nil {
-			return fmt.Errorf("生成模型文件失败: %v", err)
+			fmt.Printf("生成模型文件失败: %v，跳过该表\n", err)
+			continue
 		}
 		fmt.Printf("生成模型文件成功: %s\n", tableData.TableName)
 
 		// 生成DAO文件
 		fmt.Printf("正在生成%s的DAO文件...\n", tableData.TableName)
-		if err := GenerateDAO(tableData, daoOutputDir, moduleName); err != nil {
+		if err := GenerateDAO(tableData, daoOutputDir, moduleName, dbType); err != nil {
 			return fmt.Errorf("生成DAO文件失败: %v", err)
 		}
 		fmt.Printf("生成DAO文件成功: %s\n", tableData.TableName)
@@ -112,7 +113,7 @@ func getModuleName() string {
 }
 
 // GenerateDAO 生成DAO文件
-func GenerateDAO(tableData *table.TableData, outputPath string, moduleName string) error {
+func GenerateDAO(tableData *table.TableData, outputPath string, moduleName string, dbType string) error {
 	// 确保输出目录存在
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
 		return err
@@ -138,12 +139,19 @@ func GenerateDAO(tableData *table.TableData, outputPath string, moduleName strin
 	// 生成tablename_namingsql.go文件
 	namingSqlFileName := fmt.Sprintf("%s_namingsql.go", strings.ToLower(tableData.TableName))
 	namingSqlPath := fmt.Sprintf("%s/%s", outputPath, namingSqlFileName)
-	if err := generateNamingSqlFile(tableData, namingSqlPath); err != nil {
+	if err := generateNamingSqlFile(tableData, namingSqlPath, dbType); err != nil {
 		return err
 	}
 
-	// 生成dbtype_tablename_namingsql.go文件（默认生成mysql和db2）
-	dbTypes := []string{"MYSQL", "DB2"}
+	// 生成dbtype_tablename_namingsql.go文件
+	var dbTypes []string
+	if dbType == "" {
+		// 不指定时默认生成mysql和db2
+		dbTypes = []string{"MYSQL", "DB2"}
+	} else {
+		// 指定时只生成指定的数据库类型
+		dbTypes = []string{strings.ToUpper(dbType)}
+	}
 	for _, dbType := range dbTypes {
 		dbTypeFileName := fmt.Sprintf("%s_%s_namingsql.go", strings.ToLower(dbType), strings.ToLower(tableData.TableName))
 		dbTypePath := fmt.Sprintf("%s/%s", outputPath, dbTypeFileName)
@@ -168,9 +176,9 @@ func generateDaoFile(tableData *table.TableData, outputPath string, moduleName s
 }
 
 // generateNamingSqlFile 生成tablename_namingsql.go文件
-func generateNamingSqlFile(tableData *table.TableData, outputPath string) error {
+func generateNamingSqlFile(tableData *table.TableData, outputPath string, dbType string) error {
 	// 获取命名SQL模板代码
-	code := GetNamingSqlTemplate(tableData)
+	code := GetNamingSqlTemplate(tableData, dbType)
 
 	return os.WriteFile(outputPath, []byte(code), 0644)
 }

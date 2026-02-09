@@ -134,6 +134,40 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		indexCheck += "\t}\n"
 	}
 
+	// 生成UpdateByPrimaryKey方法的switch case代码
+	var updateSwitchCase string
+	for _, col := range tableData.AllowUpdateCols {
+		for _, column := range tableData.Columns {
+			if col == column.Name {
+				updateSwitchCase += "\t\tcase \"" + col + "\":\n"
+				// 根据字段类型生成不同的零值判断条件
+				switch column.GoType {
+				case "string":
+					updateSwitchCase += "\t\t\tif entity." + column.JsonTag + " != \"\" {\n"
+				case "time.Time":
+					updateSwitchCase += "\t\t\tif !entity." + column.JsonTag + ".IsZero() {\n"
+				// case "bool":
+				// 	// 布尔类型特殊处理，因为false也是零值，但可能需要更新为false
+				// 	updateSwitchCase += "\t\t\tif true {\n"
+				default:
+					// 数值类型
+					updateSwitchCase += "\t\t\tif entity." + column.JsonTag + " != 0 {\n"
+				}
+				updateSwitchCase += "\t\t\t\tallowedUpdateCols = append(allowedUpdateCols, \"" + col + "\")\n"
+				updateSwitchCase += "\t\t\t}\n"
+				break
+			}
+		}
+	}
+
+	// 生成主键更新条件代码
+	var primaryKeyUpdate string
+	for _, column := range tableData.Columns {
+		if column.IsPrimaryKey {
+			primaryKeyUpdate += "\twhere[\"" + column.Name + "\"] = entity." + column.JsonTag + "\n"
+		}
+	}
+
 	var reflectImpor string
 	if len(tableData.SelfQueries) > 0 {
 		reflectImpor = "reflect"
@@ -173,7 +207,7 @@ type ` + structName + `Dao struct {
 type I` + structName + `Dao interface {
 	InsertOne(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
-	UpdateByPrimarykey(ctx context.Context, entity *model.` + structName + `) (int64, error)
+	UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdaeByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (any, error)
@@ -215,15 +249,28 @@ func (dao *` + structName + `Dao) InsertOneIgnoreZeroValCols(ctx context.Context
 }
 
 // UpdateByPrimaryKey 根据主键更新，该操作只适合从数据库查询原实体修改值之后使用
-func (dao *` + structName + `Dao) UpdateByPrimarykey(ctx context.Context, entity *model.` + structName + `) (int64, error) {
+func (dao *` + structName + `Dao) UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	// 使用支持更新的列
-	db.UpdateColumns(model.` + structName + `AllowUpdateCols)
-	result := db.Save(entity)
+	// ` + structName + `AllowUpdateCols
+	// 1. 定义一个切片，存储非零值的列名
+	allowedUpdateCols := []string{}
+	
+	// 2. 只将非零值的列名添加到切片中
+	for _, col := range model.` + structName + `AllowUpdateCols {
+		switch col {
+` + updateSwitchCase + `		}
+	}
+	
+	
+	// 4. 更新条件（主键）
+	where := make(map[string]any)
+` + primaryKeyUpdate + `
+	// 5. 使用支持更新的列
+	result := db.Model(&model.` + structName + `{}).Where(where).Select(allowedUpdateCols).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -234,8 +281,22 @@ func (dao *` + structName + `Dao) UpdaeByPrimaryKeyIngoreZeroValCols(ctx context
 		return 0, err
 	}
 
+	// ` + structName + `AllowUpdateCols
+	// 1. 定义一个切片，存储非零值的列名
+	allowedUpdateCols := []string{}
+	
+	// 2. 只将非零值的列名添加到切片中
+	for _, col := range model.` + structName + `AllowUpdateCols {
+		switch col {
+` + updateSwitchCase + `		}
+	}
+	
+	
+	// 4. 更新条件（主键）
+	where := make(map[string]any)
+` + primaryKeyUpdate + `
 	// 使用支持更新的列
-	result := db.Model(entity).UpdateColumns(model.` + structName + `AllowUpdateCols).Updates(entity)
+	result := db.Model(&model.` + structName + `{}).Where(where).Select(allowedUpdateCols).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -316,8 +377,25 @@ func (dao *` + structName + `Dao) newDB(ctx context.Context) (*gorm.DB, error) {
 }
 
 // GetNamingSqlTemplate 获取命名SQL模板代码
-func GetNamingSqlTemplate(tableData *table.TableData) string {
+func GetNamingSqlTemplate(tableData *table.TableData, dbType string) string {
 	structName := tableData.StructName
+	var initCalls string
+
+	// 将dbType转换为大写，确保大小写不敏感
+	upperDbType := strings.ToUpper(dbType)
+
+	// 根据dbType参数决定生成哪些初始化函数调用
+	if dbType == "" {
+		// 未指定dbType，生成所有数据库类型的初始化函数调用
+		initCalls = "\t// 执行一次初始化操作\n\tInit" + structName + "MYSQL()\n\t// 执行一次初始化操作\n\tInit" + structName + "DB2()"
+	} else if upperDbType == "MYSQL" {
+		// 只生成MySQL的初始化函数调用
+		initCalls = "\t// 执行一次初始化操作\n\tInit" + structName + "MYSQL()"
+	} else if upperDbType == "DB2" {
+		// 只生成DB2的初始化函数调用
+		initCalls = "\t// 执行一次初始化操作\n\tInit" + structName + "DB2()"
+	}
+
 	return `package dao
 
 // DO NOT EDIT
@@ -325,10 +403,7 @@ func GetNamingSqlTemplate(tableData *table.TableData) string {
 // DO NOT EDIT
 
 func Init` + structName + `NamingSql() {
-	// 执行一次初始化操作
-	Init` + structName + `MYSQL()
-	// 执行一次初始化操作
-	Init` + structName + `DB2()
+` + initCalls + `
 }
 `
 }
@@ -370,26 +445,91 @@ func generateDoMethods(tableData *table.TableData) string {
 	var doMethods string
 	structName := tableData.StructName
 	for _, query := range tableData.SelfQueries {
-		doMethods += fmt.Sprintf(`// do%s 执行%s查询
-func (dao *%sDao) do%s(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) ([]*model.%s%sRes, error) {
+		// 根据selectFields决定返回类型
+		var resultType string
+		if query.SelectFields == "*" {
+			resultType = structName
+		} else {
+			resultType = structName + query.Name + "Res"
+		}
 
-	queryArgs, ok := args.(model.%s%sArg)
+		if query.HasPage {
+			// 生成分页的do方法
+			doMethods += `// do` + query.Name + ` 执行` + query.Name + `查询（分页）
+func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (*model.` + structName + query.Name + `PageRes, error) {
+
+	queryArgs, ok := args.(*model.` + structName + query.Name + `Arg)
 	if !ok {
-		return nil, errors.New("do%s args type not match")
+		return nil, errors.New("do` + query.Name + ` args type not match")
 	}
 
-	execSql := %sNamingSqlMap[namingInfo.SqlName]
+	sqlName := dao.DbType + "_" + "` + structName + `" + "_" + namingInfo.SqlName
+	execSql := ` + structName + `NamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+	execCountSql := ` + structName + `NamingSqlMap[sqlName+"_Count"]
+	if execCountSql == "" {
+		return nil, errors.New("not found naming sql count")
+	}
+
+	newTableName := dao.getApplyInfo(ctx).TableName
+	if newTableName != "" {
+		enity := &model.` + structName + `{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var totalCount int64
+	result := dao.DB(ctx).Raw(execCountSql, argsMap).Scan(&totalCount)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	startRecord, endRecord, totalPage := db.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	argsMap["Start"] = startRecord
+	argsMap["End"] = endRecord
+	var list []*model.` + resultType + `
+	resultlist := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
+	if resultlist.Error != nil {
+		return nil, resultlist.Error
+	}
+
+	return &model.` + structName + query.Name + `PageRes{
+		PageResult: db.PageResult{
+			CurrentPage: queryArgs.PageNum,
+			PageSize:    queryArgs.PageSize,
+			TotalCount:  totalCount,
+			TotalPage:   totalPage,
+		},
+		ResultList: list,
+	}, nil
+}
+
+`
+		} else {
+			// 生成非分页的do方法
+			doMethods += `// do` + query.Name + ` 执行` + query.Name + `查询（非分页）
+func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) ([]*model.` + resultType + `, error) {
+
+	queryArgs, ok := args.(*model.` + structName + query.Name + `Arg)
+	if !ok {
+		return nil, errors.New("do` + query.Name + ` args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "` + structName + `" + "_" + namingInfo.SqlName
+	execSql := ` + structName + `NamingSqlMap[sqlName]
 	if execSql == "" {
 		return nil, errors.New("not found naming sql")
 	}
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.%s{}
+		enity := &model.` + structName + `{}
 		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
-	var list []*model.%s%sRes
+	var list []*model.` + resultType + `
 	result := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
 	if result.Error != nil {
 		return nil, result.Error
@@ -397,7 +537,8 @@ func (dao *%sDao) do%s(ctx context.Context, namingInfo *db.NameingSqlArgInfo, ar
 	return list, nil
 }
 
-`, query.Name, query.Name, structName, query.Name, structName, query.Name, structName, query.Name, query.Name, structName, structName, structName, query.Name)
+`
+		}
 	}
 	return doMethods
 }
@@ -409,29 +550,54 @@ func GetConstantTemplate(tableData *table.TableData) string {
 
 	// 生成常量定义
 	var constants string
-	
+
 	// 添加命名SQL映射
 	constants += fmt.Sprintf(`// %sNamingSqlMap 命名SQL映射
 var %sNamingSqlMap = map[string]string{}
 
 `, structName, structName)
-	
-	// 添加排除空值字段映射
-	constants += fmt.Sprintf(`// exclude%sZeroColNames 插入忽略空值时标记哪些字段需要排除在外
-var exclude%sZeroColNames = map[string]int{"CreatedTime": 0, "LastModifiedTime": 0}
 
-`, structName, structName)
-	
+	// 添加排除空值字段映射
+	excludeCols := []string{}
+	for _, col := range tableData.Columns {
+		// 检查列的标签是否包含需要排除的标记
+		if col.IsJavaVersion || col.IsAutoCreate || col.IsAutoUpdate {
+			excludeCols = append(excludeCols, col.JsonTag)
+			continue
+		}
+	}
+
+	// 生成排除空值字段映射
+	excludeMap := ""
+	for i, col := range excludeCols {
+		if i > 0 {
+			excludeMap += ", "
+		}
+		excludeMap += fmt.Sprintf("\"%s\": 0", col)
+	}
+
+	constants += fmt.Sprintf(`// exclude%sZeroColNames 插入忽略空值时标记哪些字段需要排除在外
+var exclude%sZeroColNames = map[string]int{%s}
+
+`, structName, structName, excludeMap)
+
 	// 只有当有自定义查询时才生成命名SQL参数信息
 	if len(tableData.SelfQueries) > 0 {
 		for _, query := range tableData.SelfQueries {
-			constants += fmt.Sprintf(`var %sNamingInfo = &db.NameingSqlArgInfo{
+			// 根据selectFields决定返回类型
+			var resultType string
+			if query.SelectFields == "*" {
+				resultType = structName
+			} else {
+				resultType = structName + query.Name + "Res"
+			}
+			constants += fmt.Sprintf(`
+var %sNamingInfo = &db.NameingSqlArgInfo{
 	SqlName:  "%s",
 	ReqType:  (*model.%s%sArg)(nil),
-	RespType: ([]*model.%s%sRes)(nil),
+	RespType: ([]*model.%s)(nil),
 }
-
-`, query.Name, query.Name, structName, query.Name, structName, query.Name)
+`, query.Name, query.Name, structName, query.Name, resultType)
 		}
 	}
 
@@ -449,7 +615,9 @@ import (
 func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) string {
 	structName := tableData.StructName
 	tableName := tableData.TableName
-	// moduleName := tableData.ModuleName
+
+	// 获取主键列名
+	primaryKey := getPrimaryKey(tableData)
 
 	// 生成示例SQL
 	var sqlExamples []string
@@ -466,32 +634,79 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 			whereClause = "WHERE " + generateWhereSQL(query.Where)
 		}
 
-		// 组合SQL语句
-		sql := selectClause + " FROM " + tableName + " " + whereClause
-		sqlExample := fmt.Sprintf("const %s_%s_%s = \"%s\"", dbType, structName, query.Name, sql)
-		sqlExamples = append(sqlExamples, sqlExample)
+		// 构建排序语句
+		sortClause := ""
+		if primaryKey != "" {
+			sortClause = " ORDER BY " + primaryKey
+		}
+
+		// 组合基本SQL语句
+		baseSql := selectClause + " FROM " + tableName + " " + whereClause
+
+		// 根据是否需要分页生成分页SQL或基本SQL
+		if query.HasPage {
+			// 需要分页，只生成分页SQL，去掉_Page后缀
+			var pageSql string
+			if dbType == "MYSQL" {
+				// MySQL分页语法
+				pageSql = baseSql + sortClause + " LIMIT @Start, @End"
+			} else if dbType == "DB2" {
+				// DB2分页语法（简化为两层嵌套）
+				// 提取SELECT子句的字段部分
+				fieldsPart := "*"
+				if query.SelectFields != "" && query.SelectFields != "*" {
+					fieldsPart = query.SelectFields
+				}
+				// 提取FROM和WHERE子句（从baseSql中提取）
+				fromWhereStart := strings.Index(baseSql, " FROM ")
+				fromWhereClause := ""
+				if fromWhereStart != -1 {
+					fromWhereClause = baseSql[fromWhereStart:]
+				}
+				// 构建两层嵌套的DB2分页SQL
+				pageSql = "SELECT " + fieldsPart + " FROM (SELECT " + fieldsPart + ", ROW_NUMBER() OVER(ORDER BY " + primaryKey + ") AS RN " + fromWhereClause + ") AS T WHERE RN BETWEEN @Start AND @End"
+			}
+			if pageSql != "" {
+				// 分页SQL常量名去掉_Page后缀
+				pageSqlExample := fmt.Sprintf("const %s_%s_%s = \"%s\"", dbType, structName, query.Name, pageSql)
+				sqlExamples = append(sqlExamples, pageSqlExample)
+
+				// 为分页查询生成Count SQL
+				countSql := "SELECT COUNT(*) FROM " + tableName + " " + whereClause
+				countSqlExample := fmt.Sprintf("const %s_%s_%s_Count = \"%s\"", dbType, structName, query.Name, countSql)
+				sqlExamples = append(sqlExamples, countSqlExample)
+			}
+		} else {
+			// 不需要分页，生成基本SQL
+			sqlExample := fmt.Sprintf("const %s_%s_%s = \"%s%s\"", dbType, structName, query.Name, baseSql, sortClause)
+			sqlExamples = append(sqlExamples, sqlExample)
+			// 非分页查询不需要Count SQL
+		}
 	}
 
 	// 如果没有自定义查询，生成一个默认查询
 	if len(sqlExamples) == 0 {
-		sqlExamples = append(sqlExamples, fmt.Sprintf("const %s_%s_Default = \"SELECT * FROM %s WHERE 1=1\"", dbType, structName, tableName))
+		defaultSql := "SELECT * FROM " + tableName + " WHERE 1=1"
+		if primaryKey != "" {
+			defaultSql += " ORDER BY " + primaryKey
+		}
+		sqlExamples = append(sqlExamples, fmt.Sprintf("const %s_%s_Default = \"%s\"", dbType, structName, defaultSql))
+		// 默认查询是非分页的，不需要生成Count SQL
 	}
 
 	// 生成初始化函数
 	initFunc := fmt.Sprintf("func Init%s%s() {\n", structName, dbType)
 	for _, query := range tableData.SelfQueries {
 		initFunc += fmt.Sprintf("\t%sNamingSqlMap[\"%s_%s_%s\"] = %s_%s_%s\n", structName, dbType, structName, query.Name, dbType, structName, query.Name)
-		// 设置返回对象类型
-		resultType := structName
-		if query.SelectFields != "" && query.SelectFields != "*" {
-			resultType += query.Name + "Res"
+		// 只为分页查询添加Count SQL映射
+		if query.HasPage {
+			initFunc += fmt.Sprintf("\t%sNamingSqlMap[\"%s_%s_%s_Count\"] = %s_%s_%s_Count\n", structName, dbType, structName, query.Name, dbType, structName, query.Name)
 		}
-		// initFunc += fmt.Sprintf("\t%sNamingSqlMethodMap[\"%s_%s_%s\"] = &db.NamingSqlMethod{DbResultObjName: []interface{}{&model.%s{}}}\n", structName, dbType, structName, query.Name, resultType)
 	}
 	// 如果没有自定义查询，添加默认查询
 	if len(tableData.SelfQueries) == 0 {
 		initFunc += fmt.Sprintf("\t%sNamingSqlMap[\"%s_%s_Default\"] = %s_%s_Default\n", structName, dbType, structName, dbType, structName)
-		// initFunc += fmt.Sprintf("\t%sNamingSqlMethodMap[\"%s_%s_Default\"] = &db.NamingSqlMethod{DbResultObjName: []interface{}{&model.%s{}}}\n", structName, dbType, structName, structName)
+		// 默认查询是非分页的，不需要添加Count SQL映射
 	}
 	initFunc += "}\n"
 
@@ -502,4 +717,14 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 // DO NOT EDIT
 
 ` + strings.Join(sqlExamples, "\n\n") + "\n\n" + initFunc
+}
+
+// getPrimaryKey 获取主键列名
+func getPrimaryKey(tableData *table.TableData) string {
+	for _, col := range tableData.Columns {
+		if col.IsPrimaryKey {
+			return col.Name
+		}
+	}
+	return ""
 }

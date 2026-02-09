@@ -4,3 +4,6 @@ examples/hello/storage
 **/go.work.sum
 /*.sh
 
+.vscode/launch.json
+tool/cmd/gen-go-db/.vscode/launch.json
+tool/cmd/gen-go-db/gendb/mps-template.xlsx.bak

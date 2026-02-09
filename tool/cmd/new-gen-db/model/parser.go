@@ -68,6 +68,9 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					if strings.Contains(tag, "///@update") {
 						col.IsAutoUpdate = true
 					}
+					if strings.Contains(tag, "///@javaVersion") {
+						col.IsJavaVersion = true
+					}
 				}
 
 				// 处理support_update字段
@@ -120,9 +123,11 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					continue
 				}
 
+				consColumns := []string{}
 				if cols, ok := consMap["columns"].([]interface{}); ok {
 					for i, col := range cols {
 						if colName, ok := col.(string); ok {
+							consColumns = append(consColumns, colName)
 							// 将约束视为索引处理
 							for j := range columns {
 								if columns[j].Name == colName {
@@ -132,6 +137,14 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 							}
 						}
 					}
+				}
+
+				// 将约束作为索引添加到indexes切片中
+				if len(consColumns) > 0 {
+					indexes = append(indexes, table.IndexData{
+						Name:    consName,
+						Columns: consColumns,
+					})
 				}
 			}
 		}

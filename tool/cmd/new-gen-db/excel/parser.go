@@ -19,6 +19,10 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 
 	// 遍历所有工作表
 	for _, sheetName := range f.GetSheetMap() {
+		// 跳过名为 "自定义脚本名字" 的工作表
+		if strings.TrimSpace(sheetName) == "自定义脚本名字" {
+			continue
+		}
 		table := &ExcelInfo{
 			Name:        sheetName,
 			Columns:     []*ColumnInfo{},
@@ -106,10 +110,10 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 			// 解析主键
 			if inPrimaryKey {
 				if len(row) >= 2 && strings.TrimSpace(row[0]) == "PRIMARY_KEY" {
-					pkColumns := strings.Split(strings.TrimSpace(row[1]), ",")
-					for _, col := range pkColumns {
-						if strings.TrimSpace(col) != "" {
-							table.PrimaryKey = append(table.PrimaryKey, strings.TrimSpace(col))
+					// 遍历所有列，获取所有主键
+					for j := 1; j < len(row); j++ {
+						if strings.TrimSpace(row[j]) != "" {
+							table.PrimaryKey = append(table.PrimaryKey, strings.TrimSpace(row[j]))
 						}
 					}
 				}
@@ -134,8 +138,13 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 			// 解析索引
 			if inIndexes {
 				if len(row) >= 2 && strings.TrimSpace(row[0]) != "" {
+					indexName := strings.TrimSpace(row[0])
+					// 跳过名为 "自定义脚本名字" 的索引
+					if indexName == "自定义脚本名字" {
+						continue
+					}
 					index := &IndexInfo{
-						Name:    strings.TrimSpace(row[0]),
+						Name:    indexName,
 						Columns: []string{},
 					}
 					for j := 1; j < len(row); j++ {
