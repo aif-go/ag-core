@@ -255,22 +255,11 @@ func (dao *` + structName + `Dao) UpdateByPrimaryKey(ctx context.Context, entity
 		return 0, err
 	}
 
-	// ` + structName + `AllowUpdateCols
-	// 1. 定义一个切片，存储非零值的列名
-	allowedUpdateCols := []string{}
-	
-	// 2. 只将非零值的列名添加到切片中
-	for _, col := range model.` + structName + `AllowUpdateCols {
-		switch col {
-` + updateSwitchCase + `		}
-	}
-	
-	
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 ` + primaryKeyUpdate + `
 	// 5. 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Select(allowedUpdateCols).Updates(entity)
+	result := db.Model(&model.` + structName + `{}).Where(where).Select(model.` + structName + `AllowUpdateCols).Save(entity)
 	return result.RowsAffected, result.Error
 }
 
