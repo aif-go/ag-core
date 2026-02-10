@@ -58,6 +58,15 @@ func ({{toLower .StructName}} *{{.StructName}}) ToString() string {
 // {{.StructName}}AllowUpdateCols 支持更新的列名列表
 var {{.StructName}}AllowUpdateCols = []string{ {{range $index, $col := .AllowUpdateCols}}{{if $index}},{{end}}"{{$col}}"{{end}} }
 
+// {{.StructName}}Column 表列模型
+type {{.StructName}}Column struct {
+	Name    string
+	Address string
+	Phone   string
+	ClassId string
+	CardNo  string
+}
+
 {{- range .SelfQueries}}
 {{$query := .}}
 {{$table := $}}

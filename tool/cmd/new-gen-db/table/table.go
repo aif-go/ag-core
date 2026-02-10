@@ -37,6 +37,7 @@ type IndexData struct {
 	Name     string
 	Columns  []string
 	Priority int
+	IsUnique bool // 是否为唯一索引
 }
 
 // WhereCondition where条件，支持嵌套结构

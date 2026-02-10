@@ -108,7 +108,6 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 						}
 					}
 				}
-
 				indexes = append(indexes, idx)
 			}
 		}
@@ -142,8 +141,9 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 				// 将约束作为索引添加到indexes切片中
 				if len(consColumns) > 0 {
 					indexes = append(indexes, table.IndexData{
-						Name:    consName,
-						Columns: consColumns,
+						Name:     consName,
+						Columns:  consColumns,
+						IsUnique: true, // 唯一索引
 					})
 				}
 			}

@@ -7,6 +7,32 @@ import (
 	"ag-core/tool/cmd/new-gen-db/table"
 )
 
+// generateZeroValueCheck 生成零值判断代码
+func generateZeroValueCheck(columns []table.ColumnData) string {
+	var checkCode string
+	checkCode += "("
+	for i, col := range columns {
+		if i > 0 {
+			checkCode += " || ("
+		} else {
+			checkCode += "("
+		}
+		// 根据字段类型生成不同的零值判断条件
+		switch col.GoType {
+		case "string":
+			checkCode += "entity." + col.JsonTag + " == \"\""
+		case "time.Time":
+			checkCode += "entity." + col.JsonTag + ".IsZero()"
+		default:
+			// 数值类型
+			checkCode += "entity." + col.JsonTag + " == 0"
+		}
+		checkCode += ")"
+	}
+	checkCode += ")"
+	return checkCode
+}
+
 // GetDaoTemplate 获取DAO模板代码
 func GetDaoTemplate(tableData *table.TableData) string {
 	moduleName := tableData.ModuleName
@@ -134,39 +160,97 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		indexCheck += "\t}\n"
 	}
 
-	// 生成UpdateByPrimaryKey方法的switch case代码
-	var updateSwitchCase string
-	for _, col := range tableData.AllowUpdateCols {
-		for _, column := range tableData.Columns {
-			if col == column.Name {
-				updateSwitchCase += "\t\tcase \"" + col + "\":\n"
-				// 根据字段类型生成不同的零值判断条件
-				switch column.GoType {
-				case "string":
-					updateSwitchCase += "\t\t\tif entity." + column.JsonTag + " != \"\" {\n"
-				case "time.Time":
-					updateSwitchCase += "\t\t\tif !entity." + column.JsonTag + ".IsZero() {\n"
-				// case "bool":
-				// 	// 布尔类型特殊处理，因为false也是零值，但可能需要更新为false
-				// 	updateSwitchCase += "\t\t\tif true {\n"
-				default:
-					// 数值类型
-					updateSwitchCase += "\t\t\tif entity." + column.JsonTag + " != 0 {\n"
+	// 生成主键和唯一键更新条件代码
+	var primaryKeyUpdate string
+
+	// 收集主键列
+	var primaryKeyColumns []table.ColumnData
+	// 收集唯一键列
+	var uniqueKeyColumns []table.ColumnData
+
+	// 先收集主键列
+	for _, column := range tableData.Columns {
+		if column.IsPrimaryKey {
+			primaryKeyColumns = append(primaryKeyColumns, column)
+		}
+	}
+
+	// 然后从索引中收集唯一键列
+	// 遍历所有唯一索引
+	for _, index := range tableData.Indexes {
+		if index.IsUnique {
+			// 遍历唯一索引的所有列
+			for _, colName := range index.Columns {
+				// 找到对应的列数据
+				for _, column := range tableData.Columns {
+					if column.Name == colName {
+						// 检查是否已经在唯一键列中
+						exists := false
+						for _, existingCol := range uniqueKeyColumns {
+							if existingCol.Name == column.Name {
+								exists = true
+								break
+							}
+						}
+						// 如果不存在，添加到唯一键列中
+						if !exists {
+							uniqueKeyColumns = append(uniqueKeyColumns, column)
+						}
+						break
+					}
 				}
-				updateSwitchCase += "\t\t\t\tallowedUpdateCols = append(allowedUpdateCols, \"" + col + "\")\n"
-				updateSwitchCase += "\t\t\t}\n"
-				break
 			}
 		}
 	}
 
-	// 生成主键更新条件代码
-	var primaryKeyUpdate string
-	for _, column := range tableData.Columns {
-		if column.IsPrimaryKey {
-			primaryKeyUpdate += "\twhere[\"" + column.Name + "\"] = entity." + column.JsonTag + "\n"
+	// 生成更新条件代码
+	if len(primaryKeyColumns) > 0 {
+		// 有主键的情况
+		primaryKeyUpdate = "\t// 检查主键是否为空，如果为空继续检查唯一键\n"
+
+		// 生成主键为空的判断
+		primaryKeyUpdate += "\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n"
+
+		// 生成唯一键检查
+		// if len(uniqueKeyColumns) > 0 {
+		// 	primaryKeyUpdate += "\t\tif " + generateZeroValueCheck(uniqueKeyColumns) + " {\n"
+		// 	primaryKeyUpdate += "\t\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
+		// 	primaryKeyUpdate += "\t\t}\n"
+
+		// 	// 生成唯一键更新条件
+		// 	for _, uk := range uniqueKeyColumns {
+		// 		primaryKeyUpdate += "\t\twhere[\"" + uk.Name + "\"] = entity." + uk.JsonTag + "\n"
+		// 	}
+		// } else {
+		// 	primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
+		// }
+		primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
+
+		primaryKeyUpdate += "\t} else {\n"
+
+		// 生成主键更新条件
+		for _, pk := range primaryKeyColumns {
+			primaryKeyUpdate += "\t\twhere[\"" + pk.Name + "\"] = entity." + pk.JsonTag + "\n"
 		}
+
+		primaryKeyUpdate += "\t}\n"
 	}
+	// else if len(uniqueKeyColumns) > 0 {
+	// 	// 没有主键但有唯一键的情况
+	// 	primaryKeyUpdate = "\t// 没有主键，使用唯一键作为更新条件\n"
+	// 	primaryKeyUpdate += "\tif " + generateZeroValueCheck(uniqueKeyColumns) + " {\n"
+	// 	primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,unique key is required\")\n"
+	// 	primaryKeyUpdate += "\t}\n"
+
+	// 	// 生成唯一键更新条件
+	// 	for _, uk := range uniqueKeyColumns {
+	// 		primaryKeyUpdate += "\twhere[\"" + uk.Name + "\"] = entity." + uk.JsonTag + "\n"
+	// 	}
+	// } else {
+	// 	// 既没有主键也没有唯一键
+	// 	primaryKeyUpdate = "\t// 既没有主键也没有唯一键\n"
+	// 	primaryKeyUpdate += "\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
+	// }
 
 	var reflectImpor string
 	if len(tableData.SelfQueries) > 0 {
@@ -208,7 +292,8 @@ type I` + structName + `Dao interface {
 	InsertOne(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error)
-	UpdaeByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
+	UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error)
 	FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (any, error)
 }
@@ -248,7 +333,7 @@ func (dao *` + structName + `Dao) InsertOneIgnoreZeroValCols(ctx context.Context
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKey 根据主键更新，该操作只适合从数据库查询原实体修改值之后使用
+// UpdateByPrimaryKey 根据主键或者唯一键更新，该操作只适合从数据库查询原实体修改值之后使用
 func (dao *` + structName + `Dao) UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -258,34 +343,52 @@ func (dao *` + structName + `Dao) UpdateByPrimaryKey(ctx context.Context, entity
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 ` + primaryKeyUpdate + `
+	if len(where) == 0 {
+		return 0, errors.New("when update,primary key or unique key is required")
+	}
 	// 5. 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Select(model.` + structName + `AllowUpdateCols).Save(entity)
+	result := db.Model(&model.` + structName + `{}).Where(where).Save(entity)
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPriIngoreNullCols 根据主键更新，自动剔除参数中的零值列
-func (dao *` + structName + `Dao) UpdaeByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error) {
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+func (dao *` + structName + `Dao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}	
+	// 4. 更新条件（主键）
+	where := make(map[string]any)
+` + primaryKeyUpdate + `
+	if len(where) == 0 {
+		return 0, errors.New("when update,primary key or unique key is required")
+	}
+	// 使用支持更新的列
+	result := db.Model(&model.` + structName + `{}).Where(where).Updates(entity)
+	return result.RowsAffected, result.Error
+}
+
+// UpdateDynamic 根据主键或者唯一键动态列更新数据
+// cols 动态列名
+// entity where和update的值
+func (dao *` + structName + `Dao) UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	// ` + structName + `AllowUpdateCols
-	// 1. 定义一个切片，存储非零值的列名
-	allowedUpdateCols := []string{}
-	
-	// 2. 只将非零值的列名添加到切片中
-	for _, col := range model.` + structName + `AllowUpdateCols {
-		switch col {
-` + updateSwitchCase + `		}
+	if len(cols) == 0 {
+		return 0, errors.New("when update,dynamic columns is required")
 	}
-	
-	
+
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 ` + primaryKeyUpdate + `
-	// 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Select(allowedUpdateCols).Updates(entity)
+	if len(where) == 0 {
+		return 0, errors.New("when update,primary key or unique key is required")
+	}
+	// 5. 使用支持更新的列
+	result := db.Model(&model.` + structName + `{}).Where(where).Select(cols).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -575,20 +678,42 @@ var exclude%sZeroColNames = map[string]int{%s}
 		for _, query := range tableData.SelfQueries {
 			// 根据selectFields决定返回类型
 			var resultType string
-			if query.SelectFields == "*" {
-				resultType = structName
+			var respTypeFormat string
+			if query.HasPage {
+				resultType = structName + query.Name + "PageRes"
+				respTypeFormat = "(*model.%s)(nil)"
 			} else {
-				resultType = structName + query.Name + "Res"
+				// 非分页时，根据selectFields决定返回类型
+				if query.SelectFields == "*" {
+					resultType = structName
+				} else {
+					resultType = structName + query.Name + "Res"
+				}
+				respTypeFormat = "([]*model.%s)(nil)"
 			}
 			constants += fmt.Sprintf(`
+
 var %sNamingInfo = &db.NameingSqlArgInfo{
 	SqlName:  "%s",
 	ReqType:  (*model.%s%sArg)(nil),
-	RespType: ([]*model.%s)(nil),
+	RespType: `+respTypeFormat+`,
 }
 `, query.Name, query.Name, structName, query.Name, resultType)
 		}
 	}
+
+	// 添加Column结构体实例
+	constants += fmt.Sprintf(`
+
+// 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
+var %sColumn = &model.%sColumn{
+	Name:    "name",
+	Address: "address",
+	Phone:   "phone",
+	ClassId: "class_id",
+	CardNo:  "card_no",
+}
+`, structName, structName)
 
 	return `package dao
 

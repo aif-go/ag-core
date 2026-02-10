@@ -37,11 +37,11 @@ import (
 // 	tmTeacherDao := GetRepository()
 // 	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{
 // 		Id:      1,
-// 		Name:    "test1z",
+// 		Name:    "test1B",
 // 		Address: "上海市浦东新区",
-// 		Phone:   "1380000000z",
+// 		Phone:   "1380000000B",
 // 		ClassId: "",
-// 		CardNo:  "沪A123Mz",
+// 		CardNo:  "沪BBBB",
 // 	})
 // 	printEntity("UpdateByPrimaryKey", res, err, t)
 // }
@@ -49,13 +49,13 @@ import (
 // func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 // 	ctx := context.Background()
 // 	tmTeacherDao := GetRepository()
-// 	res, err := tmTeacherDao.UpdaeByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
+// 	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
 // 		Id:      2,
 // 		Name:    "test2",
 // 		Address: "上海市浦东新区",
 // 		Phone:   "1380000000x",
 // 		ClassId: "",
-// 		CardNo:  "沪A123M3",
+// 		CardNo:  "沪AAAA",
 // 	})
 
 // 	printEntity("UpdaeByPrimaryKeyIngoreZeroValCols", res, err, t)
@@ -104,6 +104,21 @@ import (
 // 		t.Errorf("FindByCustomerRuleByPage failed: %v", err)
 // 	}
 // 	printList("TestFindByCustomRuleByPageMysql", resEntity.ResultList, err, t)
+// }
+
+// func TestUpdateDynamic(t *testing.T) {
+// 	ctx := context.Background()
+// 	tmTeacherDao := GetRepository()
+// 	res, err := tmTeacherDao.UpdateDynamic(ctx, &model.TmTeacher{
+// 		Id: 2,
+// 		// Name:    "test2",
+// 		Address: "上海市浦东新区",
+// 		Phone:   "1380000000x",
+// 		ClassId: "5",
+// 		CardNo:  "沪A5678",
+// 	}, []string{dao.TmTeacherColumn.ClassId})
+
+// 	printEntity("TestUpdateDynamic", res, err, t)
 // }
 
 // func GetRepository() dao.ITmTeacherDao {
