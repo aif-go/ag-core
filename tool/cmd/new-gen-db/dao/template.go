@@ -252,14 +252,20 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	// 	primaryKeyUpdate += "\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
 	// }
 
-	var reflectImpor string
-	if len(tableData.SelfQueries) > 0 {
-		reflectImpor = "reflect"
-	}
+	// var reflectImpor string = "reflect"
+	// if len(tableData.SelfQueries) > 0 {
+	// 	reflectImpor = "reflect"
+	// }
 
 	// 生成自定义规则查询的switch语句和do方法
 	switchCases := generateCustomerRuleSwitch(tableData)
 	doMethods := generateDoMethods(tableData)
+
+	var initMethods,importStrings string
+	if len(tableData.SelfQueries) > 0 {
+		initMethods = "Init" + structName + "NamingSql()"
+		importStrings = "\"strings\""
+	}
 
 	// 构建完整的模板字符串
 	return `package dao
@@ -268,11 +274,11 @@ import (
 	db "ag-core/contribute/agdb/gormdb"
 	"` + moduleName + `/repository/model"
 	"context"
-	"` + reflectImpor + `"
+	"reflect"
 	"errors"
 
 	agdao "ag-core/contribute/agdb/agdao"
-	"strings"
+	` + importStrings + `
 
 	"gorm.io/gorm"
 )
@@ -300,7 +306,7 @@ type I` + structName + `Dao interface {
 
 // New` + structName + `Dao get dao instance
 func New` + structName + `Dao(repository *db.Repository, baseDao agdao.BaseDao) I` + structName + `Dao {
-	Init` + structName + `NamingSql()
+	` + initMethods + `
 	return &` + structName + `Dao{
 		Repository: repository,
 		baseDao:    baseDao,
@@ -715,10 +721,14 @@ var %sColumn = &model.%sColumn{
 }
 `, structName, structName)
 
+    var dbImports string =""
+	if len(tableData.SelfQueries) > 0 {
+		dbImports = `"ag-core/contribute/agdb/db"`
+	}
 	return `package dao
 
 import (
-	db "ag-core/contribute/agdb/gormdb"
+	`+dbImports+`
 	"` + moduleName + `/repository/model"
 )
 
