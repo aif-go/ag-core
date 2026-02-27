@@ -310,7 +310,7 @@ func extractWhereFields(condition *table.WhereCondition, fields *[]string, where
 	if condition.Expr != "" {
 		// 解析表达式，提取列名、操作符和字段名
 		colField := parseWhereExpr(condition.Expr)
-		if colField.ColName != "" {
+		if colField.ColName != "" && colField.FieldName != "" {
 			// 添加到WhereFields
 			*fields = append(*fields, colField.ColName)
 			// 添加到WhereColFields

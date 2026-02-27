@@ -723,7 +723,7 @@ var %sColumn = &model.%sColumn{
 
     var dbImports string =""
 	if len(tableData.SelfQueries) > 0 {
-		dbImports = `"ag-core/contribute/agdb/db"`
+		dbImports = `db "ag-core/contribute/agdb/gormdb"`
 	}
 	return `package dao
 

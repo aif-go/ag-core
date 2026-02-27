@@ -56,14 +56,31 @@ func (l *Lexer) NextToken() *Token {
 		return &Token{Type: TokenTypeRParen, Value: ")"}
 	}
 
-	// 检查是否是操作符
+	// 检查是否是操作符，需要确保前后都是空白字符或者是表达式边界
+	// 检查AND操作符
 	if l.pos+2 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+3]) == "AND" {
-		l.pos += 3
-		return &Token{Type: TokenTypeAND, Value: "AND"}
+		// 检查前面是否是表达式边界（字符串开始或空格）
+		prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+		// 检查后面是否是表达式边界（字符串结束或空格）
+		nextIsBoundary := l.pos+3 == len(l.input) || l.input[l.pos+3] == ' ' || l.input[l.pos+3] == '\t' || l.input[l.pos+3] == '('
+		
+		if prevIsBoundary && nextIsBoundary {
+			l.pos += 3
+			return &Token{Type: TokenTypeAND, Value: "AND"}
+		}
 	}
+	
+	// 检查OR操作符
 	if l.pos+1 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+2]) == "OR" {
-		l.pos += 2
-		return &Token{Type: TokenTypeOR, Value: "OR"}
+		// 检查前面是否是表达式边界（字符串开始或空格）
+		prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+		// 检查后面是否是表达式边界（字符串结束或空格）
+		nextIsBoundary := l.pos+2 == len(l.input) || l.input[l.pos+2] == ' ' || l.input[l.pos+2] == '\t' || l.input[l.pos+2] == '('
+		
+		if prevIsBoundary && nextIsBoundary {
+			l.pos += 2
+			return &Token{Type: TokenTypeOR, Value: "OR"}
+		}
 	}
 
 	// 否则是表达式，直到遇到操作符、括号或结束
@@ -71,10 +88,24 @@ func (l *Lexer) NextToken() *Token {
 	for l.pos < len(l.input) {
 		// 检查是否是操作符的开始
 		if l.pos+2 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+3]) == "AND" {
-			break
+			// 检查前面是否是表达式边界（字符串开始或空格）
+			prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+			// 检查后面是否是表达式边界（字符串结束或空格）
+			nextIsBoundary := l.pos+3 == len(l.input) || l.input[l.pos+3] == ' ' || l.input[l.pos+3] == '\t' || l.input[l.pos+3] == '('
+			
+			if prevIsBoundary && nextIsBoundary {
+				break
+			}
 		}
 		if l.pos+1 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+2]) == "OR" {
-			break
+			// 检查前面是否是表达式边界（字符串开始或空格）
+			prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+			// 检查后面是否是表达式边界（字符串结束或空格）
+			nextIsBoundary := l.pos+2 == len(l.input) || l.input[l.pos+2] == ' ' || l.input[l.pos+2] == '\t' || l.input[l.pos+2] == '('
+			
+			if prevIsBoundary && nextIsBoundary {
+				break
+			}
 		}
 		// 检查是否是括号
 		if l.input[l.pos] == '(' || l.input[l.pos] == ')' {
