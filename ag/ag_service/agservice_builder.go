@@ -57,6 +57,11 @@ func buildEndpointChain(cinfo CallInfo, middlewares []MiddlewareProvider, actual
 	pmws = append(pmws, callInfoCtxBindMw(cinfo)) // 添加服务信息上下文绑定中间件
 
 	for _, mw := range middlewares {
+		if cond, ok := mw.(MiddleWareCondition); ok {
+			if !cond.Condition(cinfo) {
+				continue
+			}
+		}
 		// 判断mw是否为PrioritizedServerMiddleware
 		if _, ok := mw.(PrioritizedMiddlewareProvider); ok {
 			pmws = append(pmws, mw.(PrioritizedMiddlewareProvider))

@@ -3,6 +3,7 @@ package ag_service
 import (
 	"context"
 	"math"
+	"sync"
 )
 
 type (
@@ -25,6 +26,8 @@ type CallInfo struct {
 	ClientStreaming bool
 	ServerStreaming bool
 	Extra           map[string]interface{}
+	tag             sync.Map
+	// tag             map[interface{}]interface{}
 }
 
 func (ci *CallInfo) Clone() CallInfo {
@@ -35,7 +38,29 @@ func (ci *CallInfo) Clone() CallInfo {
 			ci2.Extra[k] = v
 		}
 	}
+
+	ci.tag.Range(func(key, value interface{}) bool {
+		ci2.tag.Store(key, value)
+		return true
+	})
+
 	return ci2
+}
+
+func (ci *CallInfo) AddTag(key interface{}, value interface{}) {
+	ci.tag.Store(key, value)
+}
+
+func (ci *CallInfo) GetTag(key interface{}) interface{} {
+	if v, ok := ci.tag.Load(key); ok {
+		return v
+	}
+	return nil
+}
+
+func (ci *CallInfo) HasTag(key interface{}) bool {
+	_, ok := ci.tag.Load(key)
+	return ok
 }
 
 type CallInfoOpt func(cinfo *CallInfo)
