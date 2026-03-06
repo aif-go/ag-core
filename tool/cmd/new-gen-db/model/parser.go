@@ -34,6 +34,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 	// 提取列信息
 	columns := []table.ColumnData{}
+	primaryKeys := []string{}  // 新增：主键列表
 	importPackages := []string{"fmt"}
 
 	// 处理列数据
@@ -154,6 +155,10 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	if primaryKey, ok := yamlData["primary_key"].([]interface{}); ok {
 		for _, pk := range primaryKey {
 			if pkName, ok := pk.(string); ok {
+				// 添加到主键列表
+				primaryKeys = append(primaryKeys, pkName)
+				
+				// 设置 IsPrimaryKey 标志（保留原有逻辑）
 				for i := range columns {
 					if columns[i].Name == pkName {
 						columns[i].IsPrimaryKey = true
@@ -232,6 +237,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		TableName:   tableName,
 		StructName:  structName,
 		Columns:     columns,
+		PrimaryKeys: primaryKeys,  // 新增：主键列表
 		Indexes:     indexes,
 		SelfQueries: selfQueries,
 		ModelTemplateData: &table.ModelTemplateData{
