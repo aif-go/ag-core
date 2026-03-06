@@ -6,6 +6,7 @@ type TableData struct {
 	TableName         string
 	StructName        string
 	Columns           []ColumnData
+	PrimaryKeys       []string   // 主键列表
 	Indexes           []IndexData
 	SelfQueries       []QueryData
 	ModelTemplateData *ModelTemplateData

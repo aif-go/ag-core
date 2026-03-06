@@ -740,8 +740,8 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 	structName := tableData.StructName
 	tableName := tableData.TableName
 
-	// 获取主键列名
-	primaryKey := getPrimaryKey(tableData)
+	// 获取主键列名列表
+	primaryKeys := getPrimaryKey(tableData)
 
 	// 生成示例SQL
 	var sqlExamples []string
@@ -760,8 +760,8 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 
 		// 构建排序语句
 		sortClause := ""
-		if primaryKey != "" {
-			sortClause = " ORDER BY " + primaryKey
+		if len(primaryKeys) > 0 {
+			sortClause = " ORDER BY " + strings.Join(primaryKeys, ", ")
 		}
 
 		// 组合基本SQL语句
@@ -788,7 +788,7 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 					fromWhereClause = baseSql[fromWhereStart:]
 				}
 				// 构建两层嵌套的DB2分页SQL
-				pageSql = "SELECT " + fieldsPart + " FROM (SELECT " + fieldsPart + ", ROW_NUMBER() OVER(ORDER BY " + primaryKey + ") AS RN " + fromWhereClause + ") AS T WHERE RN BETWEEN @Start AND @End"
+				pageSql = "SELECT " + fieldsPart + " FROM (SELECT " + fieldsPart + ", ROW_NUMBER() OVER(ORDER BY " + strings.Join(primaryKeys, ", ") + ") AS RN " + fromWhereClause + ") AS T WHERE RN BETWEEN @Start AND @End"
 			}
 			if pageSql != "" {
 				// 分页SQL常量名去掉_Page后缀
@@ -811,8 +811,8 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 	// 如果没有自定义查询，生成一个默认查询
 	if len(sqlExamples) == 0 {
 		defaultSql := "SELECT * FROM " + tableName + " WHERE 1=1"
-		if primaryKey != "" {
-			defaultSql += " ORDER BY " + primaryKey
+		if len(primaryKeys) > 0 {
+			defaultSql += " ORDER BY " + strings.Join(primaryKeys, ", ")
 		}
 		sqlExamples = append(sqlExamples, fmt.Sprintf("const %s_%s_Default = \"%s\"", dbType, structName, defaultSql))
 		// 默认查询是非分页的，不需要生成Count SQL
@@ -843,12 +843,19 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 ` + strings.Join(sqlExamples, "\n\n") + "\n\n" + initFunc
 }
 
-// getPrimaryKey 获取主键列名
-func getPrimaryKey(tableData *table.TableData) string {
+// getPrimaryKey 获取主键列名列表
+func getPrimaryKey(tableData *table.TableData) []string {
+	// 优先使用PrimaryKeys字段
+	if len(tableData.PrimaryKeys) > 0 {
+		return tableData.PrimaryKeys
+	}
+	
+	// 兼容旧逻辑：从Columns中收集主键
+	var primaryKeys []string
 	for _, col := range tableData.Columns {
 		if col.IsPrimaryKey {
-			return col.Name
+			primaryKeys = append(primaryKeys, col.Name)
 		}
 	}
-	return ""
+	return primaryKeys
 }
