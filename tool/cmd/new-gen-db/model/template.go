@@ -153,7 +153,7 @@ type {{$.StructName}}{{.Name}}PageRes struct {
 type {{$.StructName}}{{.Name}}Res struct {
 {{- range $.Columns}}
 {{- if inArray $query .Name}}
-	{{.JsonTag}} {{.GoType}}
+	{{.JsonTag}} {{.GoType}} ` + "`" + `gorm:"column:{{.Name}}" json:"{{.JsonTag}}"` + "`" + `
 {{- end}}
 {{- end}}
 }
