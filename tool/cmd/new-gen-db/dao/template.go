@@ -50,36 +50,140 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	allowUpdateColsStr += "}"
 
 	// 获取主键列
-	var primaryKeys []string
-	for _, col := range tableData.Columns {
-		if col.IsPrimaryKey {
-			primaryKeys = append(primaryKeys, col.Name)
+	// var primaryKeys []string
+	// for _, col := range tableData.Columns {
+	// 	if col.IsPrimaryKey {
+	// 		primaryKeys = append(primaryKeys, col.Name)
+	// 	}
+	// }
+
+	// 构建主键查询代码（用于 FindByStruct）
+	var primaryKeyCheck string
+	if len(tableData.PrimaryKeys) > 0 {
+		primaryKeyCheck = "\t// 检查主键是否为空\n"
+		// 获取第一个主键的列数据
+		var firstPkCol *table.ColumnData
+		for _, col := range tableData.Columns {
+			if col.Name == tableData.PrimaryKeys[0] {
+				firstPkCol = &col
+				break
+			}
+		}
+		if firstPkCol != nil {
+			// 根据字段类型生成不同的空值判断条件
+			var nullCheck string
+			switch firstPkCol.GoType {
+			case "string":
+				nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
+			case "time.Time":
+				nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
+			default:
+				// 数值类型
+				nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
+			}
+			primaryKeyCheck += "\tif " + nullCheck + " {\n"
+			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.JsonTag + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
+			
+			// 处理其他主键（嵌套在第一个主键的条件中）
+			for i := 1; i < len(tableData.PrimaryKeys); i++ {
+				var pkCol *table.ColumnData
+				for _, col := range tableData.Columns {
+					if col.Name == tableData.PrimaryKeys[i] {
+						pkCol = &col
+						break
+					}
+				}
+				if pkCol != nil {
+					var secondaryNullCheck string
+					switch pkCol.GoType {
+					case "string":
+						secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
+					case "time.Time":
+						secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
+					default:
+						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
+					}
+					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
+					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.JsonTag + " = ?\", entity." + pkCol.JsonTag + ")\n"
+					primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
+					primaryKeyCheck += "\t\t\treturn list, result.Error\n"
+					primaryKeyCheck += "\t\t}\n"
+				}
+			}
+			
+			primaryKeyCheck += "\t\tresult := db.Find(&list)\n"
+			primaryKeyCheck += "\t\treturn list, result.Error\n"
+			primaryKeyCheck += "\t}\n"
 		}
 	}
 
-	// 构建主键查询代码
-	var primaryKeyCheck string
-	if len(primaryKeys) > 0 {
-		primaryKeyCheck = "\t// 检查主键是否为空\n"
+	// 构建主键查询代码（用于 FindByPage）
+	var primaryKeyCheckForPage string
+	if len(tableData.PrimaryKeys) > 0 {
+		primaryKeyCheckForPage = "\t// 检查主键是否为空\n"
+		// 获取第一个主键的列数据
+		var firstPkCol *table.ColumnData
 		for _, col := range tableData.Columns {
-			if col.IsPrimaryKey {
-				// 根据字段类型生成不同的空值判断条件
-				var nullCheck string
-				switch col.GoType {
-				case "string":
-					nullCheck = "entity." + col.JsonTag + " != \"\""
-				case "time.Time":
-					nullCheck = "!entity." + col.JsonTag + ".IsZero()"
-				default:
-					// 数值类型
-					nullCheck = "entity." + col.JsonTag + " != 0"
-				}
-				primaryKeyCheck += "\tif " + nullCheck + " {\n"
-				primaryKeyCheck += "\t\tdb = db.Where(\"" + col.JsonTag + " = ?\", entity." + col.JsonTag + ")\n"
-				primaryKeyCheck += "\t\tresult := db.Find(&list)\n"
-				primaryKeyCheck += "\t\treturn list, result.Error\n"
-				primaryKeyCheck += "\t}\n"
+			if col.Name == tableData.PrimaryKeys[0] {
+				firstPkCol = &col
+				break
 			}
+		}
+		if firstPkCol != nil {
+			// 根据字段类型生成不同的空值判断条件
+			var nullCheck string
+			switch firstPkCol.GoType {
+			case "string":
+				nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
+			case "time.Time":
+				nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
+			default:
+				// 数值类型
+				nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
+			}
+			primaryKeyCheckForPage += "\tif " + nullCheck + " {\n"
+			primaryKeyCheckForPage += "\t\tdb = db.Where(\"" + firstPkCol.JsonTag + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
+			
+			// 处理其他主键（嵌套在第一个主键的条件中）
+			for i := 1; i < len(tableData.PrimaryKeys); i++ {
+				var pkCol *table.ColumnData
+				for _, col := range tableData.Columns {
+					if col.Name == tableData.PrimaryKeys[i] {
+						pkCol = &col
+						break
+					}
+				}
+				if pkCol != nil {
+					var secondaryNullCheck string
+					switch pkCol.GoType {
+					case "string":
+						secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
+					case "time.Time":
+						secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
+					default:
+						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
+					}
+					primaryKeyCheckForPage += "\t\tif " + secondaryNullCheck + " {\n"
+					primaryKeyCheckForPage += "\t\t\tdb = db.Where(\"" + pkCol.JsonTag + " = ?\", entity." + pkCol.JsonTag + ")\n"
+					primaryKeyCheckForPage += "\t\t}\n"
+				}
+			}
+			
+			primaryKeyCheckForPage += "\t\tvar count int64\n"
+			primaryKeyCheckForPage += "\t\tcountResult := db.Count(&count)\n"
+			primaryKeyCheckForPage += "\t\tif countResult.Error != nil {\n"
+			primaryKeyCheckForPage += "\t\t\treturn nil, nil, countResult.Error\n"
+			primaryKeyCheckForPage += "\t\t}\n"
+			primaryKeyCheckForPage += "\t\tstart,end,totalPage:=gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, count, dao.DbType)\n"
+			primaryKeyCheckForPage += "\t\tpageResult := &gormdb.PageResult{\n"
+			primaryKeyCheckForPage += "\t\t\tCurrentPage: page.PageNum,\n"
+			primaryKeyCheckForPage += "\t\t\tPageSize:    page.PageSize,\n"
+			primaryKeyCheckForPage += "\t\t\tTotalCount:  count,\n"
+			primaryKeyCheckForPage += "\t\t\tTotalPage:   totalPage,\n"
+			primaryKeyCheckForPage += "\t\t}\t\n"
+			primaryKeyCheckForPage += "\t\tresult := db.Limit(int(start)).Offset(int(end)).Order(gormdb.ToSqlOrder(orders)).Find(&list)\n"
+			primaryKeyCheckForPage += "\t\treturn list, pageResult, result.Error\n"
+			primaryKeyCheckForPage += "\t}\n"
 		}
 	}
 
@@ -158,6 +262,82 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		indexCheck += "\tif !indexUsed {\n"
 		indexCheck += "\t\treturn nil, errors.New(\"query not use any index\")\n"
 		indexCheck += "\t}\n"
+	}
+
+	// 构建索引查询代码（用于 FindByPage）
+	var indexCheckForPage string
+	if len(tableData.Indexes) > 0 {
+		indexCheckForPage = "\t// 检查索引列，确保使用了索引\n"
+		indexCheckForPage += "\tindexUsed := false\n"
+
+		// 过滤掉空索引
+		var validIndexes []table.IndexData
+		for _, index := range tableData.Indexes {
+			if len(index.Columns) > 0 {
+				validIndexes = append(validIndexes, index)
+			}
+		}
+
+		// 按优先级排序索引（如果有）
+		// 简单实现：假设索引已经按优先级排序
+		for _, index := range validIndexes {
+			indexCheckForPage += "\t// 检查索引 " + index.Name + "\n"
+
+			// 生成索引列检查条件
+			colName := index.Columns[0]
+			for _, col := range tableData.Columns {
+				if col.Name == colName {
+					// 根据字段类型生成不同的空值判断条件
+					var nullCheck string
+					switch col.GoType {
+					case "string":
+						nullCheck = "entity." + col.JsonTag + " != \"\""
+					case "time.Time":
+						nullCheck = "!entity." + col.JsonTag + ".IsZero()"
+					default:
+						// 数值类型
+						nullCheck = "entity." + col.JsonTag + " != 0"
+					}
+
+					// 每个索引都是独立的if检查
+					indexCheckForPage += "\tif " + nullCheck + " {\n"
+					indexCheckForPage += "\t\tdb = db.Where(\"" + col.JsonTag + " = ?\", entity." + col.JsonTag + ")\n"
+
+					// 其他列作为次要条件
+					for j := 1; j < len(index.Columns); j++ {
+						secondaryColName := index.Columns[j]
+						for _, secondaryCol := range tableData.Columns {
+							if secondaryCol.Name == secondaryColName {
+								// 根据字段类型生成不同的空值判断条件
+								var secondaryNullCheck string
+								switch secondaryCol.GoType {
+								case "string":
+									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
+								case "time.Time":
+									secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
+								default:
+									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
+								}
+								indexCheckForPage += "\t\tif " + secondaryNullCheck + " {\n"
+								indexCheckForPage += "\t\t\tdb = db.Where(\"" + secondaryCol.JsonTag + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
+								indexCheckForPage += "\t\t}\n"
+								break
+							}
+						}
+					}
+
+					indexCheckForPage += "\t\tindexUsed = true\n"
+					indexCheckForPage += "\t}\n"
+					break
+				}
+			}
+		}
+
+		// 添加索引使用检查
+		indexCheckForPage += "\n\t// 如果没有使用任何索引，返回错误\n"
+		indexCheckForPage += "\tif !indexUsed {\n"
+		indexCheckForPage += "\t\treturn nil, nil, errors.New(\"query not use any index\")\n"
+		indexCheckForPage += "\t}\n"
 	}
 
 	// 生成主键和唯一键更新条件代码
@@ -271,7 +451,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	return `package dao
 
 import (
-	db "ag-core/contribute/agdb/gormdb"
+	"ag-core/contribute/agdb/gormdb"
 	"` + moduleName + `/repository/model"
 	"context"
 	"reflect"
@@ -288,7 +468,7 @@ import (
 // DO NOT EDIT
 // DO NOT EDIT
 type ` + structName + `Dao struct {
-	*db.Repository
+	*gormdb.Repository
 	info    agdao.TableInfo
 	baseDao agdao.BaseDao
 }
@@ -301,11 +481,12 @@ type I` + structName + `Dao interface {
 	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error)
 	FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error)
-	FindByCustomerRule(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (any, error)
+	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
+	FindByPage(ctx context.Context, entity *model.` + structName + `, page gormdb.Page, orders []gormdb.Order) ([]*model.` + structName + `, *gormdb.PageResult, error)
 }
 
 // New` + structName + `Dao get dao instance
-func New` + structName + `Dao(repository *db.Repository, baseDao agdao.BaseDao) I` + structName + `Dao {
+func New` + structName + `Dao(repository *gormdb.Repository, baseDao agdao.BaseDao) I` + structName + `Dao {
 	` + initMethods + `
 	return &` + structName + `Dao{
 		Repository: repository,
@@ -329,7 +510,7 @@ func (dao *` + structName + `Dao) InsertOne(ctx context.Context, entity *model.`
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *` + structName + `Dao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error) {
-	insertIgnoreZeroValSlice := db.CollectZeroValWithOmitEmpty(entity, exclude` + structName + `ZeroColNames)
+	insertIgnoreZeroValSlice := gormdb.CollectZeroValWithOmitEmpty(entity, exclude` + structName + `ZeroColNames)
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -416,7 +597,7 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 }
 
 // FindByCustomerRule 根据自定义规则查询
-func (dao *` + structName + `Dao) FindByCustomerRule(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (any, error) {
+func (dao *` + structName + `Dao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
 
 	if ctx == nil {
 		return nil, errors.New("ctx is nil")
@@ -441,6 +622,35 @@ func (dao *` + structName + `Dao) FindByCustomerRule(ctx context.Context, naming
 		return nil, errors.New("not found naming sql")
 	}
 }
+
+// FindByPage 根据分页参数查询
+func (dao *` + structName + `Dao) FindByPage(ctx context.Context, entity *model.` + structName + `, page gormdb.Page, orders []gormdb.Order) ([]*model.` + structName + `, *gormdb.PageResult, error) {
+	var list []*model.` + structName + `
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+` + primaryKeyCheckForPage + `
+
+` + indexCheckForPage + `
+
+	var count int64
+	countResult := db.Count(&count)
+	if countResult.Error != nil {
+		return nil, nil, countResult.Error
+	}
+	start,end,totalPage:=gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, count, dao.DbType)
+	pageResult := &gormdb.PageResult{
+			CurrentPage: page.PageNum,
+			PageSize:    page.PageSize,
+			TotalCount:  count,
+			TotalPage:   totalPage,
+	}
+	result := db.Limit(int(start)).Offset(int(end)).Order(gormdb.ToSqlOrder(orders)).Find(&list)
+	return list, pageResult, result.Error
+}
+
 ` + doMethods + `
 
 // getInfo 获取表信息
@@ -554,7 +764,7 @@ func generateDoMethods(tableData *table.TableData) string {
 		if query.HasPage {
 			// 生成分页的do方法
 			doMethods += `// do` + query.Name + ` 执行` + query.Name + `查询（分页）
-func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) (*model.` + structName + query.Name + `PageRes, error) {
+func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (*model.` + structName + query.Name + `PageRes, error) {
 
 	queryArgs, ok := args.(*model.` + structName + query.Name + `Arg)
 	if !ok {
@@ -584,7 +794,7 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	startRecord, endRecord, totalPage := db.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	startRecord, endRecord, totalPage := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
 	argsMap["Start"] = startRecord
 	argsMap["End"] = endRecord
 	var list []*model.` + resultType + `
@@ -594,7 +804,7 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	}
 
 	return &model.` + structName + query.Name + `PageRes{
-		PageResult: db.PageResult{
+		PageResult: gormdb.PageResult{
 			CurrentPage: queryArgs.PageNum,
 			PageSize:    queryArgs.PageSize,
 			TotalCount:  totalCount,
@@ -608,7 +818,7 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 		} else {
 			// 生成非分页的do方法
 			doMethods += `// do` + query.Name + ` 执行` + query.Name + `查询（非分页）
-func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *db.NameingSqlArgInfo, args any) ([]*model.` + resultType + `, error) {
+func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.` + resultType + `, error) {
 
 	queryArgs, ok := args.(*model.` + structName + query.Name + `Arg)
 	if !ok {
