@@ -30,6 +30,23 @@ type {{.StructName}} struct {
 {{- end}}
 }
 
+{{- if eq (len .PrimaryKeys) 1}}
+// {{.StructName}}PrimaryKey 单主键类型别名
+type {{.StructName}}PrimaryKey {{- range $pk := .PrimaryKeys}}{{- range $.Columns}}{{- if eq .Name $pk}} {{.GoType}}{{- end}}{{- end}}{{- end}}
+{{- else}}
+// {{.StructName}}Primarkey 多主键结构体
+type {{.StructName}}Primarkey struct {
+{{- range .PrimaryKeys}}
+{{- $pkName := .}}
+{{- range $.Columns}}
+{{- if eq .Name $pkName}}
+	{{.JsonTag}} {{.GoType}}
+{{- end}}
+{{- end}}
+{{- end}}
+}
+{{- end}}
+
 // TableName 返回表名
 func ({{toLower .StructName}} *{{.StructName}}) TableName() string {
 	return "{{.TableName}}"

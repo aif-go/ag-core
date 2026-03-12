@@ -33,6 +33,94 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 	return checkCode
 }
 
+// generatePrimaryKeyWhere 生成主键查询条件
+func generatePrimaryKeyWhere(tableData *table.TableData) string {
+	var whereConditions []string
+	for i, pk := range tableData.PrimaryKeys {
+		// 找到对应的主键列
+		for _, col := range tableData.Columns {
+			if col.Name == pk {
+				if i > 0 {
+					whereConditions = append(whereConditions, col.JsonTag+" = ?")
+				} else {
+					whereConditions = append(whereConditions, col.JsonTag+" = ?")
+				}
+				break
+			}
+		}
+	}
+	return strings.Join(whereConditions, " AND ")
+}
+
+// generatePrimaryKeyArgs 生成主键查询参数
+func generatePrimaryKeyArgs(tableData *table.TableData) string {
+	var args []string
+	for _, pk := range tableData.PrimaryKeys {
+		// 找到对应的主键列
+		for _, col := range tableData.Columns {
+			if col.Name == pk {
+				args = append(args, "primaryKey."+col.JsonTag)
+				break
+			}
+		}
+	}
+	return strings.Join(args, ", ")
+}
+
+// generateFindByPrimaryKeyInterface 生成 FindByPrimaryKey 接口定义
+func generateFindByPrimaryKeyInterface(tableData *table.TableData) string {
+	structName := tableData.StructName
+	if len(tableData.PrimaryKeys) == 1 {
+		// 单主键，使用类型别名
+		return "\tFindByPrimaryKey(ctx context.Context, id model." + structName + "PrimaryKey) (*model." + structName + ", error)"
+	}
+	// 多主键，使用结构体
+	return "\tFindByPrimaryKey(ctx context.Context, primaryKey model." + structName + "Primarkey) (*model." + structName + ", error)"
+}
+
+// generateFindByPrimaryKeyMethod 生成 FindByPrimaryKey 方法实现
+func generateFindByPrimaryKeyMethod(tableData *table.TableData) string {
+	structName := tableData.StructName
+	
+	// 生成查询条件
+	whereClause := generatePrimaryKeyWhere(tableData)
+	
+	if len(tableData.PrimaryKeys) == 1 {
+		// 单主键，使用类型别名
+		return `// FindByPrimaryKey 根据主键查询
+func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, id model.` + structName + `PrimaryKey) (*model.` + structName + `, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	var entity model.` + structName + `
+	result := db.Where("` + whereClause + `", id).First(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
+}`
+	}
+	
+	// 多主键，使用结构体
+	argsClause := generatePrimaryKeyArgs(tableData)
+	return `// FindByPrimaryKey 根据主键查询
+func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, primaryKey model.` + structName + `Primarkey) (*model.` + structName + `, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	var entity model.` + structName + `
+	result := db.Where("` + whereClause + `", ` + argsClause + `).First(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
+}`
+}
+
 // GetDaoTemplate 获取DAO模板代码
 func GetDaoTemplate(tableData *table.TableData) string {
 	moduleName := tableData.ModuleName
@@ -480,6 +568,7 @@ type I` + structName + `Dao interface {
 	UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error)
+` + generateFindByPrimaryKeyInterface(tableData) + `
 	FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
 	FindByPage(ctx context.Context, entity *model.` + structName + `, page gormdb.Page, orders []gormdb.Order) ([]*model.` + structName + `, *gormdb.PageResult, error)
@@ -578,6 +667,8 @@ func (dao *` + structName + `Dao) UpdateDynamic(ctx context.Context, entity *mod
 	result := db.Model(&model.` + structName + `{}).Where(where).Select(cols).Updates(entity)
 	return result.RowsAffected, result.Error
 }
+
+` + generateFindByPrimaryKeyMethod(tableData) + `
 
 // FindByStruct 根据实体查询
 func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error) {
