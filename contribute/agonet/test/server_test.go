@@ -4,7 +4,6 @@ import (
 	"ag-core/contribute/agonet"
 	"fmt"
 	"log/slog"
-	"net"
 	"testing"
 )
 
@@ -12,7 +11,7 @@ func TestServer_Start(t *testing.T) {
 	// TODO 测试启动服务器
 	handler := &TestEventHandler{}
 	server := agonet.NewServer(handler, agonet.ServerConfig{
-		Address: ":9000",
+		Address: "tcp://:9000",
 	})
 
 	err := server.Start()
@@ -25,7 +24,7 @@ type TestEventHandler struct {
 	agonet.BuiltinEventEngine
 }
 
-func (e *TestEventHandler) OnTraffic(c net.Conn) (action agonet.Action) {
+func (e *TestEventHandler) OnTraffic(c agonet.Conn) (action agonet.Action) {
 	msg := make([]byte, 1024)
 	_, err := c.Read(msg)
 	if err != nil {
@@ -40,5 +39,6 @@ func (e *TestEventHandler) OnTraffic(c net.Conn) (action agonet.Action) {
 	if err != nil {
 		return agonet.Close
 	}
+
 	return
 }

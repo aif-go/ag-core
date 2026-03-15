@@ -61,6 +61,7 @@ func (s *server) run(addrs []string) error {
 	eg, ctx := errgroup.WithContext(rootCtx)
 
 	eng := engine{
+		addrs:        addrs,
 		opts:         opts,
 		listeners:    lns,
 		eventHandler: s.eventHandler,

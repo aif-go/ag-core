@@ -63,11 +63,21 @@ func (eng *engine) stop(ctx context.Context, engine Engine) {
 	// Wait on a signal for shutdown
 	<-ctx.Done()
 
+	// 触发关闭事件
 	eng.eventHandler.OnShutdown(engine)
 
+	// 关闭事件循环
 	eng.closeEventLoops()
 
-	// TODO 关闭操作
+	// 等待所有事件循环关闭
+	if err := eng.concurrency.Wait(); err != nil && !errors.Is(err, aerrors.ErrEngineShutdown) {
+		// eng.opts.Logger.Errorf("engine shutdown error: %v", err)
+		slog.Error("engine shutdown error", "err", err)
+	}
+
+	// 标记引擎为关闭状态
+	eng.inShutdown.Store(true)
+
 }
 
 func (eng *engine) active(ctx context.Context) error {
@@ -126,49 +136,46 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 		// 	tcpConn.SetKeepAlivePeriod(30 * time.Second)
 		// }
 
-		// 3. 组装连接对象
-		c := newStreamConn(tc, nil)
+		el := eng.eventLoops.next(tc.RemoteAddr())
 
-		// 4. 触发连接打开事件
-		out, action := eng.eventHandler.OnOpen(c) // 连接打开事件
-		if out != nil {
-			if _, err := tc.Write(out); err != nil {
-				return err
-			}
+		// 3. 组装连接对象
+		c := newStreamConn(el, tc, nil)
+
+		// // 4. 触发连接打开事件
+		oconn := &openConn{
+			c: c,
 		}
-		// action 处理
-		switch action {
-		case None:
-		case Close:
-			eng.closeConn(tc)
-		case Shutdown:
-			return aerrors.ErrEngineShutdown // TODO 此操作要关闭引擎
-		default:
-			// return nil
-		}
+		el.ch <- oconn
 
 		// 5. 启动 goroutine 处理单个客户端连接（支持多客户端并发）
-
 		goroutine.DefaultWorkerPool.Submit(func() {
-			var buffer [0x10000]byte
+			// var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
+			// for {
+			// 	// 监听连接读取数据
+			// 	n, err := tc.Read(buffer[:])
+
+			// 	if err != nil {
+			// 		// 处理读取错误
+			// 		el.ch <- &netErr{c, err}
+			// 		return
+			// 	}
+			// 	// 6. 触发连接读取事件
+			// 	// packTCPConn(c, buffer[:n]) // TODO
+			// 	el.ch <- packTCPConn(c, buffer[:n])
+			// }
 			for {
-				n, err := tc.Read(buffer[:])
+				_, err := c.rawReader.Peek(0)
+				// _, err := c.Reader.Peek(0)
 				if err != nil {
-					// TODO 处理读取错误
+					// 处理读取错误
+					el.ch <- &netErr{c, err}
 					return
 				}
-				fmt.Sprintf("Received message: %s", buffer[:n]) // TODO
-				// 6. 触发连接读取事件
-				packTCPConn(c, buffer[:n]) // TODO
 				// el.ch <- packTCPConn(c, buffer[:n])
+				el.ch <- packTCPConn(c, nil)
 			}
 		})
 	}
-}
-
-func (eng *engine) closeConn(conn net.Conn) error {
-	// TODO 关闭连接
-	return nil
 }
 
 func (eng *engine) closeEventLoops() {
@@ -181,3 +188,5 @@ func (eng *engine) closeEventLoops() {
 		ln.close()
 	}
 }
+
+

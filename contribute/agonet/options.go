@@ -19,6 +19,8 @@ type Options struct {
 
 	NumEventLoop int
 
+	// LockOSThread bool
+
 	Ticker bool
 
 	KeepAlive struct {
