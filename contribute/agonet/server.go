@@ -2,7 +2,6 @@ package agonet
 
 import (
 	"context"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -22,6 +21,7 @@ func NewServer(handler EventHandler, config ServerConfig) Server {
 type server struct {
 	config       ServerConfig
 	opts         *Options
+	eng          *engine
 	eventHandler EventHandler
 }
 
@@ -32,6 +32,7 @@ func (s *server) Start() error {
 }
 
 func (s *server) Stop() error {
+	s.eng.shutdown(nil)
 	return nil
 }
 
@@ -75,6 +76,8 @@ func (s *server) run(addrs []string) error {
 	// create event-loops
 	eng.eventLoops = new(roundRobinLoadBalancer)
 
+	s.eng = &eng
+
 	e := Engine{
 		eng: &eng,
 	}
@@ -98,21 +101,23 @@ func (s *server) run(addrs []string) error {
 }
 
 func (s *server) buildOptionsWithConfig() *Options {
-	opts := &Options{
-		NumEventLoop: s.config.Engine.NumEventLoop,
-		Multicore:    s.config.Engine.Multicore,
-		Ticker:       s.config.Engine.Ticker,
-		KeepAlive: struct {
-			Enable   bool
-			Idle     time.Duration
-			Interval time.Duration
-			Count    int
-		}{
-			Enable:   s.config.KeepAlive.Enable,
-			Idle:     time.Duration(s.config.KeepAlive.Idle) * time.Second,
-			Interval: time.Duration(s.config.KeepAlive.Interval) * time.Second,
-			Count:    s.config.KeepAlive.Count,
-		},
-	}
+
+	// opts := &Options{
+	// 	NumEventLoop: s.config.Engine.NumEventLoop,
+	// 	Multicore:    s.config.Engine.Multicore,
+	// 	Ticker:       s.config.Engine.Ticker,
+	// 	KeepAlive: struct {
+	// 		Enable   bool
+	// 		Idle     time.Duration
+	// 		Interval time.Duration
+	// 		Count    int
+	// 	}{
+	// 		Enable:   s.config.KeepAlive.Enable,
+	// 		Idle:     time.Duration(s.config.KeepAlive.Idle) * time.Second,
+	// 		Interval: time.Duration(s.config.KeepAlive.Interval) * time.Second,
+	// 		Count:    s.config.KeepAlive.Count,
+	// 	},
+	// }
+	opts := buildOptionsWithConfig(s.config.Config)
 	return opts
 }

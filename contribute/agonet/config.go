@@ -3,6 +3,25 @@ package agonet
 type ServerConfig struct {
 	Address string
 
+	Config CommonConfig
+	// Engine    EngineConfig    // 引擎配置
+	// KeepAlive KeepAliveConfig // 保持连接配置
+
+	// TLS  TLSConfig  // TLS配置
+	// TLCP TLCPConfig // TLCP配置
+}
+
+type ClientConfig struct {
+	// Engine    EngineConfig    // 引擎配置
+	// KeepAlive KeepAliveConfig // 保持连接配置
+
+	// TLS  TLSConfig  // TLS配置
+	// TLCP TLCPConfig // TLCP配置
+	Config CommonConfig
+}
+
+// CommonConfig 客户端、服务端通用配置
+type CommonConfig struct {
 	Engine    EngineConfig    // 引擎配置
 	KeepAlive KeepAliveConfig // 保持连接配置
 

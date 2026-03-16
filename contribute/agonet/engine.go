@@ -149,31 +149,31 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 
 		// 5. 启动 goroutine 处理单个客户端连接（支持多客户端并发）
 		goroutine.DefaultWorkerPool.Submit(func() {
-			// var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
-			// for {
-			// 	// 监听连接读取数据
-			// 	n, err := tc.Read(buffer[:])
-
-			// 	if err != nil {
-			// 		// 处理读取错误
-			// 		el.ch <- &netErr{c, err}
-			// 		return
-			// 	}
-			// 	// 6. 触发连接读取事件
-			// 	// packTCPConn(c, buffer[:n]) // TODO
-			// 	el.ch <- packTCPConn(c, buffer[:n])
-			// }
+			var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
 			for {
-				_, err := c.rawReader.Peek(0)
-				// _, err := c.Reader.Peek(0)
+				// 监听连接读取数据
+				n, err := tc.Read(buffer[:])
+
 				if err != nil {
 					// 处理读取错误
 					el.ch <- &netErr{c, err}
 					return
 				}
-				// el.ch <- packTCPConn(c, buffer[:n])
-				el.ch <- packTCPConn(c, nil)
+				// 6. 触发连接读取事件
+				el.ch <- packTCPConn(c, buffer[:n])
 			}
+			// for {
+			// 	_, err := c.rawReader.Peek(0)
+			// 	// _, err := c.Reader.Peek(0)
+			// 	if err != nil {
+			// 		// 处理读取错误
+			// 		el.ch <- &netErr{c, err}
+			// 		return
+			// 	}
+			// 	fmt.Println("read data=====")
+			// 	// el.ch <- packTCPConn(c, buffer[:n])
+			// 	el.ch <- packTCPConn(c, nil)
+			// }
 		})
 	}
 }
@@ -188,5 +188,3 @@ func (eng *engine) closeEventLoops() {
 		ln.close()
 	}
 }
-
-

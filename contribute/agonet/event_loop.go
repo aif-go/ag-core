@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"sync/atomic"
-
-	"github.com/valyala/bytebufferpool"
 )
 
 type eventloop struct {
@@ -29,12 +27,11 @@ func (el *eventloop) run() (err error) {
 		}
 	}()
 
+	// TODO 绑定事件循环到当前线程
 	// if el.eng.opts.LockOSThread {
 	// 	runtime.LockOSThread()
 	// 	defer runtime.UnlockOSThread()
 	// }
-
-	// TODO 实现事件循环
 
 	for i := range el.ch {
 		switch v := i.(type) {
@@ -97,8 +94,8 @@ func (el *eventloop) read(c *conn) error {
 	}
 
 	// 剩余未处理的字节写入缓存
-	// _, _ = c.inboundBuffer.Write(c.buffer.B)
-	// c.buffer.Reset()
+	_, _ = c.inboundBuffer.Write(c.buffer.B)
+	c.buffer.Reset()
 
 	return nil
 }
@@ -128,16 +125,8 @@ func (el *eventloop) incConn(delta int32) {
 	atomic.AddInt32(&el.connCount, delta)
 }
 
-func (c *conn) release() {
-	c.ctx = nil
-	c.localAddr = nil
-	if c.rawConn != nil {
-		c.rawConn = nil
-		c.remoteAddr = nil
-	}
-	// c.inboundBuffer.Done()
-	bytebufferpool.Put(c.buffer)
-	c.buffer = nil
+func (el *eventloop) countConn() int32 {
+	return atomic.LoadInt32(&el.connCount)
 }
 
 func (el *eventloop) handleAction(c *conn, action Action) error {

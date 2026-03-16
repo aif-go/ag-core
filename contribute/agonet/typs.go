@@ -87,3 +87,8 @@ type Writer interface {
 
 	Flush() error // not concurrency-safe
 }
+
+type KeepAliveAbility interface {
+	// SetKeepAliveConfig sets the keep-alive config.
+	SetKeepAliveConfig(config net.KeepAliveConfig) error
+}

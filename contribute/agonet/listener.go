@@ -55,24 +55,10 @@ func createListener(network, addr string, options *Options) (*listener, error) {
 	lc := net.ListenConfig{}
 
 	if options.KeepAlive.Enable && options.KeepAlive.Idle > 0 {
-
-		idle := options.KeepAlive.Idle
-		interval := options.KeepAlive.Interval
-		if interval <= 0 {
-			interval = idle
+		keepAlive := buildKeepAliveWithConfig(options.KeepAlive)
+		if keepAlive != nil {
+			lc.KeepAliveConfig = *keepAlive
 		}
-		count := options.KeepAlive.Count
-		if count <= 0 {
-			count = 9
-		}
-
-		keepAliveConfig := net.KeepAliveConfig{
-			Enable:   true,
-			Idle:     idle,
-			Interval: interval,
-			Count:    count,
-		}
-		lc.KeepAliveConfig = keepAliveConfig
 	}
 
 	l := listener{network: network, address: addr, lc: &lc}

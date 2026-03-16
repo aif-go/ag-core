@@ -25,6 +25,11 @@ type (
 		baseLoadBalancer
 		nextIndex uint64
 	}
+
+	// leastConnectionsLoadBalancer with Least-Connections algorithm.
+	leastConnectionsLoadBalancer struct {
+		baseLoadBalancer
+	}
 )
 
 // ==================================== Implementation of base load-balancer ====================================
@@ -64,5 +69,19 @@ func (lb *baseLoadBalancer) len() int {
 func (lb *roundRobinLoadBalancer) next(_ net.Addr) (el *eventloop) {
 	el = lb.eventLoops[lb.nextIndex%uint64(lb.size)]
 	lb.nextIndex++
+	return
+}
+
+// ================================= Implementation of Least-Connections load-balancer =================================
+
+func (lb *leastConnectionsLoadBalancer) next(_ net.Addr) (el *eventloop) {
+	el = lb.eventLoops[0]
+	minN := el.countConn()
+	for _, v := range lb.eventLoops[1:] {
+		if n := v.countConn(); n < minN {
+			minN = n
+			el = v
+		}
+	}
 	return
 }

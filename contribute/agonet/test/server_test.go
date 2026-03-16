@@ -25,7 +25,8 @@ type TestEventHandler struct {
 }
 
 func (e *TestEventHandler) OnTraffic(c agonet.Conn) (action agonet.Action) {
-	msg := make([]byte, 1024)
+	// msg := make([]byte, 50)
+	msg := make([]byte, 50)
 	_, err := c.Read(msg)
 	if err != nil {
 		return agonet.Close
@@ -33,12 +34,14 @@ func (e *TestEventHandler) OnTraffic(c agonet.Conn) (action agonet.Action) {
 
 	slog.Info(fmt.Sprintf("Received message: %s", msg))
 
-	resp := fmt.Sprintf("Echo: %s", msg)
+	resp := fmt.Sprintf("Echo:%s", msg)
+	// resp := fmt.Sprintf("Echo: %d", len(msg))
 
 	_, err = c.Write([]byte(resp))
 	if err != nil {
 		return agonet.Close
 	}
+	c.Flush()
 
 	return
 }
