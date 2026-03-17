@@ -10,7 +10,7 @@ import (
 func TestServer_Start(t *testing.T) {
 	// TODO 测试启动服务器
 	handler := &TestEventHandler{}
-	server := agonet.NewServer(handler, agonet.ServerConfig{
+	server := agonet.NewServer(handler, &agonet.ServerConfig{
 		Address: "tcp://:9000",
 	})
 

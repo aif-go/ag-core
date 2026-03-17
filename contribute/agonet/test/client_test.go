@@ -10,7 +10,7 @@ import (
 
 func TestClient(t *testing.T) {
 	handler := &TestClientEventHandler{}
-	client := agonet.NewClient(handler, agonet.ClientConfig{})
+	client := agonet.NewClient(handler, &agonet.ClientConfig{})
 
 	err := client.Start()
 	if err != nil {

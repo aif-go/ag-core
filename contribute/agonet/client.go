@@ -29,7 +29,7 @@ type client struct {
 	eventHandler EventHandler
 }
 
-func NewClient(handler EventHandler, config ClientConfig) Client {
+func NewClient(handler EventHandler, config *ClientConfig) Client {
 	opts := buildOptionsWithConfig(config.Config)
 	cli := &client{
 		// config:       config,

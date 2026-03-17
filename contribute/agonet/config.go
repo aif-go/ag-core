@@ -47,3 +47,32 @@ type KeepAliveConfig struct {
 	Interval int // 间隔时间，单位秒
 	Count    int
 }
+
+func DefaultServerConfig() *ServerConfig {
+	return &ServerConfig{
+		Address: "tcp://:9000",
+		Config:  DefaultCommonConfig(),
+	}
+}
+
+func DefaultClientConfig() *ClientConfig {
+	return &ClientConfig{
+		Config: DefaultCommonConfig(),
+	}
+}
+
+func DefaultCommonConfig() CommonConfig {
+	return CommonConfig{
+		Engine: EngineConfig{
+			NumEventLoop: 1,
+			Multicore:    false,
+			Ticker:       false,
+		},
+		KeepAlive: KeepAliveConfig{
+			Enable:   true,
+			Idle:     60,
+			Interval: 12,
+			Count:    5,
+		},
+	}
+}

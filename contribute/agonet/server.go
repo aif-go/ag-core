@@ -11,7 +11,7 @@ type Server interface {
 	Stop() error
 }
 
-func NewServer(handler EventHandler, config ServerConfig) Server {
+func NewServer(handler EventHandler, config *ServerConfig) Server {
 	return &server{
 		config:       config,
 		eventHandler: handler,
@@ -19,7 +19,7 @@ func NewServer(handler EventHandler, config ServerConfig) Server {
 }
 
 type server struct {
-	config       ServerConfig
+	config       *ServerConfig
 	opts         *Options
 	eng          *engine
 	eventHandler EventHandler
