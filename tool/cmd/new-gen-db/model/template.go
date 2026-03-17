@@ -11,14 +11,23 @@ import (
 {{- if .HasPage}}
 	db "ag-core/contribute/agdb/gormdb"
 {{- end}}
+{{- if .HasSelfQuery}}
+	"ag-core/contribute/agdb/conditonwhere"
+{{- end}}
 )
 {{- else if .HasPage}}
 import (
 	db "ag-core/contribute/agdb/gormdb"
+{{- if .HasSelfQuery}}
+	"ag-core/contribute/agdb/conditonwhere"
+{{- end}}
 )
 {{- else}}
 import (
 	"fmt"
+{{- if .HasSelfQuery}}
+	"ag-core/contribute/agdb/conditonwhere"
+{{- end}}
 )
 {{- end}}
 
@@ -92,6 +101,7 @@ type {{.StructName}}Column struct {
 // {{$.StructName}}{{.Name}}Arg {{.Name}} 查询参数
 type {{$.StructName}}{{.Name}}Arg struct {
 	db.Page
+	FieldMask *conditonwhere.FieldMask
 {{- range $wc := .WhereColFields}}
 {{$fieldName := $wc.FieldName}}
 {{$isSlice := $wc.IsSlice}}
@@ -107,6 +117,19 @@ type {{$.StructName}}{{.Name}}Arg struct {
 {{- end}}
 {{- end}}
 }
+
+{{- range $wc := .WhereColFields}}
+{{$fieldName := $wc.FieldName}}
+{{$colName := $wc.ColName}}
+{{- range $col := $table.Columns}}
+{{- if eq $col.Name $colName}}
+func ({{toLower $.StructName}}{{$queryName}}Arg *{{$.StructName}}{{$queryName}}Arg) With{{$fieldName}}({{$fieldName}} {{$col.GoType}}) {
+	{{toLower $.StructName}}{{$queryName}}Arg.{{$fieldName}} = {{$fieldName}}
+	{{toLower $.StructName}}{{$queryName}}Arg.FieldMask.Set("{{$fieldName}}")
+}
+{{- end}}
+{{- end}}
+{{- end}}
 
 // ConvertToMap 将参数转换为map
 func ({{toLower $.StructName}}{{.Name}}Arg *{{$.StructName}}{{.Name}}Arg) ConvertToMap() map[string]interface{} {
@@ -123,6 +146,7 @@ func ({{toLower $.StructName}}{{.Name}}Arg *{{$.StructName}}{{.Name}}Arg) Conver
 
 {{- else}}
 type {{$.StructName}}{{.Name}}Arg struct {
+	FieldMask *conditonwhere.FieldMask
 {{- range $wc := .WhereColFields}}
 {{$fieldName := $wc.FieldName}}
 {{$isSlice := $wc.IsSlice}}
@@ -138,6 +162,19 @@ type {{$.StructName}}{{.Name}}Arg struct {
 {{- end}}
 {{- end}}
 }
+
+{{- range $wc := .WhereColFields}}
+{{$fieldName := $wc.FieldName}}
+{{$colName := $wc.ColName}}
+{{- range $col := $table.Columns}}
+{{- if eq $col.Name $colName}}
+func ({{toLower $.StructName}}{{$queryName}}Arg *{{$.StructName}}{{$queryName}}Arg) With{{$fieldName}}({{$fieldName}} {{$col.GoType}}) {
+	{{toLower $.StructName}}{{$queryName}}Arg.{{$fieldName}} = {{$fieldName}}
+	{{toLower $.StructName}}{{$queryName}}Arg.FieldMask.Set("{{$fieldName}}")
+}
+{{- end}}
+{{- end}}
+{{- end}}
 
 // ConvertToMap 将参数转换为map
 func ({{toLower $.StructName}}{{.Name}}Arg *{{$.StructName}}{{.Name}}Arg) ConvertToMap() map[string]interface{} {

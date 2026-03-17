@@ -77,26 +77,26 @@ func (b *ChainBuilder) Build() (string, []interface{}) {
 }
 
 // 便捷方法用于链式调用
-func (b *ChainBuilder) EQ(field IndexField, value interface{}) *ChainBuilder {
-	return b.AND(Eq(field, value))
-}
+// func (b *ChainBuilder) EQ(field IndexField, value interface{}) *ChainBuilder {
+// 	return b.AND(Eq(field, value))
+// }
 
-func (b *ChainBuilder) NEQ(field IndexField, value interface{}) *ChainBuilder {
-	return b.AND(Neq(field, value))
-}
+// func (b *ChainBuilder) NEQ(field IndexField, value interface{}) *ChainBuilder {
+// 	return b.AND(Neq(field, value))
+// }
 
-func (b *ChainBuilder) GT(field IndexField, value interface{}) *ChainBuilder {
-	return b.AND(Gt(field, value))
-}
+// func (b *ChainBuilder) GT(field IndexField, value interface{}) *ChainBuilder {
+// 	return b.AND(Gt(field, value))
+// }
 
-func (b *ChainBuilder) LT(field IndexField, value interface{}) *ChainBuilder {
-	return b.AND(Lt(field, value))
-}
+// func (b *ChainBuilder) LT(field IndexField, value interface{}) *ChainBuilder {
+// 	return b.AND(Lt(field, value))
+// }
 
-func (b *ChainBuilder) LIKE(field IndexField, value string) *ChainBuilder {
-	return b.AND(Like(field, value))
-}
+// func (b *ChainBuilder) LIKE(field IndexField, value string) *ChainBuilder {
+// 	return b.AND(Like(field, value))
+// }
 
-func (b *ChainBuilder) IN(field IndexField, values ...interface{}) *ChainBuilder {
-	return b.AND(In(field, values...))
-}
+// func (b *ChainBuilder) IN(field IndexField, values ...interface{}) *ChainBuilder {
+// 	return b.AND(In(field, values...))
+// }
