@@ -177,7 +177,9 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	// 处理自查询信息
 	selfQueries := []table.QueryData{}
 	globalHasPage := false
+	globalHasSelfQuery := false
 	if selfQueryData, ok := yamlData["self_query_rules"].(map[interface{}]interface{}); ok {
+		globalHasSelfQuery = true
 		for name, query := range selfQueryData {
 			if queryMap, ok := query.(map[interface{}]interface{}); ok {
 				q := table.QueryData{
@@ -244,6 +246,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			ImportPackages: importPackages,
 		},
 		HasPage:         globalHasPage,
+		HasSelfQuery:    globalHasSelfQuery,
 		AllowUpdateCols: allowUpdateCols,
 	}, nil
 }

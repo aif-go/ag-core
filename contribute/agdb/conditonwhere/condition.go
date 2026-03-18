@@ -83,26 +83,26 @@ func (c *InCondition) Build() (string, []interface{}) {
 }
 
 // 便捷函数用于创建各种条件
-func Eq(field IndexField, value interface{}) Condition {
-	return &EqCondition{Field: field, Value: value}
-}
+// func Eq(field IndexField, value interface{}) Condition {
+// 	return &EqCondition{Field: field, Value: value}
+// }
 
-func Neq(field IndexField, value interface{}) Condition {
-	return &NeqCondition{Field: field, Value: value}
-}
+// func Neq(field IndexField, value interface{}) Condition {
+// 	return &NeqCondition{Field: field, Value: value}
+// }
 
-func Gt(field IndexField, value interface{}) Condition {
-	return &GtCondition{Field: field, Value: value}
-}
+// func Gt(field IndexField, value interface{}) Condition {
+// 	return &GtCondition{Field: field, Value: value}
+// }
 
-func Lt(field IndexField, value interface{}) Condition {
-	return &LtCondition{Field: field, Value: value}
-}
+// func Lt(field IndexField, value interface{}) Condition {
+// 	return &LtCondition{Field: field, Value: value}
+// }
 
-func Like(field IndexField, value string) Condition {
-	return &LikeCondition{Field: field, Value: value}
-}
+// func Like(field IndexField, value string) Condition {
+// 	return &LikeCondition{Field: field, Value: value}
+// }
 
-func In(field IndexField, values ...interface{}) Condition {
-	return &InCondition{Field: field, Values: values}
-}
+// func In(field IndexField, values ...interface{}) Condition {
+// 	return &InCondition{Field: field, Values: values}
+// }

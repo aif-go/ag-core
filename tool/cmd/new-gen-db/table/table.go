@@ -11,6 +11,7 @@ type TableData struct {
 	SelfQueries       []QueryData
 	ModelTemplateData *ModelTemplateData
 	HasPage           bool
+	HasSelfQuery      bool // 是否有自定义查询
 	AllowUpdateCols   []string // 支持更新的列名切片
 }
 
