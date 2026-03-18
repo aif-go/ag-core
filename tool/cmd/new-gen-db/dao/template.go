@@ -583,7 +583,9 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	if err != nil {
 		return nil, nil, err
 	}
-
+	// 主动替换where中的where (和)关键字
+	where = strings.ReplaceAll(where,"WHERE (","")
+	where,_= strings.CutSuffix(where,")")
 	// 主动拼接where条件
 	db = db.Where(where, args...)
 
