@@ -41,9 +41,9 @@ func generatePrimaryKeyWhere(tableData *table.TableData) string {
 		for _, col := range tableData.Columns {
 			if col.Name == pk {
 				if i > 0 {
-					whereConditions = append(whereConditions, col.JsonTag+" = ?")
+					whereConditions = append(whereConditions, col.Name+" = ?")
 				} else {
-					whereConditions = append(whereConditions, col.JsonTag+" = ?")
+					whereConditions = append(whereConditions, col.Name+" = ?")
 				}
 				break
 			}
