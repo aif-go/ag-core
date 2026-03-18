@@ -4,23 +4,29 @@ import (
 	"ag-core/contribute/agonet"
 	"fmt"
 	"log/slog"
+	"net"
 	"testing"
 	"time"
 )
 
 func TestClient(t *testing.T) {
 	handler := &TestClientEventHandler{}
-	client := agonet.NewClient(handler, &agonet.ClientConfig{})
+	client, err := agonet.NewClient(handler, &agonet.ClientConfig{})
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 
-	err := client.Start()
+	err = client.Start()
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	con, err := client.Dial("tcp", "localhost:9000")
+	tcon, err := client.Dial("tcp", "localhost:9000")
 	if err != nil {
 		t.Fatalf("Dial failed: %v", err)
 	}
+	var con net.Conn
+	con = tcon
 	defer con.Close()
 
 	con.Write([]byte("hello"))

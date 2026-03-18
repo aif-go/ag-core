@@ -9,7 +9,9 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/tjfoc/gmsm/gmtls"
+	// "github.com/tjfoc/gmsm/gmtls"
+
+	"gitee.com/Trisia/gotlcp/tlcp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -29,10 +31,17 @@ type client struct {
 	eventHandler EventHandler
 }
 
-func NewClient(handler EventHandler, config *ClientConfig) Client {
-	opts := buildOptionsWithConfig(config.Config)
+func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
+	opts, err := buildOptionsWithConfig(config.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClientWithOptions(handler, opts)
+}
+
+func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
 	cli := &client{
-		// config:       config,
 		eventHandler: handler,
 	}
 
@@ -56,7 +65,7 @@ func NewClient(handler EventHandler, config *ClientConfig) Client {
 	eng.eventLoops = new(leastConnectionsLoadBalancer)
 	cli.eng = &eng
 
-	return cli
+	return cli, nil
 }
 
 func (cli *client) Start() error {
@@ -105,11 +114,29 @@ func (cli *client) DialContext(network, addr string, ctx any) (Conn, error) {
 		c   net.Conn
 		err error
 	)
-	// TODO TLS 和 TLCP 支持
-	c, err = net.Dial(network, addr)
+	// c, err = net.Dial(network, addr)
+	switch cli.opts.TLSType {
+	case TLSTypeNone:
+		c, err = net.Dial(network, addr)
+	case TLSTypeTLS:
+		if cli.opts.TLSConfig == nil {
+			return nil, aerrors.ErrTLSConfigIsNil
+		}
+		c, err = tls.Dial(network, addr, cli.opts.TLSConfig)
+	case TLSTypeTLCP:
+		if cli.opts.TLCPConfig == nil {
+			return nil, aerrors.ErrTLCPConfigIsNil
+		}
+		c, err = tlcp.Dial(network, addr, cli.opts.TLCPConfig)
+	default:
+		return nil, aerrors.ErrUnsupportedProtocol
+	}
+
+	// c, err = tls.Dial(network, addr, cli.opts.TLSConfig)
 	if err != nil {
 		return nil, err
 	}
+
 	return cli.EnrollContext(c, ctx)
 }
 
@@ -127,7 +154,8 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	case *net.UnixConn: // 支持 Unix 域套接字连接
 	case *net.TCPConn: // 支持 TCP 连接
 	case *tls.Conn: // 支持 TLS 连接
-	case *gmtls.Conn: // 支持 gmtls实现的国密TLCP连接
+		// case *gmtls.Conn: // 支持 gmtls实现的国密TLCP连接
+	case *tlcp.Conn: // 支持 TLCP 连接
 	default:
 		return nil, aerrors.ErrUnsupportedProtocol
 	}

@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 	"sync"
+
+	"gitee.com/Trisia/gotlcp/pa"
 )
 
 type listener struct {
@@ -61,11 +63,32 @@ func createListener(network, addr string, options *Options) (*listener, error) {
 		}
 	}
 
-	l := listener{network: network, address: addr, lc: &lc}
+	l := &listener{network: network, address: addr, lc: &lc}
 
 	err := l.open()
 	if err != nil {
-		return &l, err
+		return l, err
 	}
-	return &l, err
+
+	err = tlsIfNeed(l, options)
+	if err != nil {
+		return l, err
+	}
+
+	return l, err
+}
+
+func tlsIfNeed(l *listener, opts *Options) error {
+	if l.ln == nil {
+		return nil
+	}
+
+	tlscfg := opts.TLSConfig
+	tlcpcfg := opts.TLCPConfig
+
+	if tlscfg != nil || tlcpcfg != nil {
+		l.ln = pa.NewListener(l.ln, tlcpcfg, tlscfg)
+	}
+
+	return nil
 }

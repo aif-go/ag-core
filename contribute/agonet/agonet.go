@@ -91,6 +91,7 @@ func createListeners(addrs []string, opts *Options) ([]*listener, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		listeners[i] = ln
 	}
 

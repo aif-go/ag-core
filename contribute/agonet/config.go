@@ -25,20 +25,13 @@ type CommonConfig struct {
 	Engine    EngineConfig    // 引擎配置
 	KeepAlive KeepAliveConfig // 保持连接配置
 
-	TLS  TLSConfig  // TLS配置
-	TLCP TLCPConfig // TLCP配置
-}
-
-type TLSConfig struct {
-}
-
-type TLCPConfig struct {
+	TLS TLSConfig // TLS配置
 }
 
 type EngineConfig struct {
 	NumEventLoop int  // 事件循环数量
 	Multicore    bool // 是否多核心
-	Ticker       bool // 是否使用ticker
+	// Ticker       bool // 是否使用ticker
 }
 
 type KeepAliveConfig struct {
@@ -66,7 +59,7 @@ func DefaultCommonConfig() CommonConfig {
 		Engine: EngineConfig{
 			NumEventLoop: 1,
 			Multicore:    false,
-			Ticker:       false,
+			// Ticker:       false,
 		},
 		KeepAlive: KeepAliveConfig{
 			Enable:   true,

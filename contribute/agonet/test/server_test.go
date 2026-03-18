@@ -10,11 +10,14 @@ import (
 func TestServer_Start(t *testing.T) {
 	// TODO 测试启动服务器
 	handler := &TestEventHandler{}
-	server := agonet.NewServer(handler, &agonet.ServerConfig{
+	server, err := agonet.NewServer(handler, &agonet.ServerConfig{
 		Address: "tcp://:9000",
 	})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
 
-	err := server.Start()
+	err = server.Start()
 	if err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}

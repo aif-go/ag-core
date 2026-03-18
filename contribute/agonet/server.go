@@ -2,6 +2,7 @@ package agonet
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -11,24 +12,38 @@ type Server interface {
 	Stop() error
 }
 
-func NewServer(handler EventHandler, config *ServerConfig) Server {
-	return &server{
-		config:       config,
+func NewServer(handler EventHandler, config *ServerConfig) (Server, error) {
+	opts, err := buildOptionsWithConfig(config.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs := make([]string, 0)
+	addrs = append(addrs, config.Address)
+
+	return NewServerWithOptions(handler, addrs, opts)
+
+}
+func NewServerWithOptions(handler EventHandler, addr []string, opts *Options) (Server, error) {
+	ser := &server{
+		addrs:        addr,
+		opts:         opts,
 		eventHandler: handler,
 	}
+
+	return ser, nil
 }
 
 type server struct {
-	config       *ServerConfig
+	// config       *ServerConfig
+	addrs        []string
 	opts         *Options
 	eng          *engine
 	eventHandler EventHandler
 }
 
 func (s *server) Start() error {
-	addrs := make([]string, 0)
-	addrs = append(addrs, s.config.Address)
-	return s.run(addrs)
+	return s.run()
 }
 
 func (s *server) Stop() error {
@@ -36,10 +51,13 @@ func (s *server) Stop() error {
 	return nil
 }
 
-func (s *server) run(addrs []string) error {
+func (s *server) run() error {
+	addrs := s.addrs
+	opts := s.opts
 
-	opts := s.buildOptionsWithConfig()
-	s.opts = opts
+	if addrs == nil || len(addrs) == 0 {
+		return fmt.Errorf("agonet: no address")
+	}
 
 	// createListeners
 	lns, err := createListeners(addrs, opts)
@@ -98,26 +116,4 @@ func (s *server) run(addrs []string) error {
 	defer eng.stop(rootCtx, e) // 等待上下文取消，触发关闭操作
 
 	return nil
-}
-
-func (s *server) buildOptionsWithConfig() *Options {
-
-	// opts := &Options{
-	// 	NumEventLoop: s.config.Engine.NumEventLoop,
-	// 	Multicore:    s.config.Engine.Multicore,
-	// 	Ticker:       s.config.Engine.Ticker,
-	// 	KeepAlive: struct {
-	// 		Enable   bool
-	// 		Idle     time.Duration
-	// 		Interval time.Duration
-	// 		Count    int
-	// 	}{
-	// 		Enable:   s.config.KeepAlive.Enable,
-	// 		Idle:     time.Duration(s.config.KeepAlive.Idle) * time.Second,
-	// 		Interval: time.Duration(s.config.KeepAlive.Interval) * time.Second,
-	// 		Count:    s.config.KeepAlive.Count,
-	// 	},
-	// }
-	opts := buildOptionsWithConfig(s.config.Config)
-	return opts
 }

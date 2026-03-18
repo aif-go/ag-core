@@ -1,8 +1,13 @@
 package agonet
 
 import (
+	"crypto/tls"
 	"net"
 	"time"
+
+	// "github.com/tjfoc/gmsm/gmtls"
+
+	"gitee.com/Trisia/gotlcp/tlcp"
 )
 
 // // Option is a function that will set up option.
@@ -24,41 +29,56 @@ type Options struct {
 
 	// LockOSThread bool
 
-	Ticker bool
+	// Ticker bool
 
-	KeepAlive keepAlive
-	// KeepAlive struct {
-	// 	Enable   bool
-	// 	Idle     time.Duration
-	// 	Interval time.Duration
-	// 	Count    int
-	// }
+	KeepAlive KeepAlive
+
+	TLSType TLSType
+
+	TLSConfig  *tls.Config
+	TLCPConfig *tlcp.Config
+	// TLCPConfig *gmtls.Config
+
+	// TLS  tlsConfig
+	// TLCP tlcpConfig
 }
-type keepAlive struct {
+
+type KeepAlive struct {
 	Enable   bool
 	Idle     time.Duration
 	Interval time.Duration
 	Count    int
 }
 
+// type tlsConfig struct {
+// 	Cert    tls.Certificate
+// 	CaCerts []tlsx509.Certificate
+// }
+
+// type tlcpConfig struct {
+// 	SigCert gmtls.Certificate
+// 	EncCert gmtls.Certificate
+// 	CaCerts []x509.Certificate
+// }
+
 // buildOptionsWithConfig builds options with given config.
-func buildOptionsWithConfig(conf CommonConfig) *Options {
+func buildOptionsWithConfig(conf CommonConfig) (*Options, error) {
 	opts := &Options{
 		NumEventLoop: conf.Engine.NumEventLoop,
 		Multicore:    conf.Engine.Multicore,
-		Ticker:       conf.Engine.Ticker,
-		KeepAlive: keepAlive{
+		// Ticker:       conf.Engine.Ticker,
+		KeepAlive: KeepAlive{
 			Enable:   conf.KeepAlive.Enable,
 			Idle:     time.Duration(conf.KeepAlive.Idle) * time.Second,
 			Interval: time.Duration(conf.KeepAlive.Interval) * time.Second,
 			Count:    conf.KeepAlive.Count,
 		},
 	}
-	return opts
+	return opts, nil
 }
 
 // buildKeepAliveWithConfig builds keep-alive config with given config.
-func buildKeepAliveWithConfig(cnf keepAlive) *net.KeepAliveConfig {
+func buildKeepAliveWithConfig(cnf KeepAlive) *net.KeepAliveConfig {
 	if !cnf.Enable || cnf.Idle <= 0 {
 		return nil
 	}
