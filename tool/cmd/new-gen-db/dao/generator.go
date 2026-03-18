@@ -186,8 +186,10 @@ func generateNamingSqlFile(tableData *table.TableData, outputPath string, dbType
 // generateDBTypeNamingSqlFile 生成dbtype_tablename_namingsql.go文件
 func generateDBTypeNamingSqlFile(tableData *table.TableData, outputPath string, dbType string) error {
 	// 获取数据库类型命名SQL模板代码
-	code := GetDBTypeNamingSqlTemplate(tableData, dbType)
-
+	code,err := GetDBTypeNamingSqlTemplate(tableData, dbType)
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(outputPath, []byte(code), 0644)
 }
 

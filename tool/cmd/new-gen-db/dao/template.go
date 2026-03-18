@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"ag-core/contribute/agdb/conditonwhere"
 	"ag-core/tool/cmd/new-gen-db/table"
 )
 
@@ -423,11 +424,11 @@ type I` + structName + `Dao interface {
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.` + structName + `) (int64, error)
 	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error)
-	UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error)
 ` + generateFindByPrimaryKeyInterface(tableData) + `
 	FindByStruct(ctx context.Context, entity *model.` + structName + `) ([]*model.` + structName + `, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
-	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orders []gormdb.Order, page *gormdb.Page) ([]*model.` + structName + `, *gormdb.PageResult, error)
+	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.` + structName + `, *gormdb.PageResult, error)
+	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.` + structName + `, error)
 }
 
 // New` + structName + `Dao get dao instance
@@ -500,30 +501,6 @@ func (dao *` + structName + `Dao) UpdateByPrimaryKeyIngoreZeroValCols(ctx contex
 	return result.RowsAffected, result.Error
 }
 
-// UpdateDynamic 根据主键或者唯一键动态列更新数据
-// cols 动态列名
-// entity where和update的值
-func (dao *` + structName + `Dao) UpdateDynamic(ctx context.Context, entity *model.` + structName + `, cols []string) (int64, error) {
-	db, err := dao.newDB(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(cols) == 0 {
-		return 0, errors.New("when update,dynamic columns is required")
-	}
-
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-` + primaryKeyUpdate + `
-	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
-	}
-	// 5. 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Select(cols).Updates(entity)
-	return result.RowsAffected, result.Error
-}
-
 ` + generateFindByPrimaryKeyMethod(tableData) + `
 
 // FindByStruct 根据实体查询
@@ -571,7 +548,7 @@ func (dao *` + structName + `Dao) FindByCustomerRule(ctx context.Context, naming
 }
 
 // FindByCondition 根据条件构建器查询
-func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orders []gormdb.Order, page *gormdb.Page) ([]*model.` + structName + `, *gormdb.PageResult, error) {
+func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.` + structName + `, *gormdb.PageResult, error) {
 	var list []*model.` + structName + `
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -583,9 +560,6 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	if err != nil {
 		return nil, nil, err
 	}
-	// 主动替换where中的where (和)关键字
-	where = strings.ReplaceAll(where,"WHERE (","")
-	where,_= strings.CutSuffix(where,")")
 	// 主动拼接where条件
 	db = db.Where(where, args...)
 
@@ -609,16 +583,44 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	}
 
 	// 主动拼排序条件
-	if orders != nil {
-		db = db.Order(gormdb.ToSqlOrder(orders))
+	if orderBuilder != nil {
+		db = db.Order(orderBuilder.Build())
 	}
 
 	result := db.Find(&list)
 	if result.Error != nil {
-		return nil, pageResult, result.Error
+		return nil, nil, result.Error
 	}
 
 	return list, pageResult, nil
+}
+
+// FindFirstOneByCondition 根据条件构建器查询第一条记录
+func (dao *` + structName + `Dao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.` + structName + `, error) {
+	var entity model.` + structName + `
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 主动使用where条件
+	where, args, err := condition.Build()
+	if err != nil {
+		return nil, err
+	}
+	// 主动拼接where条件
+	db = db.Where(where, args...)
+
+	// 主动拼排序条件
+	if orderBuilder != nil {
+		db = db.Order(orderBuilder.Build())
+	}
+
+	result := db.Limit(1).Find(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
 }
 
 ` + doMethods + `
@@ -686,29 +688,6 @@ func Init` + structName + `NamingSql() {
 `
 }
 
-// generateWhereSQL 生成where条件SQL语句
-func generateWhereSQL(condition *table.WhereCondition) string {
-	if condition.Expr != "" {
-		return condition.Expr
-	}
-
-	if len(condition.Conditions) == 0 {
-		return "1=1"
-	}
-
-	conditions := make([]string, 0, len(condition.Conditions))
-	for _, cond := range condition.Conditions {
-		conditions = append(conditions, generateWhereSQL(&cond))
-	}
-
-	operator := condition.Operator
-	if operator == "" {
-		operator = "AND"
-	}
-
-	return "(" + strings.Join(conditions, " "+operator+" ") + ")"
-}
-
 // generateCustomerRuleSwitch 生成自定义规则查询的switch语句
 func generateCustomerRuleSwitch(tableData *table.TableData) string {
 	var switchCases string
@@ -747,14 +726,19 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 		return nil, errors.New("not found naming sql")
 	}
 	oldwhere,_:=conditonwhere.ExtractWhereClauseByCut(execSql)
-	newwhere,err:=conditonwhere.NewWhere(oldwhere, queryArgs.FieldMask)
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("`+query.Name+`",model.`+structName+`ConditionMap)
 	if err != nil {
 		return nil, err
 	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.`+structName+`IndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
 	// 替换where条件
-	execSql = strings.Replace(execSql, oldwhere, newwhere, 1)
+	execSql = strings.Replace(execSql, "WHERE ("+oldwhere+")", newwhere, 1)
 	execCountSql := ` + structName + `NamingSqlMap[sqlName+"_Count"]
-	execCountSql = strings.Replace(execCountSql, oldwhere, newwhere, 1)
+	execCountSql = strings.Replace(execCountSql, "WHERE ("+oldwhere+")", newwhere, 1)
 	if execCountSql == "" {
 		return nil, errors.New("not found naming sql count")
 	}
@@ -810,12 +794,17 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	}
 
 	oldwhere,_:=conditonwhere.ExtractWhereClauseByCut(execSql)
-	newwhere,err:=conditonwhere.NewWhere(oldwhere, queryArgs.FieldMask)
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("`+query.Name+`",model.`+structName+`ConditionMap)
 	if err != nil {
 		return nil, err
 	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.`+structName+`IndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
 	// 替换where条件
-	execSql = strings.Replace(execSql, oldwhere, newwhere, 1)
+	execSql = strings.Replace(execSql, "WHERE ("+oldwhere+")", newwhere, 1)
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
@@ -933,7 +922,7 @@ import (
 }
 
 // GetDBTypeNamingSqlTemplate 获取数据库类型命名SQL模板代码
-func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) string {
+func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (string, error) {
 	structName := tableData.StructName
 	tableName := tableData.TableName
 
@@ -952,7 +941,11 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 		// 构建WHERE条件
 		whereClause := "WHERE 1=1"
 		if query.Where != nil {
-			whereClause = "WHERE " + generateWhereSQL(query.Where)
+			sqlwhere,err:=conditonwhere.GenerateWhereSQL(query.Where)
+			if err != nil {
+				return "", err
+			}
+			whereClause = "WHERE " + sqlwhere
 		}
 
 		// 构建排序语句
@@ -1037,7 +1030,7 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) strin
 // DO NOT EDIT
 // DO NOT EDIT
 
-` + strings.Join(sqlExamples, "\n\n") + "\n\n" + initFunc
+` + strings.Join(sqlExamples, "\n\n") + "\n\n" + initFunc,nil
 }
 
 // getPrimaryKey 获取主键列名列表

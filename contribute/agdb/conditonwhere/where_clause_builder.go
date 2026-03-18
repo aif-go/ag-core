@@ -76,6 +76,148 @@ func (b *WhereClauseBuilder) SetRoot(cond *WhereCondition) *WhereClauseBuilder {
 	return b
 }
 
+// ==================== 链式调用方法 ====================
+
+// Eq 添加等于条件
+func (b *WhereClauseBuilder) Eq(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpEq,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Neq 添加不等于条件
+func (b *WhereClauseBuilder) Neq(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpNeq,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Gt 添加大于条件
+func (b *WhereClauseBuilder) Gt(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpGt,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Lt 添加小于条件
+func (b *WhereClauseBuilder) Lt(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpLt,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Gte 添加大于等于条件
+func (b *WhereClauseBuilder) Gte(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpGte,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Lte 添加小于等于条件
+func (b *WhereClauseBuilder) Lte(field string, value interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpLte,
+		Value:    value,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// In 添加 IN 条件
+func (b *WhereClauseBuilder) In(field string, values ...interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpIn,
+		Value:    values,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// NotIn 添加 NOT IN 条件
+func (b *WhereClauseBuilder) NotIn(field string, values ...interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpNotIn,
+		Value:    values,
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Between 添加 BETWEEN 条件
+func (b *WhereClauseBuilder) Between(field string, min, max interface{}) *WhereClauseBuilder {
+	return b.AddCondition(&WhereCondition{
+		Field:    field,
+		Operator: SQLOpBetween,
+		Value:    []interface{}{min, max},
+		Logic:    SQLLogicAnd,
+	})
+}
+
+// Or 设置下一个条件的逻辑为 OR
+func (b *WhereClauseBuilder) Or() *WhereClauseBuilder {
+	if b.root != nil && len(b.root.Children) > 0 {
+		lastChild := b.root.Children[len(b.root.Children)-1]
+		lastChild.Logic = SQLLogicOr
+	}
+	return b
+}
+
+// And 设置下一个条件的逻辑为 AND
+func (b *WhereClauseBuilder) And() *WhereClauseBuilder {
+	if b.root != nil && len(b.root.Children) > 0 {
+		lastChild := b.root.Children[len(b.root.Children)-1]
+		lastChild.Logic = SQLLogicAnd
+	}
+	return b
+}
+
+// Group 添加一个条件组（用于嵌套）
+func (b *WhereClauseBuilder) Group(conditions ...*WhereCondition) *WhereClauseBuilder {
+	if len(conditions) == 0 {
+		return b
+	}
+	return b.AddCondition(&WhereCondition{
+		Children: conditions,
+	})
+}
+
+// AndGroup 添加一个 AND 连接的条件组
+func (b *WhereClauseBuilder) AndGroup(conditions ...*WhereCondition) *WhereClauseBuilder {
+	if len(conditions) == 0 {
+		return b
+	}
+	for _, c := range conditions {
+		c.Logic = SQLLogicAnd
+	}
+	return b.Group(conditions...)
+}
+
+// OrGroup 添加一个 OR 连接的条件组
+func (b *WhereClauseBuilder) OrGroup(conditions ...*WhereCondition) *WhereClauseBuilder {
+	if len(conditions) == 0 {
+		return b
+	}
+	for _, c := range conditions {
+		c.Logic = SQLLogicOr
+	}
+	return b.Group(conditions...)
+}
+
 // Build 构建最终的 WHERE SQL 和参数
 // 返回: (whereSQL, args, error)
 func (b *WhereClauseBuilder) Build() (string, []interface{}, error) {
@@ -91,8 +233,8 @@ func (b *WhereClauseBuilder) Build() (string, []interface{}, error) {
 	if sql == "" {
 		return "", nil, nil
 	}
-	
-	return "WHERE " + sql, args, nil
+	// 最外层不添加 WHERE 关键字
+	return sql, args, nil
 }
 
 // buildWhereCondition 递归构建条件

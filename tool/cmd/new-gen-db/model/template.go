@@ -7,6 +7,19 @@ import (
 	"ag-core/tool/cmd/new-gen-db/table"
 )
 
+// hasWhereDataToYAMLCache 检查是否有 WhereDataToYAMLCache 需要生成
+func hasWhereDataToYAMLCache(tableData *table.TableData) bool {
+	if len(tableData.SelfQueries) == 0 {
+		return false
+	}
+	for _, query := range tableData.SelfQueries {
+		if query.WhereDataYaml != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // generateImports 生成导入语句
 func generateImports(tableData *table.TableData) string {
 	var imports []string
@@ -20,6 +33,11 @@ func generateImports(tableData *table.TableData) string {
 	}
 	if tableData.HasSelfQuery {
 		imports = append(imports, `"ag-core/contribute/agdb/conditonwhere"`)
+	}
+
+	// 如果有 WhereDataToYAMLCache，需要导入 yaml 包
+	if hasWhereDataToYAMLCache(tableData) {
+		imports = append(imports, `"gopkg.in/yaml.v2"`)
 	}
 
 	// 添加自定义导入包
@@ -147,6 +165,30 @@ func generateAllowUpdateCols(tableData *table.TableData) string {
 
 	return fmt.Sprintf(`// %sAllowUpdateCols 支持更新的列名列表
 var %sAllowUpdateCols = []string{%s}`, structName, structName, strings.Join(cols, ""))
+}
+
+// generateIndexLeadingCols 生成IndexLeadingCols变量
+func generateIndexLeadingCols(tableData *table.TableData) string {
+	structName := tableData.StructName
+	
+	var cols []string
+	// 优先使用主键的第一列
+	if len(tableData.PrimaryKeys) > 0 {
+		cols = append(cols, fmt.Sprintf("\"%s\"", tableData.PrimaryKeys[0]))
+	} 
+	// 处理索引的引导列
+	for _, index := range tableData.Indexes {
+		if len(index.Columns) > 0 {
+			cols = append(cols, fmt.Sprintf("\"%s\"", index.Columns[0]))
+		}
+	}
+	if len(cols) == 0 {
+		return ""
+	}
+	
+	return fmt.Sprintf(`// %sIndexLeadingCols 索引前导列，用于检查是否走了索引，避免全表扫描
+// 列名必须和数据库表列名一致，区分大小写
+var %sIndexLeadingCols = []string{%s}`, structName, structName, strings.Join(cols, ", "))
 }
 
 // generateColumnStruct 生成Column结构体
@@ -339,6 +381,52 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+// generateWhereDataToYAMLCache 生成WhereDataToYAMLCache map
+func generateWhereDataToYAMLCache(tableData *table.TableData) string {
+	if len(tableData.SelfQueries) == 0 {
+		return ""
+	}
+
+	// structName := tableData.StructName
+	var entries []string
+
+	for _, query := range tableData.SelfQueries {
+		if query.WhereDataYaml != "" {
+			key := query.Name
+			entries = append(entries, fmt.Sprintf("\t\"%s\":`%s`,", key, query.WhereDataYaml))
+		}
+	}
+
+	if len(entries) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(`// WhereDataToYAMLCache WhereDataYAML缓存
+var `+tableData.StructName+`WhereDataToYAMLCache = map[string]string{
+%s
+}`, strings.Join(entries, "\n"))
+}
+
+// generateInitFunction 生成 init 函数用于注册自定义 condition
+func generateInitFunction(tableData *table.TableData) string {
+	if !hasWhereDataToYAMLCache(tableData) {
+		return ""
+	}
+
+	return `
+var `+tableData.StructName+`ConditionMap = map[string]*conditonwhere.MaskWhereCondition{}
+
+// 初始注册自定义函数的condition
+func init() {
+	for key, whereDataYaml := range `+tableData.StructName+`WhereDataToYAMLCache {
+		var newData map[interface{}]interface{}
+		yaml.Unmarshal([]byte(whereDataYaml), &newData)
+		 `+tableData.StructName+`ConditionMap[key] = conditonwhere.ParseWhereCondition(newData)
+	}
+}
+`
+}
+
 // GetModelTemplate 获取Model模板代码
 func GetModelTemplate(tableData *table.TableData) string {
 	var parts []string
@@ -377,6 +465,13 @@ func GetModelTemplate(tableData *table.TableData) string {
 	parts = append(parts, generateAllowUpdateCols(tableData))
 	parts = append(parts, "\n\n")
 
+	// IndexLeadingCols变量
+	indexLeadingCols := generateIndexLeadingCols(tableData)
+	if indexLeadingCols != "" {
+		parts = append(parts, indexLeadingCols)
+		parts = append(parts, "\n\n")
+	}
+
 	// Column结构体
 	parts = append(parts, generateColumnStruct(tableData))
 	parts = append(parts, "\n\n")
@@ -385,6 +480,20 @@ func GetModelTemplate(tableData *table.TableData) string {
 	queryCode := generateQueryCode(tableData)
 	if queryCode != "" {
 		parts = append(parts, queryCode)
+	}
+
+	// WhereDataToYAMLCache
+	whereCache := generateWhereDataToYAMLCache(tableData)
+	if whereCache != "" {
+		parts = append(parts, "\n\n")
+		parts = append(parts, whereCache)
+	}
+
+	// init 函数
+	initFunc := generateInitFunction(tableData)
+	if initFunc != "" {
+		parts = append(parts, "\n\n")
+		parts = append(parts, initFunc)
 	}
 
 	return strings.Join(parts, "")
