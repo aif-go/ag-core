@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 )
 
 // 预编译正则表达式，避免每次调用时重新编译
@@ -176,6 +177,55 @@ func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []
 	}
 
 	return result
+}
+
+
+// CollectNotZeroValColsAndVals 收集：值不为零值 的字段名和对应的值
+func CollectNotZeroValColsAndVals(obj interface{}, filterPkAndIndex bool) ([]string, []interface{}) {
+	var result []string
+	var resultVals []interface{}
+	// 1. 解析入参：支持结构体或结构体指针
+	val := reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem() // 指针解引用，获取底层结构体
+	}
+	if val.Kind() != reflect.Struct {
+		return result, resultVals // 非结构体/指针直接返回空
+	}
+	typ := val.Type() // 获取结构体类型（用于解析 tag）
+	// 2. 遍历字段：判断 tag 和值
+	for i := 0; i < typ.NumField(); i++ {
+		fieldTyp := typ.Field(i) // 字段类型（含 tag）
+		fieldVal := val.Field(i) // 字段实际值
+		// if _, ok := excludeCols[fieldTyp.Name]; ok {
+		// 	continue // 排除指定字段
+		// }
+		// 2.1 判断是否有 gorm omitempty 标记
+		gormTag := fieldTyp.Tag.Get("gorm")
+		collect := false
+		// 是否过滤主键和索引列（默认过滤）
+		if (filterPkAndIndex){
+			for _, opt := range strings.Split(gormTag, ";") {
+		    	if opt == "primaryKey" || strings.HasPrefix(opt, "index") {
+		        	// collect = true
+		        	break
+		    	}
+			}
+		}
+		// 2.2 判断字段值是否为零值
+		if !fieldVal.IsZero() {
+			collect = true
+		}
+		if !collect {
+		    continue // 没有 omitempty 标记，跳过
+		}
+
+		result = append(result, fieldTyp.Name) // 满足条件，收集字段名
+		resultVals = append(resultVals, fieldVal.Interface())
+
+	}
+
+	return result,resultVals
 }
 
 // NamingSqlArg 支持将命名SQL参数转换为map,以解决命名SQL参数中包含in语句的问题
