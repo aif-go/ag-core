@@ -30,7 +30,8 @@ const (
 )
 
 func NewServerConfig(binder ag_conf.IBinder) (*ServerConfig, error) {
-	serverConfig := DefaultServerConfig()
+	cfg := DefaultServerConfig()
+	serverConfig := &cfg
 	err := binder.Bind(serverConfig, ServerConfigKey)
 	if err != nil {
 		return nil, err
@@ -39,7 +40,8 @@ func NewServerConfig(binder ag_conf.IBinder) (*ServerConfig, error) {
 }
 
 func NewClientConfig(binder ag_conf.IBinder) (*ClientConfig, error) {
-	clientConfig := DefaultClientConfig()
+	cfg := DefaultClientConfig()
+	clientConfig := &cfg
 	err := binder.Bind(clientConfig, ClientConfigKey)
 	if err != nil {
 		return nil, err

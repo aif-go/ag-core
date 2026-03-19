@@ -83,6 +83,10 @@ func tlsIfNeed(l *listener, opts *Options) error {
 		return nil
 	}
 
+	if opts.TLSType == TLSType_NONE {
+		return nil
+	}
+
 	tlscfg := opts.TLSConfig
 	tlcpcfg := opts.TLCPConfig
 

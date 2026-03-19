@@ -32,9 +32,15 @@ type client struct {
 }
 
 func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
-	opts, err := buildOptionsWithConfig(config.Config)
+	opts, err := BuildOptionsWithConfig(config.Config)
 	if err != nil {
 		return nil, err
+	}
+
+	// 配置TLS
+	secCfg := config.Config.Security
+	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET && secCfg.Type != TLSTYPE_TLS_TLCP {
+		ExtendOptions(opts, WithAgClientTLSConfig(&secCfg))
 	}
 
 	return NewClientWithOptions(handler, opts)
@@ -115,19 +121,43 @@ func (cli *client) DialContext(network, addr string, ctx any) (Conn, error) {
 		err error
 	)
 	// c, err = net.Dial(network, addr)
-	switch cli.opts.TLSType {
-	case TLSTypeNone:
+	cliTlsType := cli.opts.CliTLSType()
+
+	switch cliTlsType {
+	case TLSType_NONE:
 		c, err = net.Dial(network, addr)
-	case TLSTypeTLS:
-		if cli.opts.TLSConfig == nil {
+	case TLSType_TLS:
+		tlsCfg := cli.opts.CliTLSConfig()
+		if tlsCfg == nil {
 			return nil, aerrors.ErrTLSConfigIsNil
 		}
-		c, err = tls.Dial(network, addr, cli.opts.TLSConfig)
-	case TLSTypeTLCP:
-		if cli.opts.TLCPConfig == nil {
+		c, err = tls.Dial(network, addr, tlsCfg)
+
+		// tlsc, err := tls.Dial(network, addr, cli.opts.TLSConfig)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// err = tlsc.Handshake()
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// c = tlsc
+	case TLSType_TLCP:
+		tlcpCfg := cli.opts.CliTLCPConfig()
+		if tlcpCfg == nil {
 			return nil, aerrors.ErrTLCPConfigIsNil
 		}
-		c, err = tlcp.Dial(network, addr, cli.opts.TLCPConfig)
+		c, err = tlcp.Dial(network, addr, tlcpCfg)
+
+		// tlcpc, err := tlcp.Dial(network, addr, cli.opts.TLCPConfig)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// err = tlcpc.Handshake()
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// c = tlcpc
 	default:
 		return nil, aerrors.ErrUnsupportedProtocol
 	}
@@ -160,21 +190,14 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 		return nil, aerrors.ErrUnsupportedProtocol
 	}
 
-	c := newStreamConn(el, nc, ctx)
-
-	// if tcpc, ok := nc.(*net.TCPConn); ok {
-	if kpAblity, ok := nc.(KeepAliveAbility); ok {
-		options := cli.opts
-		if options.KeepAlive.Enable && options.KeepAlive.Idle > 0 {
-			keepAlive := buildKeepAliveWithConfig(options.KeepAlive)
-			if keepAlive != nil {
-				err := kpAblity.SetKeepAliveConfig(*keepAlive)
-				if err != nil {
-					return nil, err
-				}
-			}
+	if cli.opts.KeepAlive.Enable {
+		err := cli.applyKeepAlive(nc)
+		if err != nil {
+			return nil, err
 		}
 	}
+
+	c := newStreamConn(el, nc, ctx)
 
 	el.ch <- &openConn{c: c, cb: func() { close(connOpened) }}
 
@@ -192,33 +215,43 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 			// 6. 触发连接读取事件
 			el.ch <- packTCPConn(c, buffer[:n])
 		}
-
-		// for {
-		// 	_, err := c.rawReader.Peek(0)
-		// 	// _, err := c.Reader.Peek(0)
-		// 	if err != nil {
-		// 		// 处理读取错误
-		// 		el.ch <- &netErr{c, err}
-		// 		return
-		// 	}
-		// 	// el.ch <- packTCPConn(c, buffer[:n])
-		// 	fmt.Println("read data=====")
-		// 	el.ch <- packTCPConn(c, nil)
-		// }
-
-		// var buffer [0x10000]byte
-		// for {
-		// 	n, err := nc.Read(buffer[:])
-		// 	if err != nil {
-		// 		el.ch <- &netErr{c, err}
-		// 		return
-		// 	}
-		// 	el.ch <- packTCPConn(c, buffer[:n])
-		// }
 	})
 	gc = c
 
 	<-connOpened
 
 	return
+}
+
+func (cli *client) applyKeepAlive(nc net.Conn) error {
+	keepOpt := cli.opts.KeepAlive
+	if !keepOpt.Enable || keepOpt.Idle <= 0 {
+		return nil
+	}
+
+	tc := nc
+
+	switch bc := nc.(type) {
+	case *net.UnixConn: // 支持 Unix 域套接字连接
+		return nil
+	case *net.TCPConn: // 支持 TCP 连接
+	case *tls.Conn: // 支持 TLS 连接
+		tc = bc.NetConn()
+	case *tlcp.Conn: // 支持 TLCP 连接
+		tc = bc.NetConn()
+	default:
+		return aerrors.ErrUnsupportedProtocol
+	}
+
+	if kpAblity, ok := tc.(KeepAliveAbility); ok {
+		keepAlive := buildKeepAliveWithConfig(keepOpt)
+		if keepAlive != nil {
+			err := kpAblity.SetKeepAliveConfig(*keepAlive)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

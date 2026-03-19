@@ -13,17 +13,23 @@ type Server interface {
 }
 
 func NewServer(handler EventHandler, config *ServerConfig) (Server, error) {
-	opts, err := buildOptionsWithConfig(config.Config)
+	opts, err := BuildOptionsWithConfig(config.Config)
 	if err != nil {
 		return nil, err
+	}
+
+	// 配置TLS
+	secCfg := config.Config.Security
+	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET {
+		ExtendOptions(opts, WithAgTLSConfig(&secCfg))
 	}
 
 	addrs := make([]string, 0)
 	addrs = append(addrs, config.Address)
 
 	return NewServerWithOptions(handler, addrs, opts)
-
 }
+
 func NewServerWithOptions(handler EventHandler, addr []string, opts *Options) (Server, error) {
 	ser := &server{
 		addrs:        addr,

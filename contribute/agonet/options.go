@@ -10,8 +10,8 @@ import (
 	"gitee.com/Trisia/gotlcp/tlcp"
 )
 
-// // Option is a function that will set up option.
-// type Option func(opts *Options)
+// Option is a function that will set up option.
+type Option func(opts *Options)
 
 // func loadOptions(options ...Option) *Options {
 // 	opts := new(Options)
@@ -20,6 +20,14 @@ import (
 // 	}
 // 	return opts
 // }
+
+// ExtendOptions extends options with given options.
+func ExtendOptions(opts *Options, options ...Option) *Options {
+	for _, option := range options {
+		option(opts)
+	}
+	return opts
+}
 
 // Options are configurations for the gnet application.
 type Options struct {
@@ -33,14 +41,40 @@ type Options struct {
 
 	KeepAlive KeepAlive
 
-	TLSType TLSType
+	TLSType     TLSType
+	CLI_TLSType TLSType
 
 	TLSConfig  *tls.Config
 	TLCPConfig *tlcp.Config
+
+	CLI_TLSConfig  *tls.Config
+	CLI_TLCPConfig *tlcp.Config
+
 	// TLCPConfig *gmtls.Config
 
 	// TLS  tlsConfig
 	// TLCP tlcpConfig
+}
+
+func (opt *Options) CliTLSType() TLSType {
+	cliTlsType := opt.CLI_TLSType
+	if cliTlsType == TLSType_UNSET {
+		cliTlsType = opt.TLSType
+	}
+	return cliTlsType
+}
+
+func (opt *Options) CliTLSConfig() *tls.Config {
+	if opt.CLI_TLSConfig != nil {
+		return opt.CLI_TLSConfig
+	}
+	return opt.TLSConfig
+}
+func (opt *Options) CliTLCPConfig() *tlcp.Config {
+	if opt.CLI_TLCPConfig != nil {
+		return opt.CLI_TLCPConfig
+	}
+	return opt.TLCPConfig
 }
 
 type KeepAlive struct {
@@ -50,19 +84,8 @@ type KeepAlive struct {
 	Count    int
 }
 
-// type tlsConfig struct {
-// 	Cert    tls.Certificate
-// 	CaCerts []tlsx509.Certificate
-// }
-
-// type tlcpConfig struct {
-// 	SigCert gmtls.Certificate
-// 	EncCert gmtls.Certificate
-// 	CaCerts []x509.Certificate
-// }
-
-// buildOptionsWithConfig builds options with given config.
-func buildOptionsWithConfig(conf CommonConfig) (*Options, error) {
+// BuildOptionsWithConfig builds options with given config.
+func BuildOptionsWithConfig(conf OptionsConfig) (*Options, error) {
 	opts := &Options{
 		NumEventLoop: conf.Engine.NumEventLoop,
 		Multicore:    conf.Engine.Multicore,
@@ -74,6 +97,7 @@ func buildOptionsWithConfig(conf CommonConfig) (*Options, error) {
 			Count:    conf.KeepAlive.Count,
 		},
 	}
+
 	return opts, nil
 }
 
@@ -100,4 +124,11 @@ func buildKeepAliveWithConfig(cnf KeepAlive) *net.KeepAliveConfig {
 		Count:    count,
 	}
 	return keepAliveConfig
+}
+
+// WithOptions sets up all options.
+func WithOptions(options Options) Option {
+	return func(opts *Options) {
+		*opts = options
+	}
 }

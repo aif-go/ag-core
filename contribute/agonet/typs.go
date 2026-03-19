@@ -42,6 +42,10 @@ type Conn interface {
 
 	// SetWriteDeadline implements net.Conn.
 	SetWriteDeadline(time.Time) error
+
+	// NetConn returns the underlying net.Conn like net.TCPConn.
+	// 注意直接读写该连接对象将会导致无法预估后果
+	NetConn() net.Conn
 }
 
 // EventLoop provides a set of methods for manipulating the event-loop.

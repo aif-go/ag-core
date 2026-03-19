@@ -342,6 +342,10 @@ func (c *conn) release() {
 	c.buffer = nil
 }
 
+func (c *conn) NetConn() net.Conn {
+	return c.rawConn
+}
+
 // discardRB 基于ringbuffer现有API实现丢弃n个字节的逻辑（非阻塞）
 // 返回实际丢弃的字节数和错误
 func discardRB(rb *ringbuffer.RingBuffer, n int) (discarded int, err error) {

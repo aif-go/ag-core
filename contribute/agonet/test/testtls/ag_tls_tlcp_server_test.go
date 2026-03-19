@@ -32,7 +32,8 @@ func TestAgTlsTlcp_Server(t *testing.T) {
 			Interval: time.Duration(5) * time.Second,
 			Count:    3,
 		},
-		TLSType:    agonet.TLSTypeTLCP,
+		TLSType: agonet.TLSTYPE_TLS_TLCP,
+		// TLSType:    agonet.TLSTypeNone,
 		TLSConfig:  tlsCfg,
 		TLCPConfig: tlcpCfg,
 	}
@@ -71,5 +72,14 @@ func (e *TestEventHandler) OnTraffic(c agonet.Conn) (action agonet.Action) {
 	}
 	c.Flush()
 
+	return
+}
+
+func (e *TestEventHandler) OnOpen(c agonet.Conn) (out []byte, action agonet.Action) {
+	return
+}
+
+func (e *TestEventHandler) OnClose(c agonet.Conn, err error) (action agonet.Action) {
+	slog.Info(fmt.Sprintf("OnClose: %v", err))
 	return
 }

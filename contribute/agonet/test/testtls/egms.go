@@ -142,15 +142,24 @@ func egms_LoadAuthCert() (*tlcp.Certificate, error) {
 }
 
 func egms_LoadCertPool() (*smx509.CertPool, error) {
+	caCertPool := smx509.NewCertPool()
+
 	caCert, err := os.ReadFile(egms_sm2CaCertPath)
 	if err != nil {
 		return nil, err
 	}
-
-	caCertPool := smx509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
 		return nil, fmt.Errorf("添加CA证书失败")
 	}
+
+	ca2, err := os.ReadFile(egms_rsaCaCertPath)
+	if err != nil {
+		return nil, err
+	}
+	if !caCertPool.AppendCertsFromPEM(ca2) {
+		return nil, fmt.Errorf("添加CA证书失败")
+	}
+
 	return caCertPool, nil
 }
 

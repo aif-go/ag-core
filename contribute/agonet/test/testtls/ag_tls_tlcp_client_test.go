@@ -22,23 +22,32 @@ func TestAgTlsTlcp_Client(t *testing.T) {
 	if err != nil {
 		t.Fatalf("egms_LoadClientMutualTLCPAuthConfig failed: %v", err)
 	}
-	// tlcpCfg.InsecureSkipVerify = true // 关闭SAN校验
+	tlcpCfg.InsecureSkipVerify = true // 关闭SAN校验
 
 	opts := &agonet.Options{
 		Multicore:    true,
 		NumEventLoop: 1,
 		KeepAlive: agonet.KeepAlive{
 			Enable:   true,
-			Idle:     time.Duration(5) * time.Second,
-			Interval: time.Duration(5) * time.Second,
+			Idle:     time.Duration(3) * time.Second,
+			Interval: time.Duration(3) * time.Second,
 			Count:    3,
 		},
-		TLSType: agonet.TLSTypeTLCP,
-		// TLSType: agonet.TLSTypeTLS,
-		// TLSType:    agonet.TLSTypeNone,
-		TLSConfig:  tlsCfg,
-		TLCPConfig: tlcpCfg,
+		// TLSType: agonet.TLSType_TLCP,
+		// // TLSType: agonet.TLSTypeTLS,
+		// // TLSType:    agonet.TLSTypeNone,
+		// // CLI_TLSType: agonet.TLSType_TLS,
+		// // CLI_TLSType: agonet.TLSType_NONE,
+		// TLSConfig:  tlsCfg,
+		// TLCPConfig: tlcpCfg,
 	}
+
+	agonet.ExtendOptions(opts,
+		// agonet.WithTLSType(agonet.TLSType_TLCP),
+		agonet.WithTLSType(agonet.TLSType_TLS),
+		agonet.WithTLSConfig(tlsCfg),
+		agonet.WithTLCPConfig(tlcpCfg),
+	)
 
 	cli, err := agonet.NewClientWithOptions(handler, opts)
 	if err != nil {
@@ -58,16 +67,20 @@ func TestAgTlsTlcp_Client(t *testing.T) {
 	con = tcon
 	defer con.Close()
 
-	con.Write([]byte("hello"))
+	_, err = con.Write([]byte("hello"))
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
 	time.Sleep(time.Millisecond)
 
-	// con.Write([]byte("hello2"))
-	// time.Sleep(time.Millisecond)
+	con.Write([]byte("hello2"))
+	time.Sleep(time.Millisecond)
 
 	// con.Write([]byte("hello3"))
 	// time.Sleep(time.Millisecond)
 
 	time.Sleep(time.Second)
+	// time.Sleep(time.Second * 10)
 
 }
 

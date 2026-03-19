@@ -3,29 +3,19 @@ package agonet
 type ServerConfig struct {
 	Address string
 
-	Config CommonConfig
-	// Engine    EngineConfig    // 引擎配置
-	// KeepAlive KeepAliveConfig // 保持连接配置
-
-	// TLS  TLSConfig  // TLS配置
-	// TLCP TLCPConfig // TLCP配置
+	Config OptionsConfig
 }
 
 type ClientConfig struct {
-	// Engine    EngineConfig    // 引擎配置
-	// KeepAlive KeepAliveConfig // 保持连接配置
-
-	// TLS  TLSConfig  // TLS配置
-	// TLCP TLCPConfig // TLCP配置
-	Config CommonConfig
+	Config OptionsConfig
 }
 
-// CommonConfig 客户端、服务端通用配置
-type CommonConfig struct {
+// OptionsConfig 客户端、服务端通用配置
+type OptionsConfig struct {
 	Engine    EngineConfig    // 引擎配置
 	KeepAlive KeepAliveConfig // 保持连接配置
 
-	TLS TLSConfig // TLS配置
+	Security SecurityConfig // 安全配置
 }
 
 type EngineConfig struct {
@@ -41,21 +31,21 @@ type KeepAliveConfig struct {
 	Count    int
 }
 
-func DefaultServerConfig() *ServerConfig {
-	return &ServerConfig{
+func DefaultServerConfig() ServerConfig {
+	return ServerConfig{
 		Address: "tcp://:9000",
 		Config:  DefaultCommonConfig(),
 	}
 }
 
-func DefaultClientConfig() *ClientConfig {
-	return &ClientConfig{
+func DefaultClientConfig() ClientConfig {
+	return ClientConfig{
 		Config: DefaultCommonConfig(),
 	}
 }
 
-func DefaultCommonConfig() CommonConfig {
-	return CommonConfig{
+func DefaultCommonConfig() OptionsConfig {
+	return OptionsConfig{
 		Engine: EngineConfig{
 			NumEventLoop: 1,
 			Multicore:    false,
@@ -63,9 +53,10 @@ func DefaultCommonConfig() CommonConfig {
 		},
 		KeepAlive: KeepAliveConfig{
 			Enable:   true,
-			Idle:     60,
+			Idle:     60, // 空闲时间，单位秒，默认60秒
 			Interval: 12,
 			Count:    5,
 		},
+		Security: DefaultSecurityConfig(),
 	}
 }
