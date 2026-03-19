@@ -78,17 +78,25 @@ var proxyInnerTpl_v2 string = `
 {{- $LServiceImplName := printf "%sImpl" $LServiceInfo.ServiceName}}
 {{- $LServiceProxyName := printf "%sProxy" $LServiceInfo.ServiceName}}
 
-// 服务信息，接口级别
-var {{$LServiceName}}ServiceInfo = ag_service.ServiceInfo{
-	PackageName: "{{$LPkgInfo.PkgName}}",
-	ServiceName: "{{$LServiceName}}",
-	HandlerType: (*{{$LPkgRefName}}.{{$LServiceInfo.ServiceName}})(nil),
-}
+// ServiceInfo interface level
+{{/*
+//var {{$LServiceName}}ServiceInfo = ag_service.ServiceInfo{
+//	PackageName: "{{$LPkgInfo.PkgName}}",
+//	ServiceName: "{{$LServiceName}}",
+//	HandlerType: (*{{$LPkgRefName}}.{{$LServiceInfo.ServiceName}})(nil),
+//}
+*/}}
+var {{$LServiceName}}ServiceInfo = ag_service.NewServiceInfo(
+	"{{$LPkgInfo.PkgName}}",
+	"{{$LServiceName}}",
+	(*{{$LPkgRefName}}.{{$LServiceInfo.ServiceName}})(nil),
+)
 
 {{- range $LServiceInfo.AllMethods}}
 	{{- $LMethod := .}}
 
-    var {{$LServiceName}}{{$LMethod.Name}}CallInfo = ag_service.CallInfo{
+{{/*
+    var {{$LServiceName}}{{$LMethod.Name}}CallInfo = &ag_service.CallInfo{
         ServiceInfo: {{$LServiceName}}ServiceInfo,
 	    CallName:    "{{$LMethod.Name}}",
         ClientStreaming: {{$LMethod.ClientStreaming}},
@@ -97,9 +105,17 @@ var {{$LServiceName}}ServiceInfo = ag_service.ServiceInfo{
 	    	"method_name": "{{$LMethod.Name}}",
 	    },
     }
+*/}}
+    var {{$LServiceName}}{{$LMethod.Name}}CallInfo = ag_service.NewCallInfo(
+        {{$LServiceName}}ServiceInfo,
+        "{{$LMethod.Name}}",
+        {{$LMethod.ClientStreaming}},
+        {{$LMethod.ServerStreaming}},
+    )
+
 {{- end}}
 
-var {{$LServiceName}}CallInfos = map[string]ag_service.CallInfo{
+var {{$LServiceName}}CallInfos = map[string]*ag_service.CallInfo{
     {{- range $LServiceInfo.AllMethods}}
     	{{- $LMethod := .}}
         "{{$LMethod.Name}}": {{$LServiceName}}{{$LMethod.Name}}CallInfo,
@@ -128,7 +144,7 @@ func New{{$LServiceProxyName}}(
 	}
 
     for _, cif := range p.CallInfos {
-    	if cif.ClientStreaming || cif.ServerStreaming {
+    	if cif.IsClientStreaming() || cif.IsServerStreaming() {
 			slog.Warn("agServiceProxy buildskip streaming method", "call_name", cif.CallName)
 			continue
 		}
@@ -147,7 +163,7 @@ func New{{$LServiceProxyName}}(
 			return nil, err
 		}
 		// 注册endpoint
-		p.RegisterEndpoint(cif.CallName, endpoint)
+		p.RegisterEndpoint(cif.CallName(), endpoint)
 	}
 		
 	return p, nil
@@ -194,8 +210,8 @@ func New{{$LServiceProxyName}}(
 
 
 // getOriginalHandler
-func (p *{{$LServiceProxyName}}) getOriginalHandler(cif ag_service.CallInfo) (ag_service.Endpoint, error) {
-    switch cif.CallName {
+func (p *{{$LServiceProxyName}}) getOriginalHandler(cif *ag_service.CallInfo) (ag_service.Endpoint, error) {
+    switch cif.CallName() {
     {{- range $LServiceInfo.AllMethods}}
 	    {{- $LMethod := .}}
         {{- $LArg := index $LMethod.Args 0 }} {{/* 规定接口参数只有一个参数 */}}

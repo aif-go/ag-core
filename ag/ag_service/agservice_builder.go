@@ -6,7 +6,7 @@ import (
 
 // AgServiceBuilder 服务调用链构建器接口
 type AgServiceBuilder interface {
-	BuildEndpointChain(cinfo CallInfo, middlewares []MiddlewareProvider, actual Endpoint) (Endpoint, error)
+	BuildEndpointChain(cinfo *CallInfo, middlewares []MiddlewareProvider, actual Endpoint) (Endpoint, error)
 }
 
 // NewAgServiceBuilder 创建服务调用链构建器
@@ -37,11 +37,14 @@ type agServiceBuilder struct {
 	globalMWs    []MiddlewareProvider
 }
 
-func (as *agServiceBuilder) BuildEndpointChain(cinfo CallInfo, customMws []MiddlewareProvider, actual Endpoint) (Endpoint, error) {
+func (as *agServiceBuilder) BuildEndpointChain(cinfo *CallInfo, customMws []MiddlewareProvider, actual Endpoint) (Endpoint, error) {
 	// 通过增强，对callInfo进行相关增强，如事务标志
 	ci := cinfo
 	for _, opt := range as.callInfoOpts {
-		opt(&ci)
+		err := opt(ci)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	mws := append(as.globalMWs, customMws...)
@@ -49,7 +52,10 @@ func (as *agServiceBuilder) BuildEndpointChain(cinfo CallInfo, customMws []Middl
 	return buildEndpointChain(ci, mws, actual)
 }
 
-func buildEndpointChain(cinfo CallInfo, middlewares []MiddlewareProvider, actual Endpoint) (Endpoint, error) {
+func buildEndpointChain(cinfo *CallInfo, middlewares []MiddlewareProvider, actual Endpoint) (Endpoint, error) {
+
+	cinfo.lock() // 锁定CallInfo，不允许修改
+
 	// 转换为PrioritizedMiddleware
 	pmws := make([]PrioritizedMiddlewareProvider, 0, len(middlewares)+1)
 

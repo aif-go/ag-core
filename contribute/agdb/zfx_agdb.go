@@ -13,6 +13,11 @@ var FxAgDbModule = fx.Module(
 		ag_service.NewFxAgGlobalMiddleware(
 			NewTransactionMiddlewareProvider,
 		),
+		ag_service.NewFxAgCallInfoOpt(
+			func() ag_service.CallInfoOpt {
+				return TransactionPreOpt
+			},
+		),
 		// 基础Dao的基础增强能力
 		agdao.FxNewAgGormBaseDao,
 	),

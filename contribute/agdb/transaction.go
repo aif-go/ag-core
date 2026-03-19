@@ -25,6 +25,10 @@ const (
 	// TRANSACTION_PROPAGATION_NESTED                                      // 嵌套事务: 没有事务则新建事务，有事务则嵌套事务内执行
 )
 
+func IsSupportsTransaction(tp TransactionPropagation) bool {
+	return tp == TRANSACTION_PROPAGATION_SUPPORTS || tp == TRANSACTION_PROPAGATION_REQUIRED
+}
+
 type TransactionManager interface {
 	Transaction(ctx context.Context, fn func(ctx context.Context) error) error
 	// WithTransaction(ctx context.Context, opts ...*sql.TxOptions) (context.Context, func(error) error)

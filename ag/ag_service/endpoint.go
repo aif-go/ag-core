@@ -28,7 +28,7 @@ type PrioritizedMiddlewareProvider interface {
 
 type MiddleWareCondition interface {
 	// Condition 判断是否满足条件
-	Condition(callInfo CallInfo) bool
+	Condition(callInfo *CallInfo) bool
 }
 
 // middlewareProviderSorter 实现 sort.Interface 用于排序

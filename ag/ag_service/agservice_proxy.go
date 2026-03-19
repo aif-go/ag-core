@@ -3,8 +3,8 @@ package ag_service
 import "sync"
 
 type AgServiceProxyBase struct {
-	ServiceInfo ServiceInfo
-	CallInfos   map[string]CallInfo
+	ServiceInfo *ServiceInfo
+	CallInfos   map[string]*CallInfo
 
 	mu        sync.RWMutex // 保护endpoints并发访问
 	endpoints map[string]Endpoint
@@ -17,7 +17,7 @@ type AgServiceProxyBase struct {
 // 	}
 // }
 
-func NewAgServiceProxyBase(serviceInfo ServiceInfo, callInfos map[string]CallInfo) AgServiceProxyBase {
+func NewAgServiceProxyBase(serviceInfo *ServiceInfo, callInfos map[string]*CallInfo) AgServiceProxyBase {
 	return AgServiceProxyBase{
 		ServiceInfo: serviceInfo,
 		CallInfos:   callInfos,
