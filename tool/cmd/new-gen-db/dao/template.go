@@ -275,15 +275,18 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				}
 			}
 		}
-
-		// 添加索引使用检查
-		indexCheck += "\n\t// 如果没有使用任何索引，返回错误\n"
-		indexCheck += "\tif !indexUsed {\n"
-		indexCheck += "\t\treturn nil, errors.New(\"query not use any index\")\n"
-		indexCheck += "\t}\n"
 	}
 
-	// 生成主键和唯一键更新条件代码
+	// index 结果判断处理
+	var indexUsedCheck string
+	if len(tableData.Indexes) > 0 {
+	indexUsedCheck="\t// 检查索引列，确保使用了索引\n"
+	indexUsedCheck+="\tif !indexUsed {\n"
+	indexUsedCheck+="\t\treturn nil, errors.New(\"query not use any index\")\n"
+	indexUsedCheck+="\t}\n"
+	}
+
+// 生成主键和唯一键更新条件代码
 	var primaryKeyUpdate string
 
 	// 收集主键列
@@ -389,7 +392,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		initMethods = "Init" + structName + "NamingSql()"
 		importStrings = "\"strings\""
 		// 添加conditonwhere导入
-		importStrings += "\n\t\"ag-core/contribute/agdb/conditonwhere\""
+		// importStrings += "\n\t\"ag-core/contribute/agdb/conditonwhere\""
 	}
 
 	// 构建完整的模板字符串
@@ -401,6 +404,7 @@ import (
 	"context"
 	"reflect"
 	"errors"
+	"ag-core/contribute/agdb/conditonwhere"
 
 	agdao "ag-core/contribute/agdb/agdao"
 	` + importStrings + `
@@ -512,8 +516,15 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 	}
 
 ` + primaryKeyCheck + `
-
 ` + indexCheck + `
+` + indexUsedCheck+`
+	// 除了主键和索引以外的其他列如果有值，也作为查询条件
+	colnames, colvals := gormdb.CollectNotZeroValColsAndVals(entity, true)
+	if len(colnames) > 0 {
+		for i, colname := range colnames {
+			db = db.Where(colname+" = ?", colvals[i])
+		}
+	}
 
 	// 执行查询
 	result := db.Find(&list)
