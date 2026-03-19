@@ -905,33 +905,32 @@ var %sNamingInfo = &db.NameingSqlArgInfo{
 		}
 	}
 
-	// 添加Column结构体实例
-	constants += fmt.Sprintf(`
+// 	// 添加Column结构体实例
+// 	constants += fmt.Sprintf(`
 
-// 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
-var %sColumn = &model.%sColumn{
-	Name:    "name",
-	Address: "address",
-	Phone:   "phone",
-	ClassId: "class_id",
-	CardNo:  "card_no",
-}
-`, structName, structName)
+// // 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
+// var %sColumn = &model.%sColumn{
+// 	Name:    "name",
+// 	Address: "address",
+// 	Phone:   "phone",
+// 	ClassId: "class_id",
+// 	CardNo:  "card_no",
+// }
+// `, structName, structName)
 
-    var dbImports string =""
-	if len(tableData.SelfQueries) > 0 {
-		dbImports = `db "ag-core/contribute/agdb/gormdb"`
-	}
-	return `package dao
-
+    var dbImports string = `package dao
+`
+ if len(tableData.SelfQueries) > 0 {
+  dbImports += `
 import (
-	`+dbImports+`
-	"` + moduleName + `/repository/model"
+ db "ag-core/contribute/agdb/gormdb"
+ "` + moduleName + `/repository/model"
 )
 
-` + constants
+`
+ }
+ return dbImports + constants
 }
-
 // GetDBTypeNamingSqlTemplate 获取数据库类型命名SQL模板代码
 func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (string, error) {
 	structName := tableData.StructName

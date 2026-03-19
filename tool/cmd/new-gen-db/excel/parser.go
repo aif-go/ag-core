@@ -17,12 +17,18 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 	// 存储所有表信息
 	tables := make(map[string]*ExcelInfo)
 
+	
 	// 遍历所有工作表
 	for _, sheetName := range f.GetSheetMap() {
 		// 跳过名为 "自定义脚本名字" 的工作表
-		if strings.TrimSpace(sheetName) == "自定义脚本名字" {
-			continue
+		// if strings.TrimSpace(sheetName) == "自定义脚本名字" {
+		// 	continue
+		// }
+		if strings.HasSuffix(sheetName,"@custom"){
+			// 如果sheet名字以 "@custom" 结尾，说明是分割出来的sheet，也跳过
+			continue			
 		}
+
 		table := &ExcelInfo{
 			Name:        sheetName,
 			Columns:     []*ColumnInfo{},
@@ -43,7 +49,7 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 		inPrimaryKey := false
 		inConstraints := false
 		inIndexes := false
-		inSelfQueries := false
+		// inSelfQueries := false
 
 		for _, row := range rows {
 			// 跳过空行
@@ -57,35 +63,35 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = false
-				inSelfQueries = false
+				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "主键" {
 				inColumns = false
 				inPrimaryKey = true
 				inConstraints = false
 				inIndexes = false
-				inSelfQueries = false
+				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "约束" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = true
 				inIndexes = false
-				inSelfQueries = false
+				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "索引" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = true
-				inSelfQueries = false
+				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "方法名字" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = false
-				inSelfQueries = true
+				// inSelfQueries = true
 				continue
 			}
 
@@ -155,28 +161,40 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 					table.Indexes = append(table.Indexes, index)
 				}
 			}
-
-			// 解析自定义查询
-			if inSelfQueries {
-				if len(row) >= 8 && strings.TrimSpace(row[0]) != "" {
-					query := &SelfQueryInfo{
-						SelectFields: strings.TrimSpace(row[1]),
-						Page:         strings.TrimSpace(row[7]) == "Y",
-					}
-
-					// 解析WHERE子句
-					whereExpr := strings.TrimSpace(row[4])
-					if whereExpr != "" {
-						query.Where = ParseWhereCondition(whereExpr)
-					}
-
-					table.SelfQueries[strings.TrimSpace(row[0])] = query
-				}
-			}
 		}
-
+		// 处理自定义脚本的工作表
+		processCustomScriptSheet(f, sheetName, table)
 		tables[sheetName] = table
 	}
 
 	return tables, nil
+}
+
+// 处理客户自定义规则的工作表
+func processCustomScriptSheet(f *excelize.File,sheetName string, table *ExcelInfo) error {
+	// 处理 "自定义脚本名字" 工作表的内容
+	rows := f.GetRows(sheetName + "@custom")
+	if len(rows) == 0 {
+		return nil
+	}
+	for index, row := range rows {
+		if index == 0 {
+			continue // 跳过表头
+		}
+
+		if len(row) >= 8 && strings.TrimSpace(row[0]) != "" {
+			query := &SelfQueryInfo{
+				SelectFields: strings.TrimSpace(row[1]),
+				Page:         strings.TrimSpace(row[7]) == "Y",
+			}
+			// 解析WHERE子句
+			whereExpr := strings.TrimSpace(row[4])
+			if whereExpr != "" {
+				query.Where = ParseWhereCondition(whereExpr)
+			}
+			table.SelfQueries[strings.TrimSpace(row[0])] = query
+		}
+	}
+
+	return nil
 }

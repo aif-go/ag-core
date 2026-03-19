@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"ag-core/tool/cmd/new-gen-db/dao"
+	"ag-core/tool/cmd/new-gen-db/other"
 	"ag-core/tool/cmd/new-gen-db/yaml"
 )
 
@@ -18,6 +19,7 @@ var (
 	tableName  string
 	moduleName string
 	dbType     string
+	keyword string
 )
 
 func main() {
@@ -44,6 +46,15 @@ func main() {
 		Run:   runDbCommand,
 	}
 
+
+	// 创建sheet拆分的子命令
+	var sheetCmd = &cobra.Command{
+		Use:   "sheet",
+		Short: "Split sheet two parts, ddl and custom rule",
+		Long:  "Split sheet two parts, ddl and custom rule",
+		Run:   runSplitExcelCommand,
+	}	
+
 	// 为yaml子命令添加参数
 	yamlCmd.Flags().StringVarP(&inputFile, "input", "i", "", "输入excel的路径")
 	yamlCmd.Flags().StringVarP(&outputDir, "output", "o", "", "最后存放yaml文件的位置")
@@ -57,9 +68,15 @@ func main() {
 	dbCmd.Flags().StringVarP(&moduleName, "module", "m", "", "模块的名字，如果未指定，则查找当前位置的go.mod的值")
 	dbCmd.Flags().StringVarP(&dbType, "dbtype", "d", "", "指定数据库类型，可选值：mysql, db2，不指定时默认生成两种")
 
+	// 为sheet子命令添加参数
+	sheetCmd.Flags().StringVarP(&inputFile, "input", "i", "", "输入yaml文件/目录的路径")
+	sheetCmd.Flags().StringVarP(&outputDir, "output", "o", "", "输出拆分后sheet新excel的位置")
+	sheetCmd.Flags().StringVarP(&keyword, "keyword", "k", "", "指定拆分sheet的关键字")
+
 	// 将子命令添加到主命令
 	rootCmd.AddCommand(yamlCmd)
 	rootCmd.AddCommand(dbCmd)
+	rootCmd.AddCommand(sheetCmd)
 
 	// 执行命令
 	if err := rootCmd.Execute(); err != nil {
@@ -99,6 +116,29 @@ func runDbCommand(cmd *cobra.Command, args []string) {
 	// 使用dao包中的GenerateDAOFromYAML函数生成DAO文件
 	if err := dao.GenerateDAOFromYAML(inputFile, outputDir, tableName, moduleName, dbType); err != nil {
 		log.Fatalf("生成DAO文件失败: %v", err)
+	}
+
+	fmt.Println("处理完成！")
+}
+
+
+
+// runDbCommand 执行spilt-sheet子命令
+func runSplitExcelCommand(cmd *cobra.Command, args []string) {
+	fmt.Println("拆分sheet：将原来一个sheet的内容拆分为ddl部分和自定义规则部分两个sheet")
+
+	// 检查参数是否为空
+	if inputFile == "" || outputDir == "" {
+		fmt.Println("错误：输入参数不能为空")
+		cmd.Usage()
+		os.Exit(1)
+	}
+
+	if keyword == ""{
+		keyword = "自定义脚本名字"
+	}
+	if err := other.SplitExcelByKeyword(inputFile,outputDir,keyword); err != nil {
+		log.Fatalf("拆分失败: %v", err)
 	}
 
 	fmt.Println("处理完成！")

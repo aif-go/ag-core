@@ -191,20 +191,20 @@ func generateIndexLeadingCols(tableData *table.TableData) string {
 var %sIndexLeadingCols = []string{%s}`, structName, structName, strings.Join(cols, ", "))
 }
 
-// generateColumnStruct 生成Column结构体
-func generateColumnStruct(tableData *table.TableData) string {
-	structName := tableData.StructName
+// // generateColumnStruct 生成Column结构体
+// func generateColumnStruct(tableData *table.TableData) string {
+// 	structName := tableData.StructName
 
-	// 示例字段，实际应该根据需要生成
-	return fmt.Sprintf(`// %sColumn 表列模型
-type %sColumn struct {
-	Name    string
-	Address string
-	Phone   string
-	ClassId string
-	CardNo  string
-}`, structName, structName)
-}
+// 	// 示例字段，实际应该根据需要生成
+// 	return fmt.Sprintf(`// %sColumn 表列模型
+// type %sColumn struct {
+// 	Name    string
+// 	Address string
+// 	Phone   string
+// 	ClassId string
+// 	CardNo  string
+// }`, structName, structName)
+// }
 
 // generateQueryArgStruct 生成查询参数结构体
 func generateQueryArgStruct(tableData *table.TableData, query table.QueryData) string {
@@ -473,7 +473,7 @@ func GetModelTemplate(tableData *table.TableData) string {
 	}
 
 	// Column结构体
-	parts = append(parts, generateColumnStruct(tableData))
+	// parts = append(parts, generateColumnStruct(tableData))
 	parts = append(parts, "\n\n")
 
 	// 自定义查询代码
