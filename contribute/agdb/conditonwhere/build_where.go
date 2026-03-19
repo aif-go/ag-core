@@ -39,7 +39,7 @@ func initRegex() {
 // 返回值：括号内的where条件内容，是否成功提取
 func ExtractWhereClauseByCut(sql string) (string, bool) {
 	// 预处理：统一转为小写（避免WHERE/where大小写问题），去除首尾空格
-	sql = strings.ToLower(strings.TrimSpace(sql))
+	// sql = strings.TrimSpace(sql))
 	
 	// 1. 找到 "where (" 的起始位置
 	wherePrefix := "WHERE ("

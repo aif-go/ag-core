@@ -1,6 +1,7 @@
 package model
 
 import (
+	"ag-core/contribute/agdb/conditonwhere"
 	"ag-core/tool/cmd/new-gen-db/table"
 	"fmt"
 	"io/ioutil"
@@ -213,7 +214,13 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 				// 提取WHERE条件
 				if where, ok := queryMap["where"].(map[interface{}]interface{}); ok {
-					q.Where = parseWhereCondition(where)
+					q.Where = conditonwhere.ParseWhereCondition(where)
+					var whereYamlStr string
+					whereYamlStr, err = whereDataToYAML(where)
+					if err != nil {
+						return nil, fmt.Errorf("解析where条件失败: %v", err)
+					}
+					q.WhereDataYaml = whereYamlStr
 					// 提取所有字段信息
 					extractWhereFields(q.Where, &q.WhereFields, &q.WhereColFields)
 				}
@@ -279,43 +286,52 @@ func getGoType(sqlType string) string {
 	}
 }
 
-// 解析where条件
-func parseWhereCondition(whereData map[interface{}]interface{}) *table.WhereCondition {
-	condition := &table.WhereCondition{}
-
-	// 解析operator
-	if operator, ok := whereData["operator"].(string); ok {
-		condition.Operator = operator
-	} else {
-		condition.Operator = "AND" // 默认使用AND
+// 将where条件map转换为YAML字符串
+func whereDataToYAML(whereData map[interface{}]interface{}) (string, error) {
+	yamlBytes, err := yaml.Marshal(whereData)
+	if err != nil {
+		return "", fmt.Errorf("转换为YAML失败: %v", err)
 	}
-
-	// 解析conditions
-	if conditionsData, ok := whereData["conditions"].([]interface{}); ok {
-		condition.Conditions = make([]table.WhereCondition, 0, len(conditionsData))
-		for _, condData := range conditionsData {
-			if condMap, ok := condData.(map[interface{}]interface{}); ok {
-				// 检查是嵌套条件还是表达式
-				if _, hasExpr := condMap["expr"]; hasExpr {
-					// 是表达式
-					subCond := table.WhereCondition{
-						Expr: condMap["expr"].(string),
-					}
-					condition.Conditions = append(condition.Conditions, subCond)
-				} else {
-					// 是嵌套条件
-					subCond := parseWhereCondition(condMap)
-					condition.Conditions = append(condition.Conditions, *subCond)
-				}
-			}
-		}
-	}
-
-	return condition
+	return string(yamlBytes), nil
 }
 
+// // 解析where条件
+// func parseWhereCondition(whereData map[interface{}]interface{}) *conditonwhere.MaskWhereCondition {
+// 	condition := &conditonwhere.MaskWhereCondition{}
+
+// 	// 解析operator
+// 	if operator, ok := whereData["operator"].(string); ok {
+// 		condition.Operator = operator
+// 	} else {
+// 		condition.Operator = "AND" // 默认使用AND
+// 	}
+
+// 	// 解析conditions
+// 	if conditionsData, ok := whereData["conditions"].([]interface{}); ok {
+// 		condition.Conditions = make([]conditonwhere.MaskWhereCondition, 0, len(conditionsData))
+// 		for _, condData := range conditionsData {
+// 			if condMap, ok := condData.(map[interface{}]interface{}); ok {
+// 				// 检查是嵌套条件还是表达式
+// 				if _, hasExpr := condMap["expr"]; hasExpr {
+// 					// 是表达式
+// 					subCond := conditonwhere.MaskWhereCondition{
+// 						Expr: condMap["expr"].(string),
+// 					}
+// 					condition.Conditions = append(condition.Conditions, subCond)
+// 				} else {
+// 					// 是嵌套条件
+// 					subCond := parseWhereCondition(condMap)
+// 					condition.Conditions = append(condition.Conditions, *subCond)
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return condition
+// }
+
 // 提取where条件中的所有字段信息
-func extractWhereFields(condition *table.WhereCondition, fields *[]string, whereColFields *[]table.WhereColField) {
+func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]string, whereColFields *[]table.WhereColField) {
 	if condition.Expr != "" {
 		// 解析表达式，提取列名、操作符和字段名
 		colField := parseWhereExpr(condition.Expr)

@@ -235,6 +235,311 @@ func TestWhereBuilderV2(t *testing.T) {
 		
 		fmt.Printf("Test10 - SQL: %s, Args: %v\n", sql, args)
 	})
+	
+	t.Run("Example11_ChainEq", func(t *testing.T) {
+		// 测试链式调用 Eq
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("name", "John").
+			Eq("age", 25).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE name = ? AND age = ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test11 - ChainEq - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example12_ChainNeq", func(t *testing.T) {
+		// 测试链式调用 Neq
+		sql, args, err := NewWhereClauseBuilder().
+			Neq("status", "deleted").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE status != ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test12 - ChainNeq - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example13_ChainGt", func(t *testing.T) {
+		// 测试链式调用 Gt
+		sql, args, err := NewWhereClauseBuilder().
+			Gt("age", 18).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE age > ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test13 - ChainGt - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example14_ChainLt", func(t *testing.T) {
+		// 测试链式调用 Lt
+		sql, args, err := NewWhereClauseBuilder().
+			Lt("age", 60).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE age < ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test14 - ChainLt - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example15_ChainGte", func(t *testing.T) {
+		// 测试链式调用 Gte
+		sql, args, err := NewWhereClauseBuilder().
+			Gte("score", 80).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE score >= ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test15 - ChainGte - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example16_ChainLte", func(t *testing.T) {
+		// 测试链式调用 Lte
+		sql, args, err := NewWhereClauseBuilder().
+			Lte("price", 100).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE price <= ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test16 - ChainLte - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example17_ChainIn", func(t *testing.T) {
+		// 测试链式调用 In
+		sql, args, err := NewWhereClauseBuilder().
+			In("id", 1, 2, 3, 4, 5).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE id IN (?, ?, ?, ?, ?)"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		if len(args) != 5 {
+			t.Errorf("Expected 5 args, got: %v", args)
+		}
+		
+		fmt.Printf("Test17 - ChainIn - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example18_ChainNotIn", func(t *testing.T) {
+		// 测试链式调用 NotIn
+		sql, args, err := NewWhereClauseBuilder().
+			NotIn("status", "deleted", "banned").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE status NOT IN (?, ?)"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test18 - ChainNotIn - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example19_ChainBetween", func(t *testing.T) {
+		// 测试链式调用 Between
+		sql, args, err := NewWhereClauseBuilder().
+			Between("created_at", "2024-01-01", "2024-12-31").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE created_at BETWEEN ? AND ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test19 - ChainBetween - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example20_ChainOr", func(t *testing.T) {
+		// 测试链式调用 Or
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			Or().
+			Eq("status", "pending").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE status = ? OR status = ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test20 - ChainOr - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example21_ChainAnd", func(t *testing.T) {
+		// 测试链式调用 And
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			Or().
+			Eq("status", "pending").
+			And().
+			Gte("age", 18).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE status = ? OR status = ? AND age >= ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test21 - ChainAnd - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example22_ChainGroup", func(t *testing.T) {
+		// 测试链式调用 Group
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			And().
+			Group(
+				ConditionEq("age", 18).Or(),
+				ConditionEq("age", 19).Or(),
+			).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		fmt.Printf("Test22 - ChainGroup - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example23_ChainAndGroup", func(t *testing.T) {
+		// 测试链式调用 AndGroup
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			And().
+			AndGroup(
+				ConditionEq("age", 18),
+				ConditionGte("score", 80),
+			).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		fmt.Printf("Test23 - ChainAndGroup - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example24_ChainOrGroup", func(t *testing.T) {
+		// 测试链式调用 OrGroup
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			And().
+			OrGroup(
+				ConditionEq("age", 18),
+				ConditionEq("age", 19),
+			).
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		fmt.Printf("Test24 - ChainOrGroup - SQL: %s, Args: %v\n", sql, args)
+	})
+	
+	t.Run("Example25_ComplexChain", func(t *testing.T) {
+		// 测试复杂的链式调用
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("status", "active").
+			And().
+			Gte("age", 18).
+			And().
+			In("role", "admin", "user").
+			And().
+			Between("created_at", "2024-01-01", "2024-12-31").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		fmt.Printf("Test25 - ComplexChain - SQL: %s\n", sql)
+		fmt.Printf("Test25 - ComplexChain - Args: %v\n", args)
+	})
+	
+	t.Run("Example26_ChainWithOrAndMix", func(t *testing.T) {
+		// 测试 OR 和 AND 混合的链式调用
+		sql, args, err := NewWhereClauseBuilder().
+			Eq("type", "user").
+			Or().
+			Eq("type", "admin").
+			And().
+			Neq("status", "deleted").
+			Build()
+		
+		if err != nil {
+			t.Fatal(err)
+		}
+		
+		expectedSQL := "WHERE type = ? OR type = ? AND status != ?"
+		if sql != expectedSQL {
+			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+		}
+		
+		fmt.Printf("Test26 - ChainWithOrAndMix - SQL: %s, Args: %v\n", sql, args)
+	})
 }
 
 // BenchmarkWhereBuilder 性能测试
@@ -275,5 +580,19 @@ func BenchmarkWhereBuilderWithNesting(b *testing.B) {
 		builder := NewWhereClauseBuilder()
 		builder.SetRoot(root)
 		_, _, _ = builder.Build()
+	}
+}
+
+// BenchmarkWhereBuilderChain 链式调用的性能测试
+func BenchmarkWhereBuilderChain(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = NewWhereClauseBuilder().
+			Eq("id", 1).
+			And().
+			Gte("age", 18).
+			And().
+			In("status", "active", "pending").
+			Build()
 	}
 }

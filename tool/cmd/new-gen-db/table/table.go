@@ -1,5 +1,7 @@
 package table
 
+import "ag-core/contribute/agdb/conditonwhere"
+
 // TableData 存储解析后的表数据，用于模板渲染
 type TableData struct {
 	ModuleName        string
@@ -43,11 +45,11 @@ type IndexData struct {
 }
 
 // WhereCondition where条件，支持嵌套结构
-type WhereCondition struct {
-	Operator   string           `json:"operator"`
-	Conditions []WhereCondition `json:"conditions"`
-	Expr       string           `json:"expr"`
-}
+// type WhereCondition struct {
+// 	Operator   string           `json:"operator"`
+// 	Conditions []WhereCondition `json:"conditions"`
+// 	Expr       string           `json:"expr"`
+// }
 
 // WhereColField where条件列字段信息
 type WhereColField struct {
@@ -65,5 +67,6 @@ type QueryData struct {
 	HasPage        bool            `json:"hasPage"`
 	WhereFields    []string        `json:"whereFields"`
 	WhereColFields []WhereColField `json:"whereColFields"`
-	Where          *WhereCondition `json:"where"`
+	Where          *conditonwhere.MaskWhereCondition `json:"where"`
+	WhereDataYaml string          // 原始where条件的YAML字符串表示
 }
