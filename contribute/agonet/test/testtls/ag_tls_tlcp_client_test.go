@@ -16,7 +16,7 @@ func TestAgTlsTlcp_Client(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ersa_LoadClient_MTLS_AuthConfig failed: %v", err)
 	}
-	tlsCfg.InsecureSkipVerify = true // 关闭SAN校验
+	// tlsCfg.InsecureSkipVerify = true // 关闭SAN校验
 
 	tlcpCfg, err := egms_SingleSideAuthConfig()
 	if err != nil {
@@ -34,10 +34,10 @@ func TestAgTlsTlcp_Client(t *testing.T) {
 			Count:    3,
 		},
 		// TLSType: agonet.TLSType_TLCP,
-		// // TLSType: agonet.TLSTypeTLS,
-		// // TLSType:    agonet.TLSTypeNone,
-		// // CLI_TLSType: agonet.TLSType_TLS,
-		// // CLI_TLSType: agonet.TLSType_NONE,
+		// TLSType: agonet.TLSType_TLS,
+		// TLSType:    agonet.TLSTypeNone,
+		CLI_TLSType: agonet.TLSType_TLS,
+		// CLI_TLSType: agonet.TLSType_NONE,
 		// TLSConfig:  tlsCfg,
 		// TLCPConfig: tlcpCfg,
 	}

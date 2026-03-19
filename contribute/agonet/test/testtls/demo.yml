@@ -1,0 +1,45 @@
+agonet:
+  server:
+    addr: tcp://:8443
+    config:
+      security:
+        type: tls_tlcp
+        certsDir: ./certs
+        TLS:
+          CaPath: fgmsm/RSA_CA.cer
+          AuthCertPath: fgmsm/rsa_auth_cert.cer
+          AuthKeyPath: fgmsm/rsa_auth_key.pem
+          SignCertPath: fgmsm/rsa_sign.cer
+          SignKeyPath: fgmsm/rsa_sign_key.pem
+          InsecureSkipVerify: true
+        TLCP:
+          CaPath: fgmsm/SM2_CA.cer
+          AuthCertPath: fgmsm/sm2_auth_cert.cer
+          AuthKeyPath: fgmsm/sm2_auth_key.pem
+          SignCertPath: fgmsm/sm2_sign_cert.cer
+          SignKeyPath: fgmsm/sm2_sign_key.pem
+          EncCertPath: fgmsm/sm2_enc_cert.cer
+          EncKeyPath: fgmsm/sm2_enc_key.pem
+          InsecureSkipVerify: true
+
+  client:
+    config:
+      security:
+        type: tls
+        certsDir: ./certs
+        TLS:
+          CaPath: fgmsm/RSA_CA.cer
+          AuthCertPath: fgmsm/rsa_auth_cert.cer
+          AuthKeyPath: fgmsm/rsa_auth_key.pem
+          SignCertPath: fgmsm/rsa_sign.cer
+          SignKeyPath: fgmsm/rsa_sign_key.pem
+          InsecureSkipVerify: true
+        TLCP:
+          CaPath: fgmsm/SM2_CA.cer
+          AuthCertPath: fgmsm/sm2_auth_cert.cer
+          AuthKeyPath: fgmsm/sm2_auth_key.pem
+          SignCertPath: fgmsm/sm2_sign_cert.cer
+          SignKeyPath: fgmsm/sm2_sign_key.pem
+          EncCertPath: fgmsm/sm2_enc_cert.cer
+          EncKeyPath: fgmsm/sm2_enc_key.pem
+          InsecureSkipVerify: true

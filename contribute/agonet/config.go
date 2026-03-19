@@ -1,7 +1,7 @@
 package agonet
 
 type ServerConfig struct {
-	Address string
+	Addr string
 
 	Config OptionsConfig
 }
@@ -33,8 +33,8 @@ type KeepAliveConfig struct {
 
 func DefaultServerConfig() ServerConfig {
 	return ServerConfig{
-		Address: "tcp://:9000",
-		Config:  DefaultCommonConfig(),
+		Addr:   "tcp://:9000",
+		Config: DefaultCommonConfig(),
 	}
 }
 

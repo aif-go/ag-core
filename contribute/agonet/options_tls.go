@@ -10,52 +10,59 @@ import (
 	"path"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/emmansun/gmsm/smx509"
 )
 
 // WithTLSConfig sets up TLS config.
 func WithTLSConfig(tlsConfig *tls.Config) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.TLSConfig = tlsConfig
+		return nil
 	}
 }
 
 // WithCliTLSConfig sets up client TLS config.
 func WithCliTLSConfig(tlsConfig *tls.Config) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.CLI_TLSConfig = tlsConfig
+		return nil
 	}
 }
 
 // WithTLCPConfig sets up TLCP config.
 func WithTLCPConfig(tlcpConfig *tlcp.Config) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.TLCPConfig = tlcpConfig
+		return nil
 	}
 }
 
 // WithCliTLCPConfig sets up client TLCP config.
 func WithCliTLCPConfig(tlcpConfig *tlcp.Config) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.CLI_TLCPConfig = tlcpConfig
+		return nil
 	}
 }
 
 // WithTLSType sets up TLS type.
 func WithTLSType(tlsType TLSType) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.TLSType = tlsType
+		return nil
 	}
 }
 
 // WithCliTLSType sets up client TLS type.
 func WithCliTLSType(tlsType TLSType) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		opts.CLI_TLSType = tlsType
+		return nil
 	}
 }
 
 func WithAgClientTLSConfig(secCfg *SecurityConfig) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		cliType := secCfg.CliType
 		if cliType == TLSType_UNSET {
 			cliType = secCfg.Type
@@ -63,53 +70,78 @@ func WithAgClientTLSConfig(secCfg *SecurityConfig) Option {
 
 		if cliType != TLSType_TLS && cliType != TLSType_TLCP {
 			// 客户端只有TLS和TLCP类型
-			return
+			return nil
 		}
 
 		opts.CLI_TLSType = cliType
 
-		SecurityOptions(opts, secCfg, true)
+		if err := SecurityOptions(opts, secCfg, true); err != nil {
+			return err
+		}
 
+		return nil
 	}
 }
 
 func WithAgTLSConfig(secCfg *SecurityConfig) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		if secCfg.Type == TLSType_NONE || secCfg.Type == TLSType_UNSET {
-			return
+			return nil
 		}
 		opts.TLSType = secCfg.Type
 
-		SecurityOptions(opts, secCfg, false)
+		if err := SecurityOptions(opts, secCfg, false); err != nil {
+			return err
+		}
 
+		return nil
 	}
 }
 
-func SecurityOptions(opts *Options, secCfg *SecurityConfig, iscli bool) {
-	// ttype := secCfg.Type
-	certsDir := secCfg.CertsBasePath
+// SecurityOptions sets up security options.
+func SecurityOptions(opts *Options, secCfg *SecurityConfig, iscli bool) error {
+	ttype := secCfg.Type
+
+	certsDir := secCfg.CertsDir
 
 	tlsCfg := &secCfg.TLS
-	// tlcpCfg := &secCfg.TLCP
+	tlcpCfg := &secCfg.TLCP
 
-	tls, err := buildTLSConfig(certsDir, tlsCfg, iscli)
-	if err != nil {
-		return
+	if ttype == TLSType_TLS || ttype == TLSTYPE_TLS_TLCP {
+		tls, err := buildTLSConfig(certsDir, tlsCfg, iscli)
+		if err != nil {
+			return err
+		}
+
+		if iscli {
+			opts.CLI_TLSConfig = tls
+		} else {
+			opts.TLSConfig = tls
+		}
 	}
 
-	if iscli {
-		opts.CLI_TLSConfig = tls
-	} else {
-		opts.TLSConfig = tls
+	if ttype == TLSType_TLCP || ttype == TLSTYPE_TLS_TLCP {
+		tlcp, err := buildTLCPConfig(certsDir, tlcpCfg, iscli)
+		if err != nil {
+			return err
+		}
+
+		if iscli {
+			opts.CLI_TLCPConfig = tlcp
+		} else {
+			opts.TLCPConfig = tlcp
+		}
 	}
 
+	return nil
 }
 
 func buildTLSConfig(certsDir string, cfg *TLSConfig, iscli bool) (*tls.Config, error) {
 	tlsCfg := &tls.Config{}
 
-	var tlsCertificate *tls.Certificate
+	// 证书配置
 	if iscli {
+		// 客户端配置,证书使用Auth
 		if cfg.AuthCertPath != "" && cfg.AuthKeyPath != "" {
 			authAbsPath := path.Join(certsDir, cfg.AuthCertPath)
 			authKeyAbsPath := path.Join(certsDir, cfg.AuthKeyPath)
@@ -118,11 +150,13 @@ func buildTLSConfig(certsDir string, cfg *TLSConfig, iscli bool) (*tls.Config, e
 			if err != nil {
 				return nil, err
 			}
-			tlsCertificate = authCert
+			tlsCfg.Certificates = []tls.Certificate{*authCert}
 		} else {
-			return nil, fmt.Errorf("auth cert path or key path is empty")
+			// 客户端：若不需要客户端身份认证则可以为空，否则至少1对密钥对。
+			// return nil, fmt.Errorf("auth cert path or key path is empty")
 		}
 	} else {
+		// 服务端配置,证书使用Sign
 		if cfg.SignCertPath != "" && cfg.SignKeyPath != "" {
 			signAbsPath := path.Join(certsDir, cfg.SignCertPath)
 			signKeyAbsPath := path.Join(certsDir, cfg.SignKeyPath)
@@ -131,13 +165,14 @@ func buildTLSConfig(certsDir string, cfg *TLSConfig, iscli bool) (*tls.Config, e
 			if err != nil {
 				return nil, err
 			}
-			tlsCertificate = signCert
+			// tlsCfg.Certificates = append(tlsCfg.Certificates, *signCert)
+			tlsCfg.Certificates = []tls.Certificate{*signCert}
 		} else {
 			return nil, fmt.Errorf("sign cert path or key path is empty")
 		}
 	}
-	tlsCfg.Certificates = append(tlsCfg.Certificates, *tlsCertificate)
 
+	// CA证书配置
 	if cfg.CaPath != "" {
 		caAbsPath := path.Join(certsDir, cfg.CaPath)
 		caCont, err := os.ReadFile(caAbsPath)
@@ -153,20 +188,98 @@ func buildTLSConfig(certsDir string, cfg *TLSConfig, iscli bool) (*tls.Config, e
 		tlsCfg.RootCAs = caCertPool
 	}
 
+	// ServerName
 	if cfg.ServerName != "" {
 		tlsCfg.ServerName = cfg.ServerName
 	}
 
+	// InsecureSkipVerify 是否跳过证书验证(不建议在生产环境中使用)
 	if cfg.InsecureSkipVerify {
 		slog.Warn("InsecureSkipVerify is true, it may cause security issues")
 		tlsCfg.InsecureSkipVerify = cfg.InsecureSkipVerify
 	}
 
-	return nil, nil
+	// TODO ClientAuthType and ClientCAs
+
+	return tlsCfg, nil
 }
 
-func buildTLCPConfig(tlcpCfg *TLCPConfig, iscli bool) *tlcp.Config {
-	return nil
+func buildTLCPConfig(certsDir string, cfg *TLCPConfig, iscli bool) (*tlcp.Config, error) {
+	tlcpCfg := &tlcp.Config{}
+
+	if iscli {
+		// 客户端配置,证书使用Auth
+		if cfg.AuthCertPath != "" && cfg.AuthKeyPath != "" {
+			authAbsPath := path.Join(certsDir, cfg.AuthCertPath)
+			authKeyAbsPath := path.Join(certsDir, cfg.AuthKeyPath)
+
+			authCert, err := getTlcpCertByPath(authAbsPath, authKeyAbsPath)
+			if err != nil {
+				return nil, err
+			}
+			// tlcpCfg.Certificates = append(tlcpCfg.Certificates, *authCert)
+			tlcpCfg.Certificates = []tlcp.Certificate{*authCert}
+		} else {
+			// 客户端：若不需要客户端身份认证则可以为空，否则至少1对密钥对。
+			// return nil, fmt.Errorf("auth cert path or key path is empty")
+		}
+	} else {
+		if cfg.SignCertPath == "" || cfg.SignKeyPath == "" {
+			return nil, fmt.Errorf("sign cert path or key path is empty")
+		}
+		if cfg.EncCertPath == "" || cfg.EncKeyPath == "" {
+			return nil, fmt.Errorf("enc cert path or key path is empty")
+		}
+
+		signAbsPath := path.Join(certsDir, cfg.SignCertPath)
+		signKeyAbsPath := path.Join(certsDir, cfg.SignKeyPath)
+		encAbsPath := path.Join(certsDir, cfg.EncCertPath)
+		encKeyAbsPath := path.Join(certsDir, cfg.EncKeyPath)
+
+		signCert, err := getTlcpCertByPath(signAbsPath, signKeyAbsPath)
+		if err != nil {
+			return nil, err
+		}
+		encCert, err := getTlcpCertByPath(encAbsPath, encKeyAbsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		// tlcpCfg.Certificates = append(tlcpCfg.Certificates, *signCert, *encCert)
+		// 服务端：至少2对密钥对和证书，按照顺序[签名密钥对, 加密密钥对]
+		tlcpCfg.Certificates = []tlcp.Certificate{*signCert, *encCert}
+	}
+
+	// CA证书配置
+	if cfg.CaPath != "" {
+		caAbsPath := path.Join(certsDir, cfg.CaPath)
+		caCont, err := os.ReadFile(caAbsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		caCertPool := smx509.NewCertPool()
+
+		if !caCertPool.AppendCertsFromPEM(caCont) {
+			return nil, fmt.Errorf("append ca cert to pool failed")
+		}
+		tlcpCfg.RootCAs = caCertPool
+	}
+
+	// ServerName
+	if cfg.ServerName != "" {
+		tlcpCfg.ServerName = cfg.ServerName
+	}
+
+	// InsecureSkipVerify 是否跳过证书验证(不建议在生产环境中使用)
+	if cfg.InsecureSkipVerify {
+		slog.Warn("InsecureSkipVerify is true, it may cause security issues")
+		tlcpCfg.InsecureSkipVerify = cfg.InsecureSkipVerify
+	}
+
+	// TODO ClientAuthType and ClientCAs
+
+	return tlcpCfg, nil
 }
 
 func getTlsCertByPath(certPth, keyPth string) (*tls.Certificate, error) {
@@ -185,6 +298,24 @@ func getTlsCertByPath(certPth, keyPth string) (*tls.Certificate, error) {
 	}
 
 	return &tlsCert, nil
+}
+
+func getTlcpCertByPath(certPth, keyPth string) (*tlcp.Certificate, error) {
+	_, ccont, err := checkFileReadableAndReadFile(certPth)
+	if err != nil {
+		return nil, err
+	}
+	_, kcont, err := checkFileReadableAndReadFile(keyPth)
+	if err != nil {
+		return nil, err
+	}
+
+	tlcpCert, err := tlcp.X509KeyPair(ccont, kcont)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tlcpCert, nil
 }
 
 // checkFileReadable 检查文件是否存在且有读权限

@@ -21,11 +21,14 @@ func NewServer(handler EventHandler, config *ServerConfig) (Server, error) {
 	// 配置TLS
 	secCfg := config.Config.Security
 	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET {
-		ExtendOptions(opts, WithAgTLSConfig(&secCfg))
+		err := ExtendOptions(opts, WithAgTLSConfig(&secCfg))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	addrs := make([]string, 0)
-	addrs = append(addrs, config.Address)
+	addrs = append(addrs, config.Addr)
 
 	return NewServerWithOptions(handler, addrs, opts)
 }

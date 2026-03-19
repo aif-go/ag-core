@@ -40,7 +40,10 @@ func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
 	// 配置TLS
 	secCfg := config.Config.Security
 	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET && secCfg.Type != TLSTYPE_TLS_TLCP {
-		ExtendOptions(opts, WithAgClientTLSConfig(&secCfg))
+		err := ExtendOptions(opts, WithAgClientTLSConfig(&secCfg))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return NewClientWithOptions(handler, opts)
@@ -159,7 +162,8 @@ func (cli *client) DialContext(network, addr string, ctx any) (Conn, error) {
 		// }
 		// c = tlcpc
 	default:
-		return nil, aerrors.ErrUnsupportedProtocol
+		c, err = net.Dial(network, addr)
+		// return nil, aerrors.ErrUnsupportedProtocol
 	}
 
 	// c, err = tls.Dial(network, addr, cli.opts.TLSConfig)

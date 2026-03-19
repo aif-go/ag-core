@@ -11,7 +11,7 @@ import (
 )
 
 // Option is a function that will set up option.
-type Option func(opts *Options)
+type Option func(opts *Options) error
 
 // func loadOptions(options ...Option) *Options {
 // 	opts := new(Options)
@@ -22,11 +22,13 @@ type Option func(opts *Options)
 // }
 
 // ExtendOptions extends options with given options.
-func ExtendOptions(opts *Options, options ...Option) *Options {
+func ExtendOptions(opts *Options, options ...Option) error {
 	for _, option := range options {
-		option(opts)
+		if err := option(opts); err != nil {
+			return err
+		}
 	}
-	return opts
+	return nil
 }
 
 // Options are configurations for the gnet application.
@@ -128,7 +130,8 @@ func buildKeepAliveWithConfig(cnf KeepAlive) *net.KeepAliveConfig {
 
 // WithOptions sets up all options.
 func WithOptions(options Options) Option {
-	return func(opts *Options) {
+	return func(opts *Options) error {
 		*opts = options
+		return nil
 	}
 }

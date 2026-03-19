@@ -14,11 +14,11 @@ type (
 
 const (
 	// #### TLSType ####
-	TLSType_UNSET    TLSType = ""        // 未设置
-	TLSType_NONE     TLSType = "none"    // 不使用TLS
-	TLSType_TLS      TLSType = "tls"     // TLS
-	TLSType_TLCP     TLSType = "tlcp"    // TLCP
-	TLSTYPE_TLS_TLCP TLSType = "tlstlcp" // 同时支持TLS和TLCP，仅服务端配置有效
+	TLSType_UNSET    TLSType = ""         // 未设置
+	TLSType_NONE     TLSType = "none"     // 不使用TLS
+	TLSType_TLS      TLSType = "tls"      // TLS
+	TLSType_TLCP     TLSType = "tlcp"     // TLCP
+	TLSTYPE_TLS_TLCP TLSType = "tls_tlcp" // 同时支持TLS和TLCP，仅服务端配置有效
 
 	// #### TLSClientAuthType ####
 	// TLSClientAuthType_NoClientCert TLSClientAuthType = "NoClientCert" // 不要求客户端证书
@@ -34,7 +34,7 @@ type SecurityConfig struct {
 	Type    TLSType
 	CliType TLSType
 
-	CertsBasePath string // 证书基础路径
+	CertsDir string // 证书基础路径
 
 	// CaPaths []string
 
@@ -110,7 +110,7 @@ func TransformTLSVersion(version TLSVersion) (uint16, error) {
 
 func DefaultSecurityConfig() SecurityConfig {
 	return SecurityConfig{
-		Type:          TLSType_NONE,
-		CertsBasePath: "certs",
+		Type:     TLSType_NONE,
+		CertsDir: "certs",
 	}
 }
