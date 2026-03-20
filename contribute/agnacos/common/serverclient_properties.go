@@ -16,6 +16,7 @@ type SCProperties struct {
 	NameSpace  string `value:"${namespace}"`
 	UserName   string `value:"${username}"`
 	Password   string `value:"${password}"`
+	LogLevel   string `value:"${:error}"`
 }
 
 func BuildServerConfig(p SCProperties) ([]constant.ServerConfig, error) {
@@ -78,6 +79,10 @@ func BuildClientConfig(p SCProperties) (*constant.ClientConfig, error) {
 	// password
 	if password != "" {
 		opts = append(opts, constant.WithPassword(password))
+	}
+
+	if p.LogLevel != "" {
+		opts = append(opts, constant.WithLogLevel(p.LogLevel))
 	}
 
 	// TODO 其他配置
