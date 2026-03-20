@@ -171,7 +171,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
 			}
 			primaryKeyCheck += "\tif " + nullCheck + " {\n"
-			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.JsonTag + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
+			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.Name + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
 			
 			// 处理其他主键（嵌套在第一个主键的条件中）
 			for i := 1; i < len(tableData.PrimaryKeys); i++ {
@@ -193,7 +193,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
 					}
 					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
-					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.JsonTag + " = ?\", entity." + pkCol.JsonTag + ")\n"
+					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
 					primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
 					primaryKeyCheck += "\t\t\treturn list, result.Error\n"
 					primaryKeyCheck += "\t\t}\n"
@@ -243,7 +243,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 
 					// 每个索引都是独立的if检查
 					indexCheck += "\tif " + nullCheck + " {\n"
-					indexCheck += "\t\tdb = db.Where(\"" + col.JsonTag + " = ?\", entity." + col.JsonTag + ")\n"
+					indexCheck += "\t\tdb = db.Where(\"" + col.Name + " = ?\", entity." + col.JsonTag + ")\n"
 
 					// 其他列作为次要条件
 					for j := 1; j < len(index.Columns); j++ {
@@ -262,7 +262,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
 								}
 								indexCheck += "\t\tif " + secondaryNullCheck + " {\n"
-								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.JsonTag + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
+								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.Name + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
 								indexCheck += "\t\t}\n"
 								break
 							}
@@ -583,8 +583,8 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	var pageResult *gormdb.PageResult
 	// 如果需要分页
 	if page != nil {
-		start, end, totalPage := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
-		db = db.Limit(int(start)).Offset(int(end))
+		start, _, totalPage := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
+		db = db.Limit(int(page.PageSize)).Offset(int(start))
 		pageResult = &gormdb.PageResult{
 			CurrentPage: page.PageNum,
 			PageSize:    page.PageSize,
@@ -905,33 +905,32 @@ var %sNamingInfo = &db.NameingSqlArgInfo{
 		}
 	}
 
-	// 添加Column结构体实例
-	constants += fmt.Sprintf(`
+// 	// 添加Column结构体实例
+// 	constants += fmt.Sprintf(`
 
-// 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
-var %sColumn = &model.%sColumn{
-	Name:    "name",
-	Address: "address",
-	Phone:   "phone",
-	ClassId: "class_id",
-	CardNo:  "card_no",
-}
-`, structName, structName)
+// // 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
+// var %sColumn = &model.%sColumn{
+// 	Name:    "name",
+// 	Address: "address",
+// 	Phone:   "phone",
+// 	ClassId: "class_id",
+// 	CardNo:  "card_no",
+// }
+// `, structName, structName)
 
-    var dbImports string =""
-	if len(tableData.SelfQueries) > 0 {
-		dbImports = `db "ag-core/contribute/agdb/gormdb"`
-	}
-	return `package dao
-
+    var dbImports string = `package dao
+`
+ if len(tableData.SelfQueries) > 0 {
+  dbImports += `
 import (
-	`+dbImports+`
-	"` + moduleName + `/repository/model"
+ db "ag-core/contribute/agdb/gormdb"
+ "` + moduleName + `/repository/model"
 )
 
-` + constants
+`
+ }
+ return dbImports + constants
 }
-
 // GetDBTypeNamingSqlTemplate 获取数据库类型命名SQL模板代码
 func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (string, error) {
 	structName := tableData.StructName
