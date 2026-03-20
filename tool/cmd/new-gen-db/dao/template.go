@@ -171,7 +171,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
 			}
 			primaryKeyCheck += "\tif " + nullCheck + " {\n"
-			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.JsonTag + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
+			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.Name + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
 			
 			// 处理其他主键（嵌套在第一个主键的条件中）
 			for i := 1; i < len(tableData.PrimaryKeys); i++ {
@@ -193,7 +193,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
 					}
 					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
-					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.JsonTag + " = ?\", entity." + pkCol.JsonTag + ")\n"
+					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
 					primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
 					primaryKeyCheck += "\t\t\treturn list, result.Error\n"
 					primaryKeyCheck += "\t\t}\n"
@@ -243,7 +243,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 
 					// 每个索引都是独立的if检查
 					indexCheck += "\tif " + nullCheck + " {\n"
-					indexCheck += "\t\tdb = db.Where(\"" + col.JsonTag + " = ?\", entity." + col.JsonTag + ")\n"
+					indexCheck += "\t\tdb = db.Where(\"" + col.Name + " = ?\", entity." + col.JsonTag + ")\n"
 
 					// 其他列作为次要条件
 					for j := 1; j < len(index.Columns); j++ {
@@ -262,7 +262,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
 								}
 								indexCheck += "\t\tif " + secondaryNullCheck + " {\n"
-								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.JsonTag + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
+								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.Name + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
 								indexCheck += "\t\t}\n"
 								break
 							}

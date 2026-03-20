@@ -197,32 +197,35 @@ func CollectNotZeroValColsAndVals(obj interface{}, filterPkAndIndex bool) ([]str
 	for i := 0; i < typ.NumField(); i++ {
 		fieldTyp := typ.Field(i) // 字段类型（含 tag）
 		fieldVal := val.Field(i) // 字段实际值
-		// if _, ok := excludeCols[fieldTyp.Name]; ok {
-		// 	continue // 排除指定字段
-		// }
 		// 2.1 判断是否有 gorm omitempty 标记
 		gormTag := fieldTyp.Tag.Get("gorm")
-		collect := false
+		collect := true
 		// 是否过滤主键和索引列（默认过滤）
-		if (filterPkAndIndex){
-			for _, opt := range strings.Split(gormTag, ";") {
-		    	if opt == "primaryKey" || strings.HasPrefix(opt, "index") {
-		        	// collect = true
+		var colName string
+		gormTagArr:=strings.Split(gormTag, ";")
+		// if (filterPkAndIndex){
+		for _, opt := range gormTagArr {
+			// 统计列名
+			if strings.HasPrefix(opt,"column:"){
+				colName = strings.SplitAfter(opt,"column:")[1]
+			}
+			if filterPkAndIndex {
+				if opt == "primaryKey" || strings.HasPrefix(opt, "index") {
+		        	collect = false
 		        	break
 		    	}
 			}
 		}
+
+
+		// fmt.Println(fieldVal.Interface())
 		// 2.2 判断字段值是否为零值
-		if !fieldVal.IsZero() {
-			collect = true
-		}
-		if !collect {
-		    continue // 没有 omitempty 标记，跳过
+		if !collect || fieldVal.IsZero() {
+			continue
 		}
 
-		result = append(result, fieldTyp.Name) // 满足条件，收集字段名
+		result = append(result, colName) // 满足条件，收集字段名
 		resultVals = append(resultVals, fieldVal.Interface())
-
 	}
 
 	return result,resultVals
