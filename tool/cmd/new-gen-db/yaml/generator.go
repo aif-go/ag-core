@@ -309,9 +309,9 @@ func GenerateYAML(table *excel.ExcelInfo, outputPath string) error {
 	data = append(data, yaml.MapItem{Key: "table_name", Value: table.Name})
 
 	// 表基本信息 - 使用固定顺序
-	tableData := yaml.MapSlice{}
-	tableData = append(tableData, yaml.MapItem{Key: "name", Value: table.Name})
-	data = append(data, yaml.MapItem{Key: "table", Value: tableData})
+	// tableData := yaml.MapSlice{}
+	// tableData = append(tableData, yaml.MapItem{Key: "name", Value: table.Name})
+	// data = append(data, yaml.MapItem{Key: "table", Value: tableData})
 
 	// 列信息
 	columns := []yaml.MapSlice{}

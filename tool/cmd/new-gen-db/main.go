@@ -122,7 +122,6 @@ func runDbCommand(cmd *cobra.Command, args []string) {
 }
 
 
-
 // runDbCommand 执行spilt-sheet子命令
 func runSplitExcelCommand(cmd *cobra.Command, args []string) {
 	fmt.Println("拆分sheet：将原来一个sheet的内容拆分为ddl部分和自定义规则部分两个sheet")

@@ -1,6 +1,7 @@
 package excel
 
 import (
+	"ag-core/tool/cmd/new-gen-db/utils"
 	"strings"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -24,13 +25,13 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 		// if strings.TrimSpace(sheetName) == "自定义脚本名字" {
 		// 	continue
 		// }
-		if strings.HasSuffix(sheetName,"@custom"){
+		if strings.HasSuffix(sheetName,utils.CUSTOM_RULE_SUFFIX){
 			// 如果sheet名字以 "@custom" 结尾，说明是分割出来的sheet，也跳过
 			continue			
 		}
 
 		table := &ExcelInfo{
-			Name:        sheetName,
+			// Name:        sheetName,
 			Columns:     []*ColumnInfo{},
 			PrimaryKey:  []string{},
 			Constraints: []*ConstraintInfo{},
@@ -57,6 +58,11 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 				continue
 			}
 
+			// 处理首行数据
+			if strings.TrimSpace(row[0]) == "表名"{
+				table.Name = row[1]
+				continue;
+			}
 			// 检查当前区域
 			if strings.TrimSpace(row[0]) == "列名" {
 				inColumns = true
@@ -173,7 +179,7 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 // 处理客户自定义规则的工作表
 func processCustomScriptSheet(f *excelize.File,sheetName string, table *ExcelInfo) error {
 	// 处理 "自定义脚本名字" 工作表的内容
-	rows := f.GetRows(sheetName + "@custom")
+	rows := f.GetRows(sheetName + utils.CUSTOM_RULE_SUFFIX)
 	if len(rows) == 0 {
 		return nil
 	}

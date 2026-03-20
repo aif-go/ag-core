@@ -583,8 +583,8 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	var pageResult *gormdb.PageResult
 	// 如果需要分页
 	if page != nil {
-		start, end, totalPage := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
-		db = db.Limit(int(start)).Offset(int(end))
+		start, _, totalPage := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
+		db = db.Limit(int(page.PageSize)).Offset(int(start))
 		pageResult = &gormdb.PageResult{
 			CurrentPage: page.PageNum,
 			PageSize:    page.PageSize,

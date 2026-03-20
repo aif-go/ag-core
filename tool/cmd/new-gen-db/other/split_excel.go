@@ -1,6 +1,7 @@
 package other
 
 import (
+	"ag-core/tool/cmd/new-gen-db/utils"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -67,6 +68,11 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 
 	// 遍历所有工作表
 	for _, sheetName := range f.GetSheetMap() {
+
+		if len(sheetName)>30{
+			fmt.Printf("sheet:%s name length > 30, please check\n",sheetName)
+		}
+
 		// 获取所有行
 		rows := f.GetRows(sheetName)
 
@@ -88,14 +94,21 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 		if keywordRowIndex == -1 {
 			// 创建新sheet
 			newSheetName := sheetName
-			// 如果sheet名已存在，添加后缀
-			if newF.GetSheetIndex(newSheetName) != -1 {
-				newSheetName = fmt.Sprintf("%s_%d", sheetName, len(newF.GetSheetMap())+1)
-			}
-			newF.NewSheet(newSheetName)
+			// // 如果sheet名已存在，添加后缀
+			// if newF.GetSheetIndex(newSheetName) != -1 {
+			// 	newSheetName = fmt.Sprintf("%s_%d", sheetName, len(newF.GetSheetMap())+1)
+			// }
+			// newF.NewSheet(newSheetName)
 
 			// 复制所有行并应用样式
 			for i, row := range rows {
+				// 最初开始写入的时候，第一行增加表名的操作
+				if i == 0 {
+					newF.SetCellStyle(newSheetName,"A1","A1",boldStyle)
+					newF.SetCellValue(newSheetName,"A1","表名")
+					newF.SetCellStyle(newSheetName,"B1","B1",boldStyle)
+					newF.SetCellValue(newSheetName,"B1",newSheetName)
+				}
 				// 检查该行是否有值
 				rowHasValue := rowHasAnyValue(row)
 				// 检查该行是否包含汉字
@@ -114,14 +127,14 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 					}
 					// 应用样式到该行的所有单元格
 					for j := 0; j < maxCol; j++ {
-						cellName := getCellName(j, i+1)
+						cellName := getCellName(j, i+2)
 						newF.SetCellStyle(newSheetName, cellName, cellName, styleID)
 					}
 				}
 
 				// 写入单元格值
 				for j, cell := range row {
-					cellName := getCellName(j, i+1)
+					cellName := getCellName(j, i+2)
 					newF.SetCellValue(newSheetName, cellName, cell)
 				}
 			}
@@ -140,13 +153,20 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 		newF.NewSheet(beforeKeywordSheetName)
 
 		// 第二部分：关键字之后的行（不包含关键字所在行）
-		afterKeywordSheetName := fmt.Sprintf("%s@custom", sheetName)
+		afterKeywordSheetName := fmt.Sprintf("%s%s", sheetName, utils.CUSTOM_RULE_SUFFIX)
 		newF.NewSheet(afterKeywordSheetName)
 
 		// 写入第一部分并应用样式
 		for i := 0; i < keywordRowIndex; i++ {
 			if i >= len(rows) {
 				break
+			}
+			// 最初开始写入的时候，第一行增加表名的操作
+			if i == 0 {
+				newF.SetCellStyle(beforeKeywordSheetName,"A1","A1",boldStyle)
+				newF.SetCellValue(beforeKeywordSheetName,"A1","表名")
+				newF.SetCellStyle(beforeKeywordSheetName,"B1","B1",boldStyle)
+				newF.SetCellValue(beforeKeywordSheetName,"B1",sheetName)
 			}
 			row := rows[i]
 			// 检查该行是否有值
@@ -167,14 +187,16 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 				}
 				// 应用样式到该行的所有单元格
 				for j := 0; j < maxCol; j++ {
-					cellName := getCellName(j, i+1)
+					// 第一行留给表名使用
+					cellName := getCellName(j, i+2)
 					newF.SetCellStyle(beforeKeywordSheetName, cellName, cellName, styleID)
 				}
 			}
 
 			// 写入单元格值
 			for j := 0; j < len(row); j++ {
-				cellName := getCellName(j, i+1)
+				// 第一行留给表名使用
+				cellName := getCellName(j, i+2)
 				newF.SetCellValue(beforeKeywordSheetName, cellName, row[j])
 			}
 		}
