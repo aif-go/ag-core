@@ -94,7 +94,12 @@ func (el *eventloop) read(c *conn) error {
 	}
 
 	// 剩余未处理的字节写入缓存
-	_, _ = c.inboundBuffer.Write(c.buffer.B)
+	_, err := c.inboundBuffer.Write(c.buffer.B)
+
+	if err != nil {
+		// TODO 判断异常，长度不够的要扩容inboundBuffer
+	}
+
 	c.buffer.Reset()
 
 	return nil

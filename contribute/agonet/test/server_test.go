@@ -40,7 +40,8 @@ func (e *TestEventHandler) OnTraffic(c agonet.Conn) (action agonet.Action) {
 	resp := fmt.Sprintf("Echo:%s", msg)
 	// resp := fmt.Sprintf("Echo: %d", len(msg))
 
-	_, err = c.Write([]byte(resp))
+	// _, err = c.Write([]byte(resp))
+	err = c.AsyncWrite([]byte(resp), nil)
 	if err != nil {
 		return agonet.Close
 	}

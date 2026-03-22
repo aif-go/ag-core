@@ -90,7 +90,12 @@ type Writer interface {
 	io.ReaderFrom // not concurrency-safe
 
 	Flush() error // not concurrency-safe
+
+	AsyncWrite(buf []byte, callback AsyncCallback) (err error)
 }
+
+// AsyncCallback is a callback that will be invoked after the asynchronous function finishes.
+type AsyncCallback func(c Conn, err error) error
 
 type KeepAliveAbility interface {
 	// SetKeepAliveConfig sets the keep-alive config.
