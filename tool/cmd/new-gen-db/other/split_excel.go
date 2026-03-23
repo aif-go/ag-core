@@ -13,8 +13,8 @@ import (
 )
 
 // SplitExcelByKeyword 将一个excel中的所有sheet按照关键字分割成两个sheet写入到新的excel中
-// 新sheet的名字: 关键字之前的sheet和原sheet保持一致，关键字之后的sheet名字为: 原sheet名字@custom
-// 例如: 原sheet名字为: user_info, 关键字为: user, 那么新sheet的名字为: user_info@custom
+// 新sheet的名字: 关键字之前的sheet和原sheet保持一致，关键字之后的sheet名字为: 原sheet名字@
+// 例如: 原sheet名字为: user_info, 关键字为: user, 那么新sheet的名字为: user_info@
 // 如果原sheet没有包含关键字, 那么不进行分割，直接将原sheet复制到新的excel中
 // 新sheet的格式规则:
 // 1. 所有单元格的字体为宋体，大小为11
@@ -69,6 +69,7 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 	// 遍历所有工作表
 	for _, sheetName := range f.GetSheetMap() {
 
+		fmt.Println(sheetName)
 		if len(sheetName)>30{
 			fmt.Printf("sheet:%s name length > 30, please check\n",sheetName)
 		}
@@ -92,172 +93,20 @@ func SplitExcelByKeyword(filePath, outputPath, keyword string) error {
 
 		// 如果没有找到关键字，直接复制整个sheet
 		if keywordRowIndex == -1 {
-			// 创建新sheet
-			newSheetName := sheetName
-			// // 如果sheet名已存在，添加后缀
-			// if newF.GetSheetIndex(newSheetName) != -1 {
-			// 	newSheetName = fmt.Sprintf("%s_%d", sheetName, len(newF.GetSheetMap())+1)
-			// }
-			// newF.NewSheet(newSheetName)
-
-			// 复制所有行并应用样式
-			for i, row := range rows {
-				// 最初开始写入的时候，第一行增加表名的操作
-				if i == 0 {
-					newF.SetCellStyle(newSheetName,"A1","A1",boldStyle)
-					newF.SetCellValue(newSheetName,"A1","表名")
-					newF.SetCellStyle(newSheetName,"B1","B1",boldStyle)
-					newF.SetCellValue(newSheetName,"B1",newSheetName)
-				}
-				// 检查该行是否有值
-				rowHasValue := rowHasAnyValue(row)
-				// 检查该行是否包含汉字
-				rowHasChinese := rowContainsChinese(row)
-				styleID := baseStyle
-				if rowHasChinese {
-					styleID = boldStyle
-				}
-
-				// 如果该行有值，则整行都应用样式
-				if rowHasValue {
-					// 获取该行的最大列数
-					maxCol := len(row)
-					if maxCol == 0 {
-						maxCol = 1
-					}
-					// 应用样式到该行的所有单元格
-					for j := 0; j < maxCol; j++ {
-						cellName := getCellName(j, i+2)
-						newF.SetCellStyle(newSheetName, cellName, cellName, styleID)
-					}
-				}
-
-				// 写入单元格值
-				for j, cell := range row {
-					cellName := getCellName(j, i+2)
-					newF.SetCellValue(newSheetName, cellName, cell)
-				}
-			}
-
-			// 自动调整列宽
-			adjustColumnWidth(newF, newSheetName, rows)
+			copySheet(newF,sheetName,rows,boldStyle,baseStyle)
 			continue
-		}
-
-		// 找到关键字，分割sheet
-		// 第一部分：关键字之前的行（不包含关键字所在行）
-		beforeKeywordSheetName := sheetName
-		if newF.GetSheetIndex(beforeKeywordSheetName) != -1 {
-			beforeKeywordSheetName = fmt.Sprintf("%s", sheetName)
-		}
-		newF.NewSheet(beforeKeywordSheetName)
-
-		// 第二部分：关键字之后的行（不包含关键字所在行）
-		afterKeywordSheetName := fmt.Sprintf("%s%s", sheetName, utils.CUSTOM_RULE_SUFFIX)
-		newF.NewSheet(afterKeywordSheetName)
-
-		// 写入第一部分并应用样式
-		for i := 0; i < keywordRowIndex; i++ {
-			if i >= len(rows) {
-				break
-			}
-			// 最初开始写入的时候，第一行增加表名的操作
-			if i == 0 {
-				newF.SetCellStyle(beforeKeywordSheetName,"A1","A1",boldStyle)
-				newF.SetCellValue(beforeKeywordSheetName,"A1","表名")
-				newF.SetCellStyle(beforeKeywordSheetName,"B1","B1",boldStyle)
-				newF.SetCellValue(beforeKeywordSheetName,"B1",sheetName)
-			}
-			row := rows[i]
-			// 检查该行是否有值
-			rowHasValue := rowHasAnyValue(row)
-			// 检查该行是否包含汉字
-			rowHasChinese := rowContainsChinese(row)
-			styleID := baseStyle
-			if rowHasChinese {
-				styleID = boldStyle
-			}
-
-			// 如果该行有值，则整行都应用样式
-			if rowHasValue {
-				// 获取该行的最大列数
-				maxCol := len(row)
-				if maxCol == 0 {
-					maxCol = 1
-				}
-				// 应用样式到该行的所有单元格
-				for j := 0; j < maxCol; j++ {
-					// 第一行留给表名使用
-					cellName := getCellName(j, i+2)
-					newF.SetCellStyle(beforeKeywordSheetName, cellName, cellName, styleID)
-				}
-			}
-
-			// 写入单元格值
-			for j := 0; j < len(row); j++ {
-				// 第一行留给表名使用
-				cellName := getCellName(j, i+2)
-				newF.SetCellValue(beforeKeywordSheetName, cellName, row[j])
-			}
-		}
-
-		// 写入第二部分并应用样式
-		afterRowIndex := 0
-		after:=true
-		if len(rows)-(keywordRowIndex + 2) == 0{
-			after=false
-			// 删除新建的无用sheet
-			newF.DeleteSheet(afterKeywordSheetName)
-		}
-		if after {
-			for i := keywordRowIndex + 1; i < len(rows); i++ {
-				row := rows[i]
-				// 检查该行是否有值
-				rowHasValue := rowHasAnyValue(row)
-				// 检查该行是否包含汉字
-				rowHasChinese := rowContainsChinese(row)
-				styleID := baseStyle
-				if rowHasChinese {
-					styleID = boldStyle
-				}
-
-				// 如果该行有值，则整行都应用样式
-				if rowHasValue {
-					// 获取该行的最大列数
-					maxCol := len(row)
-					if maxCol == 0 {
-						maxCol = 1
-					}
-					// 应用样式到该行的所有单元格
-					for j := 0; j < maxCol; j++ {
-						cellName := getCellName(j, afterRowIndex+1)
-						newF.SetCellStyle(afterKeywordSheetName, cellName, cellName, styleID)
-					}
-				}
-
-				// 写入单元格值
-				for j := 0; j < len(row); j++ {
-					cellName := getCellName(j, afterRowIndex+1)
-					newF.SetCellValue(afterKeywordSheetName, cellName, row[j])
-				}
-				afterRowIndex++
-			}
-		}
-		// 自动调整列宽
-		adjustColumnWidth(newF, beforeKeywordSheetName, rows[:keywordRowIndex])
-		if after {	
-			adjustColumnWidth(newF, afterKeywordSheetName, rows[keywordRowIndex+1:])
+		}else{
+			copyBeforeSheet(keywordRowIndex,newF,sheetName,rows,boldStyle,baseStyle)
+			copyAterSheet(keywordRowIndex,newF,sheetName,rows,boldStyle,baseStyle)
 		}
 	}
 
 	// 删除默认的Sheet1
 	newF.DeleteSheet("Sheet1")
-
 	// 保存新Excel文件
 	if err := newF.SaveAs(outputPath); err != nil {
 		return fmt.Errorf("保存Excel文件失败: %w", err)
 	}
-
 	return nil
 }
 
@@ -340,4 +189,169 @@ func calculateCellWidth(cell string) int {
 		}
 	}
 	return width
+}
+
+
+func copySheet(newF *excelize.File,sheetName string,rows [][]string,boldStyleId int,baseStype int){
+	 // 创建新sheet
+	 newSheetName := sheetName
+	 newF.NewSheet(newSheetName)
+			// 复制所有行并应用样式
+			for i, row := range rows {
+				// 最初开始写入的时候，第一行增加表名的操作
+				if i == 0 {
+					newF.SetCellStyle(newSheetName,"A1","A1",boldStyleId)
+					newF.SetCellValue(newSheetName,"A1","表名")
+					newF.SetCellStyle(newSheetName,"B1","B1",boldStyleId)
+					newF.SetCellValue(newSheetName,"B1",newSheetName)
+				}
+				// 检查该行是否有值
+				rowHasValue := rowHasAnyValue(row)
+				// 检查该行是否包含汉字
+				rowHasChinese := rowContainsChinese(row)
+				styleID := baseStype
+				if rowHasChinese {
+					styleID = baseStype
+				}
+
+				// 如果该行有值，则整行都应用样式
+				if rowHasValue {
+					// 获取该行的最大列数
+					maxCol := len(row)
+					if maxCol == 0 {
+						maxCol = 1
+					}
+					// 应用样式到该行的所有单元格
+					for j := 0; j < maxCol; j++ {
+						cellName := getCellName(j, i+2)
+						newF.SetCellStyle(newSheetName, cellName, cellName, styleID)
+					}
+				}
+
+				// 写入单元格值
+				for j, cell := range row {
+					cellName := getCellName(j, i+2)
+					newF.SetCellValue(newSheetName, cellName, cell)
+				}
+			}
+
+			// 自动调整列宽
+			adjustColumnWidth(newF, newSheetName, rows)
+}
+
+
+
+func copyBeforeSheet(keywordRowIndex int,newF *excelize.File,sheetName string,rows [][]string,boldStyleId int,baseStype int){
+			// 找到关键字，分割sheet
+		// 第一部分：关键字之前的行（不包含关键字所在行）
+		beforeKeywordSheetName := sheetName
+		if newF.GetSheetIndex(beforeKeywordSheetName) != -1 {
+			beforeKeywordSheetName = fmt.Sprintf("%s", sheetName)
+		}
+		newF.NewSheet(beforeKeywordSheetName)
+
+
+
+		// 写入第一部分并应用样式
+		for i := 0; i < keywordRowIndex; i++ {
+			if i >= len(rows) {
+				break
+			}
+			// 最初开始写入的时候，第一行增加表名的操作
+			if i == 0 {
+				newF.SetCellStyle(beforeKeywordSheetName,"A1","A1",boldStyleId)
+				newF.SetCellValue(beforeKeywordSheetName,"A1","表名")
+				newF.SetCellStyle(beforeKeywordSheetName,"B1","B1",boldStyleId)
+				newF.SetCellValue(beforeKeywordSheetName,"B1",sheetName)
+			}
+			row := rows[i]
+			// 检查该行是否有值
+			rowHasValue := rowHasAnyValue(row)
+			// 检查该行是否包含汉字
+			rowHasChinese := rowContainsChinese(row)
+			styleID := baseStype
+			if rowHasChinese {
+				styleID = baseStype
+			}
+
+			// 如果该行有值，则整行都应用样式
+			if rowHasValue {
+				// 获取该行的最大列数
+				maxCol := len(row)
+				if maxCol == 0 {
+					maxCol = 1
+				}
+				// 应用样式到该行的所有单元格
+				for j := 0; j < maxCol; j++ {
+					// 第一行留给表名使用
+					cellName := getCellName(j, i+2)
+					newF.SetCellStyle(beforeKeywordSheetName, cellName, cellName, styleID)
+				}
+			}
+
+			// 写入单元格值
+			for j := 0; j < len(row); j++ {
+				// 第一行留给表名使用
+				cellName := getCellName(j, i+2)
+				newF.SetCellValue(beforeKeywordSheetName, cellName, row[j])
+			}
+		}
+		// 自动调整列宽
+		adjustColumnWidth(newF, beforeKeywordSheetName, rows[:keywordRowIndex])
+}
+
+
+// copyAter 复制剩余部分
+func copyAterSheet(keywordRowIndex int,newF *excelize.File,sheetName string,rows [][]string,boldStyleId int,baseStype int){
+		// 写入第二部分并应用样式
+		afterRowIndex := 0
+		// after:=true
+		if len(rows)-(keywordRowIndex + 2) == 0{
+			// after=false
+			// 删除新建的无用sheet
+			// newF.DeleteSheet(afterKeywordSheetName)
+			return
+		}
+
+		// 第二部分：关键字之后的行（不包含关键字所在行）
+		afterKeywordSheetName := fmt.Sprintf("%s%s", sheetName, utils.CUSTOM_RULE_SUFFIX)
+		newF.NewSheet(afterKeywordSheetName)
+		// if after {
+			for i := keywordRowIndex + 1; i < len(rows); i++ {
+				row := rows[i]
+				// 检查该行是否有值
+				rowHasValue := rowHasAnyValue(row)
+				// 检查该行是否包含汉字
+				rowHasChinese := rowContainsChinese(row)
+				styleID := baseStype
+				if rowHasChinese {
+					styleID = boldStyleId
+				}
+
+				// 如果该行有值，则整行都应用样式
+				if rowHasValue {
+					// 获取该行的最大列数
+					maxCol := len(row)
+					if maxCol == 0 {
+						maxCol = 1
+					}
+					// 应用样式到该行的所有单元格
+					for j := 0; j < maxCol; j++ {
+						cellName := getCellName(j, afterRowIndex+1)
+						newF.SetCellStyle(afterKeywordSheetName, cellName, cellName, styleID)
+					}
+				}
+
+				// 写入单元格值
+				for j := 0; j < len(row); j++ {
+					cellName := getCellName(j, afterRowIndex+1)
+					newF.SetCellValue(afterKeywordSheetName, cellName, row[j])
+				}
+				afterRowIndex++
+			}
+		// }
+
+		// if after {	
+			adjustColumnWidth(newF, afterKeywordSheetName, rows[keywordRowIndex+1:])
+		// }
 }

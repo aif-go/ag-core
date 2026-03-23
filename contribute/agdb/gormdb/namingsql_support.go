@@ -1,8 +1,10 @@
 package gormdb
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"html/template"
 	"reflect"
 	"regexp"
 	"strings"
@@ -254,3 +256,20 @@ type NameingSqlArgInfo struct {
 // type NamingSqlMethod struct {
 // 	DbResultObjName []interface{}
 // }
+
+
+func RendSql(tmplStr string, params any) (string, error){
+	// 步骤1：解析并渲染模板（得到带@属性名的SQL）
+	tmpl, err := template.New("sql_tmpl").Funcs(template.FuncMap{
+		"len": func(v []string) int { return len(v) },
+	}).Parse(tmplStr)
+	if err != nil {
+		return "", fmt.Errorf("解析模板失败：%v", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, params); err != nil {
+		return "", fmt.Errorf("渲染模板失败：%v", err)
+	}
+	rawSQL := buf.String()
+	return rawSQL, nil
+}

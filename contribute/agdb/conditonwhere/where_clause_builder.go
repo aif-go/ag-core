@@ -11,16 +11,16 @@ import (
 type SQLOperator string
 
 const (
-	SQLOpEq        SQLOperator = "="
-	SQLOpNeq       SQLOperator = "!="
-	SQLOpGt        SQLOperator = ">"
-	SQLOpLt        SQLOperator = "<"
-	SQLOpGte       SQLOperator = ">="
-	SQLOpLte       SQLOperator = "<="
+	SQLOpEq  SQLOperator = "="
+	SQLOpNeq SQLOperator = "!="
+	SQLOpGt  SQLOperator = ">"
+	SQLOpLt  SQLOperator = "<"
+	SQLOpGte SQLOperator = ">="
+	SQLOpLte SQLOperator = "<="
 	// SQLOpLike      SQLOperator = "like"
-	SQLOpIn        SQLOperator = "in"
-	SQLOpNotIn     SQLOperator = "not in"
-	SQLOpBetween   SQLOperator = "between"
+	SQLOpIn      SQLOperator = "in"
+	SQLOpNotIn   SQLOperator = "not in"
+	SQLOpBetween SQLOperator = "between"
 )
 
 // SQLLogicOperator 定义逻辑连接符
@@ -43,7 +43,9 @@ type WhereCondition struct {
 
 // WhereClauseBuilder 高性能的 WHERE 条件构建器
 type WhereClauseBuilder struct {
-	root *WhereCondition
+	root         *WhereCondition
+	pendingLogic SQLLogicOperator  // 待添加到下一个条件的逻辑
+	groupStack   []*WhereCondition // 嵌套组栈，用于链式嵌套
 }
 
 // NewWhereClauseBuilder 创建新的 WhereClauseBuilder
@@ -53,11 +55,31 @@ func NewWhereClauseBuilder() *WhereClauseBuilder {
 
 // AddCondition 添加一个条件
 func (b *WhereClauseBuilder) AddCondition(cond *WhereCondition) *WhereClauseBuilder {
-	if b.root == nil {
+	if cond != nil && cond.Logic == "" {
+		logic := b.pendingLogic
+		if logic == "" {
+			// 如果当前有嵌套组，第一个子条件继承组的 Logic
+			if len(b.groupStack) > 0 {
+				group := b.groupStack[len(b.groupStack)-1]
+				logic = group.Logic
+			}
+			if logic == "" {
+				logic = SQLLogicAnd
+			}
+		}
+		cond.Logic = logic
+	}
+	b.pendingLogic = ""
+
+	target := b.root
+	if len(b.groupStack) > 0 {
+		target = b.groupStack[len(b.groupStack)-1]
+	}
+
+	if target == nil {
 		b.root = cond
 	} else {
-		// 将新条件添加到根的子条件中
-		b.root.Children = append(b.root.Children, cond)
+		target.Children = append(target.Children, cond)
 	}
 	return b
 }
@@ -80,109 +102,148 @@ func (b *WhereClauseBuilder) SetRoot(cond *WhereCondition) *WhereClauseBuilder {
 
 // Eq 添加等于条件
 func (b *WhereClauseBuilder) Eq(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpEq,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Neq 添加不等于条件
 func (b *WhereClauseBuilder) Neq(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpNeq,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Gt 添加大于条件
 func (b *WhereClauseBuilder) Gt(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpGt,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Lt 添加小于条件
 func (b *WhereClauseBuilder) Lt(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpLt,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Gte 添加大于等于条件
 func (b *WhereClauseBuilder) Gte(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpGte,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Lte 添加小于等于条件
 func (b *WhereClauseBuilder) Lte(field string, value interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpLte,
 		Value:    value,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // In 添加 IN 条件
 func (b *WhereClauseBuilder) In(field string, values ...interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpIn,
 		Value:    values,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // NotIn 添加 NOT IN 条件
 func (b *WhereClauseBuilder) NotIn(field string, values ...interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpNotIn,
 		Value:    values,
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Between 添加 BETWEEN 条件
 func (b *WhereClauseBuilder) Between(field string, min, max interface{}) *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
 	return b.AddCondition(&WhereCondition{
 		Field:    field,
 		Operator: SQLOpBetween,
 		Value:    []interface{}{min, max},
-		Logic:    SQLLogicAnd,
+		Logic:    logic,
 	})
 }
 
 // Or 设置下一个条件的逻辑为 OR
 func (b *WhereClauseBuilder) Or() *WhereClauseBuilder {
-	if b.root != nil && len(b.root.Children) > 0 {
-		lastChild := b.root.Children[len(b.root.Children)-1]
-		lastChild.Logic = SQLLogicOr
-	}
+	b.pendingLogic = SQLLogicOr
 	return b
 }
 
 // And 设置下一个条件的逻辑为 AND
 func (b *WhereClauseBuilder) And() *WhereClauseBuilder {
-	if b.root != nil && len(b.root.Children) > 0 {
-		lastChild := b.root.Children[len(b.root.Children)-1]
-		lastChild.Logic = SQLLogicAnd
-	}
+	b.pendingLogic = SQLLogicAnd
 	return b
 }
 
@@ -191,9 +252,52 @@ func (b *WhereClauseBuilder) Group(conditions ...*WhereCondition) *WhereClauseBu
 	if len(conditions) == 0 {
 		return b
 	}
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
+
 	return b.AddCondition(&WhereCondition{
 		Children: conditions,
+		Logic:    logic,
 	})
+}
+
+// BeginGroup 开始一个嵌套组，后续条件添加到组内
+func (b *WhereClauseBuilder) BeginGroup() *WhereClauseBuilder {
+	logic := b.pendingLogic
+	if logic == "" {
+		logic = SQLLogicAnd
+	}
+	b.pendingLogic = ""
+
+	group := &WhereCondition{
+		Children: make([]*WhereCondition, 0),
+		Logic:    logic, // 组本身的 Logic（用于连接外部条件）
+	}
+
+	target := b.root
+	if len(b.groupStack) > 0 {
+		target = b.groupStack[len(b.groupStack)-1]
+	}
+
+	if target == nil {
+		b.root = group
+	} else {
+		target.Children = append(target.Children, group)
+	}
+
+	b.groupStack = append(b.groupStack, group)
+	return b
+}
+
+// EndGroup 结束当前嵌套组，返回上一级
+func (b *WhereClauseBuilder) EndGroup() *WhereClauseBuilder {
+	if len(b.groupStack) > 0 {
+		b.groupStack = b.groupStack[:len(b.groupStack)-1]
+	}
+	return b
 }
 
 // AndGroup 添加一个 AND 连接的条件组
@@ -212,6 +316,7 @@ func (b *WhereClauseBuilder) OrGroup(conditions ...*WhereCondition) *WhereClause
 	if len(conditions) == 0 {
 		return b
 	}
+	b.pendingLogic = SQLLogicOr
 	for _, c := range conditions {
 		c.Logic = SQLLogicOr
 	}
@@ -224,12 +329,12 @@ func (b *WhereClauseBuilder) Build() (string, []interface{}, error) {
 	if b.root == nil {
 		return "", nil, nil
 	}
-	
+
 	sql, args, err := buildWhereCondition(b.root)
 	if err != nil {
 		return "", nil, err
 	}
-	
+
 	if sql == "" {
 		return "", nil, nil
 	}
@@ -242,10 +347,15 @@ func buildWhereCondition(cond *WhereCondition) (string, []interface{}, error) {
 	if cond == nil {
 		return "", nil, nil
 	}
-	
+
+	// 如果是纯嵌套组（没有 Field，只有 Children）
+	if cond.Field == "" && len(cond.Children) > 0 {
+		return buildNestedGroup(cond)
+	}
+
 	var sqlParts []string
 	var args []interface{}
-	
+
 	// 构建当前条件
 	if cond.Field != "" {
 		conditionSQL, conditionArgs, err := buildSingleCondition(cond)
@@ -257,51 +367,100 @@ func buildWhereCondition(cond *WhereCondition) (string, []interface{}, error) {
 			args = append(args, conditionArgs...)
 		}
 	}
-	
-	// 构建子条件（嵌套条件）
+
+	// 构建子条件
 	if len(cond.Children) > 0 {
-		for i, child := range cond.Children {
+		for _, child := range cond.Children {
 			childSQL, childArgs, err := buildWhereCondition(child)
 			if err != nil {
 				return "", nil, err
 			}
-			
+
 			if childSQL != "" {
-				// 如果已有条件，先添加逻辑连接符
+				// 如果已有条件，用当前 child 的 Logic 连接
 				if len(sqlParts) > 0 {
 					logic := string(child.Logic)
 					if logic == "" {
-						logic = string(SQLLogicAnd) // 默认使用 AND
+						logic = string(SQLLogicAnd)
 					}
 					sqlParts = append(sqlParts, logic)
 				}
 				sqlParts = append(sqlParts, childSQL)
 				args = append(args, childArgs...)
 			}
-			
-			// 如果不是最后一个子条件，添加逻辑连接符
-			if i < len(cond.Children)-1 {
-				nextChild := cond.Children[i+1]
-				if nextChild.Logic != "" {
-					sqlParts = append(sqlParts, string(nextChild.Logic))
-				} else {
-					sqlParts = append(sqlParts, string(SQLLogicAnd))
-				}
-			}
 		}
 	}
-	
+
 	if len(sqlParts) == 0 {
 		return "", nil, nil
 	}
-	
-	// 如果有多个部分，需要用括号包裹
+
+	// 改进括号逻辑：只在需要时添加括号
 	sql := strings.Join(sqlParts, " ")
-	if strings.Count(sql, " ") > 1 {
+	if needParentheses(sqlParts) {
 		sql = "(" + sql + ")"
 	}
-	
+
 	return sql, args, nil
+}
+
+// buildNestedGroup 构建嵌套组（没有 Field，只有 Children）
+func buildNestedGroup(cond *WhereCondition) (string, []interface{}, error) {
+	if len(cond.Children) == 0 {
+		return "", nil, nil
+	}
+
+	var sqlParts []string
+	var args []interface{}
+
+	// 递归构建每个子条件
+	for _, child := range cond.Children {
+		childSQL, childArgs, err := buildWhereCondition(child)
+		if err != nil {
+			return "", nil, err
+		}
+
+		if childSQL != "" {
+			// 如果已有条件，添加逻辑连接符
+			// 使用当前子条件自身的 Logic（表示它与前一个条件的连接方式）
+			if len(sqlParts) > 0 {
+				logic := string(child.Logic)
+				if logic == "" {
+					logic = string(SQLLogicAnd)
+				}
+				sqlParts = append(sqlParts, logic)
+			}
+			sqlParts = append(sqlParts, childSQL)
+			args = append(args, childArgs...)
+		}
+	}
+
+	if len(sqlParts) == 0 {
+		return "", nil, nil
+	}
+
+	sql := strings.Join(sqlParts, " ")
+	// 嵌套组始终用括号包裹
+	sql = "(" + sql + ")"
+
+	return sql, args, nil
+}
+
+// needParentheses 检查是否需要括号
+// 只有存在 OR 和 AND 混合时才需要括号来保证优先级
+func needParentheses(parts []string) bool {
+	hasOr, hasAnd := false, false
+	for _, p := range parts {
+		if p == "OR" {
+			hasOr = true
+		}
+		if p == "AND" {
+			hasAnd = true
+		}
+	}
+	// 当同时存在 OR 和 AND 时，需要括号来保证优先级
+	// 即: a OR b AND c 应该是 a OR (b AND c)
+	return hasOr && hasAnd
 }
 
 // buildSingleCondition 构建单个条件的 SQL
@@ -309,7 +468,7 @@ func buildSingleCondition(cond *WhereCondition) (string, []interface{}, error) {
 	if cond.Field == "" {
 		return "", nil, nil
 	}
-	
+
 	switch cond.Operator {
 	case SQLOpEq:
 		return fmt.Sprintf("%s = ?", cond.Field), []interface{}{cond.Value}, nil

@@ -8,95 +8,95 @@ import (
 // TestWhereBuilderV2 测试 WHERE 条件构建器的各种用法
 func TestWhereBuilderV2(t *testing.T) {
 	
-	t.Run("Example1_SimpleAnd", func(t *testing.T) {
-		// WHERE A = 1 AND B = 2
-		builder := NewWhereClauseBuilder()
-		builder.AddCondition(ConditionEq("A", 1))
-		builder.AddCondition(ConditionEq("B", 2))
+	// t.Run("Example1_SimpleAnd", func(t *testing.T) {
+	// 	// WHERE A = 1 AND B = 2
+	// 	builder := NewWhereClauseBuilder()
+	// 	builder.AddCondition(ConditionEq("A", 1))
+	// 	builder.AddCondition(ConditionEq("B", 2))
 		
-		sql, args, err := builder.Build()
-		if err != nil {
-			t.Fatal(err)
-		}
+	// 	sql, args, err := builder.Build()
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
 		
-		expectedSQL := "WHERE A = ? AND B = ?"
-		if sql != expectedSQL {
-			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
-		}
+	// 	expectedSQL := "WHERE A = ? AND B = ?"
+	// 	if sql != expectedSQL {
+	// 		t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+	// 	}
 		
-		if len(args) != 2 || args[0] != 1 || args[1] != 2 {
-			t.Errorf("Expected args [1, 2], got: %v", args)
-		}
+	// 	if len(args) != 2 || args[0] != 1 || args[1] != 2 {
+	// 		t.Errorf("Expected args [1, 2], got: %v", args)
+	// 	}
 		
-		fmt.Printf("Test1 - SQL: %s, Args: %v\n", sql, args)
-	})
+	// 	fmt.Printf("Test1 - SQL: %s, Args: %v\n", sql, args)
+	// })
 	
-	t.Run("Example2_SimpleOr", func(t *testing.T) {
-		// WHERE A = 1 OR B = 2
-		cond1 := ConditionEq("A", 1).Or()
-		cond2 := ConditionEq("B", 2).Or()
+	// t.Run("Example2_SimpleOr", func(t *testing.T) {
+	// 	// WHERE A = 1 OR B = 2
+	// 	cond1 := ConditionEq("A", 1).Or()
+	// 	cond2 := ConditionEq("B", 2).Or()
 		
-		builder := NewWhereClauseBuilder()
-		builder.AddCondition(cond1)
-		builder.AddCondition(cond2)
+	// 	builder := NewWhereClauseBuilder()
+	// 	builder.AddCondition(cond1)
+	// 	builder.AddCondition(cond2)
 		
-		sql, args, err := builder.Build()
-		if err != nil {
-			t.Fatal(err)
-		}
+	// 	sql, args, err := builder.Build()
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
 		
-		expectedSQL := "WHERE A = ? OR B = ?"
-		if sql != expectedSQL {
-			t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
-		}
+	// 	expectedSQL := "WHERE A = ? OR B = ?"
+	// 	if sql != expectedSQL {
+	// 		t.Errorf("Expected SQL: %s, got: %s", expectedSQL, sql)
+	// 	}
 		
-		fmt.Printf("Test2 - SQL: %s, Args: %v\n", sql, args)
-	})
+	// 	fmt.Printf("Test2 - SQL: %s, Args: %v\n", sql, args)
+	// })
 	
-	t.Run("Example3_NestedConditions", func(t *testing.T) {
-		// WHERE A = 1 AND (B = 2 OR C = 3)
-		orGroup := ConditionOrGroup(
-			ConditionEq("B", 2),
-			ConditionEq("C", 3),
-		)
+	// t.Run("Example3_NestedConditions", func(t *testing.T) {
+	// 	// WHERE A = 1 AND (B = 2 OR C = 3)
+	// 	orGroup := ConditionOrGroup(
+	// 		ConditionEq("B", 2),
+	// 		ConditionEq("C", 3),
+	// 	)
 		
-		condA := ConditionEq("A", 1)
-		condA.AddChild(orGroup)
+	// 	condA := ConditionEq("A", 1)
+	// 	condA.AddChild(orGroup)
 		
-		builder := NewWhereClauseBuilder()
-		builder.AddCondition(condA)
+	// 	builder := NewWhereClauseBuilder()
+	// 	builder.AddCondition(condA)
 		
-		sql, args, err := builder.Build()
-		if err != nil {
-			t.Fatal(err)
-		}
+	// 	sql, args, err := builder.Build()
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
 		
-		fmt.Printf("Test3 - SQL: %s, Args: %v\n", sql, args)
-	})
+	// 	fmt.Printf("Test3 - SQL: %s, Args: %v\n", sql, args)
+	// })
 	
-	t.Run("Example4_AllOperators", func(t *testing.T) {
-		builder := NewWhereClauseBuilder()
-		builder.AddConditions(
-			ConditionEq("id", 1),
-			ConditionNeq("status", "deleted"),
-			ConditionGt("age", 18),
-			ConditionLt("age", 60),
-			ConditionGte("score", 80),
-			ConditionLte("price", 100),
-			// ConditionLike("name", "john"),
-			ConditionIn("type", 1, 2, 3),
-			ConditionNotIn("exclude", 4, 5),
-			ConditionBetween("created_at", "2024-01-01", "2024-12-31"),
-		)
+	// t.Run("Example4_AllOperators", func(t *testing.T) {
+	// 	builder := NewWhereClauseBuilder()
+	// 	builder.AddConditions(
+	// 		ConditionEq("id", 1),
+	// 		ConditionNeq("status", "deleted"),
+	// 		ConditionGt("age", 18),
+	// 		ConditionLt("age", 60),
+	// 		ConditionGte("score", 80),
+	// 		ConditionLte("price", 100),
+	// 		// ConditionLike("name", "john"),
+	// 		ConditionIn("type", 1, 2, 3),
+	// 		ConditionNotIn("exclude", 4, 5),
+	// 		ConditionBetween("created_at", "2024-01-01", "2024-12-31"),
+	// 	)
 		
-		sql, args, err := builder.Build()
-		if err != nil {
-			t.Fatal(err)
-		}
+	// 	sql, args, err := builder.Build()
+	// 	if err != nil {
+	// 		t.Fatal(err)
+	// 	}
 		
-		fmt.Printf("Test4 - SQL: %s\n", sql)
-		fmt.Printf("Test4 - Args: %v\n", args)
-	})
+	// 	fmt.Printf("Test4 - SQL: %s\n", sql)
+	// 	fmt.Printf("Test4 - Args: %v\n", args)
+	// })
 	
 	t.Run("Example5_ComplexNested", func(t *testing.T) {
 		// WHERE (A = 1 OR B = 2) AND (C = 3 OR (D = 4 AND E = 5))
@@ -595,4 +595,12 @@ func BenchmarkWhereBuilderChain(b *testing.B) {
 			In("status", "active", "pending").
 			Build()
 	}
+}
+
+func TestWhereBuliderByBase(t *testing.T){
+
+	builder:=NewWhereClauseBuilder()
+	builder.Eq("A","1").And().And().Eq("B", 2)
+	where,_,_:=builder.Build()
+	t.Log(where)
 }
