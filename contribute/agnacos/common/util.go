@@ -25,11 +25,23 @@ func ParseIPPort(input string) ([]IpPort, error) {
 		// 分割IP和端口
 		parts := strings.Split(entry, ":")
 
-		// 验证IP格式
-		ip := net.ParseIP(parts[0])
-		if ip == nil {
-			return nil, fmt.Errorf("无效的IP地址: %s", parts[0])
+		host := parts[0]
+		if host == "" {
+			return nil, fmt.Errorf("无效的主机地址: %s", parts[0])
 		}
+
+		// 验证主机格式（IP地址或域名）
+		ip := net.ParseIP(host)
+		if ip != nil {
+			// 是有效的IP地址，使用标准化格式
+			host = ip.String()
+		}
+		// else {
+		// 	// 可能是域名，进行基本验证 TODO
+		// 	if !isValidDomain(host) {
+		// 		return nil, fmt.Errorf("无效的域名格式: %s", host)
+		// 	}
+		// }
 
 		// 处理端口
 		var port uint64
@@ -52,7 +64,7 @@ func ParseIPPort(input string) ([]IpPort, error) {
 		}
 
 		result = append(result, IpPort{
-			Ip:   ip.String(),
+			Ip:   host,
 			Port: port,
 		})
 	}
