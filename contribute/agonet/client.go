@@ -69,6 +69,8 @@ func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
 			*errgroup.Group
 			ctx context.Context
 		}{eg, ctx},
+
+		isClient: true,
 	}
 
 	eng.eventLoops = new(leastConnectionsLoadBalancer)
@@ -80,6 +82,8 @@ func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
 func (cli *client) Start() error {
 	numEventLoop := determineEventLoops(cli.opts)
 	slog.Info(fmt.Sprintf("Starting gnet client with %d event loops", numEventLoop))
+
+	cli.eng.isClient = true
 
 	cli.eng.eventHandler.OnBoot(Engine{cli.eng})
 

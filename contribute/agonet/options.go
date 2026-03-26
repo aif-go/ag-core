@@ -43,12 +43,11 @@ type Options struct {
 
 	KeepAlive KeepAlive
 
-	TLSType     TLSType
-	CLI_TLSType TLSType
-
+	TLSType    TLSType
 	TLSConfig  *tls.Config
 	TLCPConfig *tlcp.Config
 
+	CLI_TLSType    TLSType
 	CLI_TLSConfig  *tls.Config
 	CLI_TLCPConfig *tlcp.Config
 

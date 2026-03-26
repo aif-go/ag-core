@@ -7,6 +7,8 @@ var (
 	ErrEmptyEngine = errors.New("agonet: the internal engine is empty")
 	// ErrEngineShutdown occurs when server is closing.
 	ErrEngineShutdown = errors.New("agonet: server is going to be shutdown")
+	// ErrConnectionShutdown occurs when connection is closing.
+	ErrConnectionShutdown = errors.New("agonet: connection is going to be shutdown")
 	// ErrEngineInShutdown occurs when attempting to shut the server down more than once.
 	ErrEngineInShutdown = errors.New("agonet: server is already in shutdown")
 	// ErrAcceptSocket occurs when acceptor does not accept the new connection properly.
@@ -40,4 +42,10 @@ var (
 
 	// ErrTLCPConfigIsNil occurs when trying to use TLCP without providing a valid TLCPConfig.
 	ErrTLCPConfigIsNil = errors.New("agonet: TLCPConfig is nil")
+
+	ErrEventLoopQueueFull = errors.New("agonet: event-loop queue is full")
+
+	ErrUnknownAddStrategy = errors.New("agonet: unknown add strategy")
+
+	ErrIncompletePacket = errors.New("agonet: incomplete packet")
 )

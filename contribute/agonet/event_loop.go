@@ -2,12 +2,15 @@ package agonet
 
 import (
 	"ag-core/contribute/agonet/pkg/aerrors"
+	goroutine "ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"sync/atomic"
+
+	"github.com/petermattis/goid"
 )
 
 type eventloop struct {
@@ -17,6 +20,8 @@ type eventloop struct {
 	connCount    int32              // number of active connections in event-loop
 	connections  map[*conn]struct{} // TCP connection map: fd -> conn
 	eventHandler EventHandler       // user eventHandler
+
+	goroutineId int64
 }
 
 func (el *eventloop) run() (err error) {
@@ -32,6 +37,10 @@ func (el *eventloop) run() (err error) {
 	// 	runtime.LockOSThread()
 	// 	defer runtime.UnlockOSThread()
 	// }
+
+	// 获取协程id
+	id := goid.Get()
+	el.goroutineId = id
 
 	for i := range el.ch {
 		switch v := i.(type) {
@@ -97,6 +106,7 @@ func (el *eventloop) read(c *conn) error {
 	_, err := c.inboundBuffer.Write(c.buffer.B)
 
 	if err != nil {
+		// return el.close(c, err)
 		// TODO 判断异常，长度不够的要扩容inboundBuffer
 	}
 
@@ -151,13 +161,39 @@ func (el *eventloop) handleAction(c *conn, action Action) error {
 var _ EventLoop = (*eventloop)(nil)
 
 func (el *eventloop) Register(ctx context.Context, addr net.Addr) (<-chan RegisteredResult, error) {
+	// TODO
 	return nil, nil
 }
 
 func (el *eventloop) Enroll(ctx context.Context, c net.Conn) (<-chan RegisteredResult, error) {
+	// TODO
 	return nil, nil
 }
 
 func (el *eventloop) Close(Conn) error {
+	// TODO
 	return nil
+}
+
+// Deprecated
+func (el *eventloop) InEventLoop() bool {
+	// check goroutine id
+	cid := goid.Get()
+
+	return el.goroutineId == cid
+}
+
+func (el *eventloop) ExecuteInEventLoop(fn func() error) error {
+	var err error
+	select {
+	case el.ch <- fn:
+	default:
+		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
+		err = goroutine.DefaultWorkerPool.Submit(func() {
+			el.ch <- fn
+		})
+		// return aerrors.ErrEventLoopQueueFull //TODO 事件循环队列满的情况如何处理，是否异常
+	}
+
+	return err
 }

@@ -54,7 +54,7 @@ func newStreamConn(el *eventloop, nc net.Conn, ctx any) (c *conn) {
 	// inboundBuffer := ring.New(0x10000) // 64KB 环形缓冲区
 	// rawReader := bufio.NewReader(nc)
 	// rawWriter := bufio.NewWriter(nc)
-	inboundBytes := byteslice.Get(1024 * 1024 * 1)
+	inboundBytes := byteslice.Get(1024 * 1024 * 1) // TODO 初始缓冲区过大
 	// ringBuffer := ringbuffer.New(1024) // TODO 环形缓冲区大小
 	ringBuffer := ringbuffer.NewBuffer(inboundBytes)
 	return &conn{
@@ -160,7 +160,7 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 		return
 	}
 
-	// buf = make([]byte, n) // TODO 考虑从池中获取
+	// buf = make([]byte, n)
 	buf = byteslice.Get(n)
 	_, err = c.Read(buf)
 	return
@@ -231,6 +231,10 @@ func (c *conn) Discard(n int) (discarded int, err error) {
 	remaining := n - inBufferLen
 	c.buffer.B = c.buffer.B[remaining:]
 	return n, nil
+}
+
+func (c *conn) ReadableBytes() int {
+	return c.inboundBuffer.Length() + c.buffer.Len()
 }
 
 // ### conn implements Writer ###Q

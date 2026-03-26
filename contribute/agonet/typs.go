@@ -61,6 +61,11 @@ type EventLoop interface {
 	// It must be called on the same event-loop that the connection belongs to.
 	// This method is not concurrency-safe, you must invoke it on the event loop.
 	Close(Conn) error
+
+	// Deprecated
+	InEventLoop() bool
+
+	ExecuteInEventLoop(fn func() error) error
 }
 
 // RegisteredResult is the result of a Register call.
@@ -82,6 +87,9 @@ type Reader interface {
 
 	// Discard advances the inbound buffer with next n bytes, returning the number of bytes discarded.
 	Discard(n int) (discarded int, err error)
+
+	// ReadableBytes returns the number of bytes that are available to read.
+	ReadableBytes() int
 }
 
 // Writer is an interface that consists of a number of methods for writing that Conn must implement.
