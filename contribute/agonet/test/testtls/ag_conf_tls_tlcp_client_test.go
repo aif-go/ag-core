@@ -12,8 +12,9 @@ agonet:
   client:
     config:
       security:
-        //type: tls
-        type: none
+        type: tlcp
+        type1: tls
+        type2: none
         certsDir: ./certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
