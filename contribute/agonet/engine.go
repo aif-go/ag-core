@@ -19,6 +19,10 @@ type Engine struct {
 	eng *engine
 }
 
+func (eng *Engine) IsClient() bool {
+	return eng.eng.isClient
+}
+
 type engine struct {
 	// listeners    map[string]net.Listener
 	addrs []string
@@ -36,6 +40,8 @@ type engine struct {
 
 		ctx context.Context
 	}
+
+	isClient bool
 }
 
 func (eng *engine) isShutdown() bool {

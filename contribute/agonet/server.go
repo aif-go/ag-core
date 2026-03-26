@@ -61,6 +61,10 @@ func (s *server) Stop() error {
 }
 
 func (s *server) run() error {
+	if s.eventHandler == nil {
+		return fmt.Errorf("agonet: no event handler")
+	}
+
 	addrs := s.addrs
 	opts := s.opts
 

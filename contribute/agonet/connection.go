@@ -30,14 +30,13 @@ type openConn struct {
 }
 
 type conn struct {
-	ctx    any // user-defined context
-	loop   *eventloop
-	buffer *bytebufferpool.ByteBuffer // reuse memory of inbound data as a temporary buffer
-	cache  []byte                     // temporary cache for the inbound data
-	// net.Conn            // original connection
-	rawConn    net.Conn // original connection
-	localAddr  net.Addr // local server addr
-	remoteAddr net.Addr // remote addr
+	ctx        any // user-defined context
+	loop       *eventloop
+	buffer     *bytebufferpool.ByteBuffer // reuse memory of inbound data as a temporary buffer
+	cache      []byte                     // temporary cache for the inbound data
+	rawConn    net.Conn                   // original connection
+	localAddr  net.Addr                   // local server addr
+	remoteAddr net.Addr                   // remote addr
 	// inboundBuffer elastic.RingBuffer // buffer for data from the remote
 	// inboundBuffer *bytebufferpool.ByteBuffer
 	inboundBytes  []byte
@@ -55,7 +54,7 @@ func newStreamConn(el *eventloop, nc net.Conn, ctx any) (c *conn) {
 	// inboundBuffer := ring.New(0x10000) // 64KB 环形缓冲区
 	// rawReader := bufio.NewReader(nc)
 	// rawWriter := bufio.NewWriter(nc)
-	inboundBytes := byteslice.Get(1024 * 1024 * 64)
+	inboundBytes := byteslice.Get(1024 * 1024 * 1) // TODO 初始缓冲区过大
 	// ringBuffer := ringbuffer.New(1024) // TODO 环形缓冲区大小
 	ringBuffer := ringbuffer.NewBuffer(inboundBytes)
 	return &conn{
@@ -161,7 +160,7 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 		return
 	}
 
-	// buf = make([]byte, n) // TODO 考虑从池中获取
+	// buf = make([]byte, n)
 	buf = byteslice.Get(n)
 	_, err = c.Read(buf)
 	return
@@ -234,6 +233,10 @@ func (c *conn) Discard(n int) (discarded int, err error) {
 	return n, nil
 }
 
+func (c *conn) ReadableBytes() int {
+	return c.inboundBuffer.Length() + c.buffer.Len()
+}
+
 // ### conn implements Writer ###Q
 var _ Writer = (*conn)(nil)
 
@@ -244,6 +247,28 @@ func (c *conn) Write(p []byte) (n int, err error) {
 		return 0, net.ErrClosed
 	}
 	return c.rawConn.Write(p)
+}
+
+func (c *conn) AsyncWrite(buf []byte, cb AsyncCallback) error {
+	fn := func() error {
+		_, err := c.Write(buf)
+		if cb != nil {
+			_ = cb(c, err)
+		}
+		return err
+	}
+
+	var err error
+	select {
+	case c.loop.ch <- fn:
+	default:
+		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
+		err = goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.ch <- fn
+		})
+	}
+
+	return err
 }
 
 // ReadFrom implements io.ReaderFrom.
@@ -332,6 +357,11 @@ func (c *conn) release() {
 	if c.rawConn != nil {
 		c.rawConn = nil
 		c.remoteAddr = nil
+	}
+
+	if len(c.cache) > 0 {
+		byteslice.Put(c.cache)
+		c.cache = nil
 	}
 
 	c.inboundBuffer.CloseWithError(nil)

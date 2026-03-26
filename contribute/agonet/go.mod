@@ -6,6 +6,7 @@ require (
 	gitee.com/Trisia/gotlcp v1.4.4
 	github.com/emmansun/gmsm v0.40.1
 	github.com/panjf2000/ants/v2 v2.11.6
+	github.com/petermattis/goid v0.0.0-20260226131333-17d1149c6ac6
 	github.com/smallnest/ringbuffer v0.1.1
 	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/fx v1.24.0
