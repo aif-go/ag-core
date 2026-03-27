@@ -2,27 +2,26 @@ package simple
 
 import "ag-core/contribute/agonet"
 
-type (
-	Message   interface{}
-	Exception error
-)
-
 type Channel interface {
+	// ID get channel id
 	ID() int64
-	Write(Message) error
+	// Pipeline get pipeline
 	Pipeline() Pipeline
+	// EventLoop get event loop
 	EventLoop() agonet.EventLoop
-
-	Close(err error)
+	// IsActive check channel is active
 	IsActive() bool
-
-	Write1([]byte) (n int, err error)
-
 	// LocalAddr local address
 	LocalAddr() string
-
 	// RemoteAddr remote address
 	RemoteAddr() string
+
+	// Write write message to pipeline
+	Write(any) error
+	// Write1 write message to conn
+	Write1([]byte) (n int, err error)
+	// Close close channel
+	Close(err error)
 }
 
 type (
@@ -40,9 +39,12 @@ type (
 		// ServeChannel serve the channel.
 		ServeChannel(channel Channel)
 
-		FireChannelRead(message Message)
-		FireChannelWrite(message Message)
-		FireChannelException(ex Exception)
+		FireChannelActive()
+		FireChannelInactive(ex error)
+		FireChannelRead(message any)
+		FireChannelWrite(message any)
+		FireChannelException(ex error)
+		FireChannelEvent(event any)
 	}
 )
 
@@ -56,19 +58,36 @@ type (
 		OutboundHandler
 	}
 
+	// ActiveHandler defines an active handler
+	ActiveHandler interface {
+		HandleActive(ctx ActiveContext)
+	}
+
+	// InactiveHandler defines an inactive handler
+	InactiveHandler interface {
+		HandleInactive(ctx InactiveContext, ex error)
+	}
+
 	// InboundHandler defines an Inbound handler
 	InboundHandler interface {
 		// HandleRead(ctx InboundContext, message Message) error
-		HandleRead(ctx InboundContext, message Message)
+		HandleRead(ctx InboundContext, message any)
 	}
+
 	// OutboundHandler defines an Outbound handler
 	OutboundHandler interface {
 		// HandleWrite(ctx OutboundContext, message Message) error
-		HandleWrite(ctx OutboundContext, message Message)
+		HandleWrite(ctx OutboundContext, message any)
 	}
+
 	// ExceptionHandler defines an exception handler
 	ExceptionHandler interface {
-		HandleException(ctx ExceptionContext, ex Exception)
+		HandleException(ctx ExceptionContext, ex error)
+	}
+
+	// EventHandler defines an event handler
+	EventHandler interface {
+		HandleEvent(ctx EventContext, event any)
 	}
 
 	// CodecHandler defines an codec handler
@@ -93,26 +112,44 @@ type (
 	HandlerContext interface {
 		Channel() Channel
 		Handler() Handler
-		Write(message Message)
+		Write(message any)
+	}
+
+	// ActiveContext defines an active handler
+	ActiveContext interface {
+		HandlerContext
+		FireActive()
+	}
+
+	// InactiveContext defines an inactive handler
+	InactiveContext interface {
+		HandlerContext
+		FireInactive(ex error)
 	}
 
 	// InboundContext defines an inbound handler
 	InboundContext interface {
 		HandlerContext
 		// HandlerRead(message Message)
-		FireRead(message Message)
+		FireRead(message any)
 	}
 
 	// OutboundContext defines an outbound handler
 	OutboundContext interface {
 		HandlerContext
 		// HandleWrite(message Message)
-		FireWrite(message Message)
+		FireWrite(message any)
 	}
 	// ExceptionContext defines an exception handler
 	ExceptionContext interface {
 		HandlerContext
 		// HandleException(ex Exception)
-		FireExceptionCaught(ex Exception)
+		FireExceptionCaught(ex error)
+	}
+
+	// EventContext defines an event handler
+	EventContext interface {
+		HandlerContext
+		FireEvent(event any)
 	}
 )

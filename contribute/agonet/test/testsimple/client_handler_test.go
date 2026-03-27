@@ -3,7 +3,6 @@ package testsimple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
-	"ag-core/contribute/agonet/simple/codec"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -26,8 +25,8 @@ func TestClientHandler(t *testing.T) {
 		ctx.FireRead(msg)
 	})
 
-	lengthDecod := codec.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
-	lengthEncod := codec.NewLengthFieldEncoder(nil, 2, 0, false)
+	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
+	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
 	pipelineInitializer := func(c simple.Channel) error {
 		c.Pipeline().
 			// AddLast(&echoHandler{}).

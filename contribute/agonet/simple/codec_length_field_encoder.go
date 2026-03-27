@@ -1,7 +1,6 @@
-package codec
+package simple
 
 import (
-	"ag-core/contribute/agonet/simple"
 	"ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 )
@@ -42,7 +41,7 @@ func (l *lengthFieldEncoder) Name() string {
 	return "length-field-encoder"
 }
 
-func (l *lengthFieldEncoder) HandleWrite(ctx simple.OutboundContext, message simple.Message) {
+func (l *lengthFieldEncoder) HandleWrite(ctx OutboundContext, message any) {
 	bodyBytes := utils.MustToBytes(message)
 
 	length := len(bodyBytes) + l.lengthAdjustment

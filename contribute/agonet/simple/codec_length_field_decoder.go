@@ -1,9 +1,8 @@
-package codec
+package simple
 
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/pkg/aerrors"
-	"ag-core/contribute/agonet/simple"
 	"ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 	"errors"
@@ -12,10 +11,10 @@ import (
 )
 
 var (
-	// _ simple.CodecHandler = (*lengthFieldDecoder)(nil)
+	// _ CodecHandler = (*lengthFieldDecoder)(nil)
 	// _ Codec               = (*lengthFieldDecoder)(nil)
-	_ simple.InboundHandler = (*lengthFieldDecoder)(nil)
-	_ Decoder               = (*lengthFieldDecoder)(nil)
+	_ InboundHandler = (*lengthFieldDecoder)(nil)
+	_ Decoder        = (*lengthFieldDecoder)(nil)
 )
 
 // LengthFieldCodec create a length field based codec
@@ -59,7 +58,7 @@ type lengthFieldDecoder struct {
 	lengthAdjustment    int              // 包体长度调整的大小，长度域的数值表示的长度加上这个修正值表示的就是带header的包长度
 	initialBytesToStrip int              // 拿到一个完整的数据包之后向业务解码器传递之前，应该跳过多少字节
 
-	// simple.OutboundHandler
+	// OutboundHandler
 	// Encoder
 }
 
@@ -67,7 +66,7 @@ func (*lengthFieldDecoder) Name() string {
 	return "length-field-decoder"
 }
 
-func (l *lengthFieldDecoder) HandleRead(ctx simple.InboundContext, message simple.Message) {
+func (l *lengthFieldDecoder) HandleRead(ctx InboundContext, message any) {
 	// reader := utils.MustToReader(message)
 	reader, ok := message.(agonet.Reader)
 	if ok {

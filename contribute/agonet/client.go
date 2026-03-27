@@ -81,7 +81,7 @@ func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
 
 func (cli *client) Start() error {
 	numEventLoop := determineEventLoops(cli.opts)
-	slog.Info(fmt.Sprintf("Starting gnet client with %d event loops", numEventLoop))
+	slog.Info(fmt.Sprintf("Starting agonet client with %d event loops", numEventLoop))
 
 	cli.eng.isClient = true
 
@@ -139,16 +139,6 @@ func (cli *client) DialContext(network, addr string, ctx any) (Conn, error) {
 			return nil, aerrors.ErrTLSConfigIsNil
 		}
 		c, err = tls.Dial(network, addr, tlsCfg)
-
-		// tlsc, err := tls.Dial(network, addr, cli.opts.TLSConfig)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// err = tlsc.Handshake()
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// c = tlsc
 	case TLSType_TLCP:
 		tlcpCfg := cli.opts.CliTLCPConfig()
 		if tlcpCfg == nil {
@@ -156,21 +146,11 @@ func (cli *client) DialContext(network, addr string, ctx any) (Conn, error) {
 		}
 		c, err = tlcp.Dial(network, addr, tlcpCfg)
 
-		// tlcpc, err := tlcp.Dial(network, addr, cli.opts.TLCPConfig)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// err = tlcpc.Handshake()
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// c = tlcpc
 	default:
 		c, err = net.Dial(network, addr)
 		// return nil, aerrors.ErrUnsupportedProtocol
 	}
 
-	// c, err = tls.Dial(network, addr, cli.opts.TLSConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +172,7 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	case *net.UnixConn: // 支持 Unix 域套接字连接
 	case *net.TCPConn: // 支持 TCP 连接
 	case *tls.Conn: // 支持 TLS 连接
-		// case *gmtls.Conn: // 支持 gmtls实现的国密TLCP连接
+	// case *gmtls.Conn: // 支持 gmtls实现的国密TLCP连接
 	case *tlcp.Conn: // 支持 TLCP 连接
 	default:
 		return nil, aerrors.ErrUnsupportedProtocol

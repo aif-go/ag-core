@@ -60,12 +60,30 @@ type EventLoop interface {
 	// Close closes the given Conn that belongs to the current event-loop.
 	// It must be called on the same event-loop that the connection belongs to.
 	// This method is not concurrency-safe, you must invoke it on the event loop.
-	Close(Conn) error
+	Close(Conn, error) error
 
 	// Deprecated
 	InEventLoop() bool
 
-	ExecuteInEventLoop(fn func() error) error
+	Execute(ctx context.Context, runnable Runnable) error
+}
+
+// Runnable defines the common protocol of an execution on an event-loop.
+// This interface should be implemented and passed to an event-loop in some way,
+// then the event-loop will invoke Run to perform the execution.
+// !!!Caution: Run must not contain any blocking operations like heavy disk or
+// network I/O, or else it will block the event-loop.
+type Runnable interface {
+	// Run is about to be executed by the event-loop.
+	Run(ctx context.Context) error
+}
+
+// RunnableFunc is an adapter to allow the use of ordinary function as a Runnable.
+type RunnableFunc func(ctx context.Context) error
+
+// Run executes the RunnableFunc itself.
+func (fn RunnableFunc) Run(ctx context.Context) error {
+	return fn(ctx)
 }
 
 // RegisteredResult is the result of a Register call.

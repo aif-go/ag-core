@@ -3,7 +3,6 @@ package testsimple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
-	"ag-core/contribute/agonet/simple/codec"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
@@ -35,29 +34,29 @@ func TestServerHandler(t *testing.T) {
 	})
 
 	// lengthDecod := lengthDecod.NewLengthFieldCodec(binary.BigEndian, 1024, 0, 4, 0, 0)
-	lengthDecod := codec.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
-	// lengthDecod := codec.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
-	lengthEncod := codec.NewLengthFieldEncoder(nil, 2, 0, false)
+	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
+	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
 
-	custCodec := codec.NewSimpleCodec(
+	custCodec := simple.NewSimpleCodec(
 		"custCodec",
-		func(msg []byte) ([][]byte, error) {
+		func(msg []byte) (out []any, err error) {
 			fmt.Println("custdecode msg:", string(msg))
-			return [][]byte{msg}, nil
+			return out, nil
 		},
-		func(msg []byte) ([]byte, error) {
+		func(msg []byte) ([]any, error) {
 			fmt.Println("custencode msg:", string(msg))
-			return msg, nil
+			return []any{msg}, nil
 		},
 	)
 
-	custCodec2 := &codec.SimpleCodec[[]byte, []byte]{
+	custCodec2 := &simple.SimpleCodec[[]byte, []byte]{
 		CodeName: "custCodec2",
-		Encode: func(msg []byte) ([]byte, error) {
-			return msg, nil
+		Encode: func(msg []byte) ([]any, error) {
+			return []any{msg}, nil
 		},
-		Decode: func(msg []byte) ([][]byte, error) {
-			return [][]byte{msg}, nil
+		Decode: func(msg []byte) ([]any, error) {
+			return []any{msg}, nil
 		},
 	}
 
@@ -104,7 +103,7 @@ func TestServerHandler(t *testing.T) {
 type echoHandler struct {
 }
 
-func (e echoHandler) HandleRead(ctx simple.InboundContext, message simple.Message) {
+func (e echoHandler) HandleRead(ctx simple.InboundContext, message any) {
 	fmt.Println("==== echo HandleRead ====", time.Now().UnixNano())
 	reader, ok := message.(agonet.Reader)
 	msg := ""
@@ -123,13 +122,13 @@ func (e echoHandler) HandleRead(ctx simple.InboundContext, message simple.Messag
 	ctx.FireRead(msg)
 }
 
-func (e echoHandler) HandleWrite(ctx simple.OutboundContext, message simple.Message) {
+func (e echoHandler) HandleWrite(ctx simple.OutboundContext, message any) {
 	fmt.Println("==== HandleWrite ====")
 	// fmt.Println("write: ", ctx.Channel().ID(), message, " isActive: ", ctx.Channel().IsActive())
 	ctx.FireWrite(message)
 }
 
-func (e echoHandler) HandleException(ctx simple.ExceptionContext, ex simple.Exception) {
+func (e echoHandler) HandleException(ctx simple.ExceptionContext, ex error) {
 	fmt.Println("exception: ", ctx.Channel().ID(), ex, " isActive: ", ctx.Channel().IsActive())
 	ctx.Channel().Close(ex)
 }

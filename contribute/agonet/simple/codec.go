@@ -1,22 +1,20 @@
-package codec
-
-import "ag-core/contribute/agonet/simple"
+package simple
 
 // Codec defines an CodecHandler alias
 type (
-	Codec   = simple.CodecHandler
-	Decoder = simple.DecoderHandler
-	Encoder = simple.EncoderHandler
+	Codec   = CodecHandler
+	Decoder = DecoderHandler
+	Encoder = EncoderHandler
 )
 
 // Combine to wrap InboundHandler and OutboundHandler into Codec.
-func Combine(name string, inbound simple.InboundHandler, outbound simple.OutboundHandler) Codec {
+func Combine(name string, inbound InboundHandler, outbound OutboundHandler) Codec {
 	return &combineCodec{name: name, InboundHandler: inbound, OutboundHandler: outbound}
 }
 
 type combineCodec struct {
-	simple.InboundHandler
-	simple.OutboundHandler
+	InboundHandler
+	OutboundHandler
 	name string
 }
 

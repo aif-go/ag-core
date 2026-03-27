@@ -10,7 +10,7 @@ type SimpleInboundHandler[T any] struct {
 	OnMsg func(ctx InboundContext, message T)
 }
 
-func (e *SimpleInboundHandler[T]) HandleRead(ctx InboundContext, message Message) {
+func (e *SimpleInboundHandler[T]) HandleRead(ctx InboundContext, message any) {
 	if e.OnMsg == nil {
 		ctx.FireRead(message)
 		return

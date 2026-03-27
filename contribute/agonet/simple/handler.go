@@ -6,11 +6,17 @@ import (
 	"log/slog"
 )
 
-type headHandler struct{}
+type (
+	headHandler struct{}
 
-type tailHandler struct{}
+	tailHandler struct{}
 
-func (headHandler) HandleWrite(ctx OutboundContext, message Message) {
+	ActiveHandlerFunc func(ctx ActiveContext)
+
+	InactiveHandlerFunc func(ctx InactiveContext, ex error)
+)
+
+func (headHandler) HandleWrite(ctx OutboundContext, message any) {
 	// head 处理器负责将消息写入channel
 	var ch = ctx.Channel()
 	switch m := message.(type) {
@@ -21,7 +27,7 @@ func (headHandler) HandleWrite(ctx OutboundContext, message Message) {
 	}
 }
 
-func (tailHandler) HandleException(ctx ExceptionContext, ex Exception) {
+func (tailHandler) HandleException(ctx ExceptionContext, ex error) {
 	// The final closing operation will be provided when the user registered handler is not processing.
 	// fmt.Fprintln(os.Stderr,
 	// 	"An HandleException() event was fired, and it reached at the tail of the pipeline.",
@@ -36,4 +42,12 @@ func (tailHandler) HandleException(ctx ExceptionContext, ex Exception) {
 	// ctx.Channel().EventLoop()
 	// err := aerrors.ErrConnectionShutdown
 	// 将err传递给EventLoop 进行连接关闭
+}
+
+func (fn ActiveHandlerFunc) HandleActive(ctx ActiveContext) {
+	fn(ctx)
+}
+
+func (fn InactiveHandlerFunc) HandleInactive(ctx InactiveContext, ex error) {
+	fn(ctx, ex)
 }

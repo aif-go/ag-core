@@ -58,16 +58,29 @@ func (p *pipeline) ServeChannel(channel Channel) {
 	p.channel = channel
 }
 
-func (p *pipeline) FireChannelRead(message Message) {
+func (p *pipeline) FireChannelActive() {
+	p.head.FireActive()
+	// TODO
+}
+
+func (p *pipeline) FireChannelInactive(ex error) {
+	p.head.FireInactive(ex)
+}
+
+func (p *pipeline) FireChannelRead(message any) {
 	p.head.FireRead(message)
 }
 
-func (p *pipeline) FireChannelWrite(message Message) {
+func (p *pipeline) FireChannelWrite(message any) {
 	p.tail.FireWrite(message)
 }
 
-func (p *pipeline) FireChannelException(ex Exception) {
+func (p *pipeline) FireChannelException(ex error) {
 	p.head.FireExceptionCaught(ex)
+}
+
+func (p *pipeline) FireChannelEvent(event any) {
+	// TODO
 }
 
 // addFirst to add handlers head
@@ -96,6 +109,9 @@ func checkHandler(handlers ...Handler) {
 		case InboundHandler:
 		case OutboundHandler:
 		case ExceptionHandler:
+		case ActiveHandler:
+		case InactiveHandlerFunc:
+		case EventHandler:
 		default:
 			utils.Assert(fmt.Errorf("unrecognized Handler: %d:%T", index, h))
 		}

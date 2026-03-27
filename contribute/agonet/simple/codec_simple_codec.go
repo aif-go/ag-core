@@ -1,11 +1,10 @@
-package codec
+package simple
 
 import (
-	"ag-core/contribute/agonet/simple"
 	"ag-core/contribute/agonet/simple/utils"
 )
 
-func NewSimpleCodec[T any, U any](name string, decode func(T) ([]U, error), encode func(U) (T, error)) Codec {
+func NewSimpleCodec[T any, U any](name string, decode func(T) ([]any, error), encode func(U) ([]any, error)) Codec {
 	return &SimpleCodec[T, U]{
 		CodeName: name,
 		Decode:   decode,
@@ -15,16 +14,16 @@ func NewSimpleCodec[T any, U any](name string, decode func(T) ([]U, error), enco
 
 type SimpleCodec[T any, U any] struct {
 	CodeName string
-	Decode   func(T) ([]U, error)
+	Decode   func(T) ([]any, error)
 
-	Encode func(U) (T, error)
+	Encode func(U) ([]any, error)
 }
 
 func (c *SimpleCodec[T, U]) Name() string {
 	return c.CodeName
 }
 
-func (c *SimpleCodec[T, U]) HandleRead(ctx simple.InboundContext, message simple.Message) {
+func (c *SimpleCodec[T, U]) HandleRead(ctx InboundContext, message any) {
 
 	if c.Decode == nil {
 		ctx.FireRead(message)
@@ -46,7 +45,7 @@ func (c *SimpleCodec[T, U]) HandleRead(ctx simple.InboundContext, message simple
 	}
 }
 
-func (c *SimpleCodec[T, U]) HandleWrite(ctx simple.OutboundContext, message simple.Message) {
+func (c *SimpleCodec[T, U]) HandleWrite(ctx OutboundContext, message any) {
 	if c.Encode == nil {
 		ctx.FireWrite(message)
 		return
@@ -57,8 +56,9 @@ func (c *SimpleCodec[T, U]) HandleWrite(ctx simple.OutboundContext, message simp
 		if err != nil {
 			utils.Assert(err) // TODO 直接panic吗？ 异常处理，如长度不够， 重要！！！！！
 		}
-
-		ctx.FireWrite(out)
+		for _, item := range out {
+			ctx.FireWrite(item)
+		}
 	} else {
 		ctx.FireWrite(message)
 	}

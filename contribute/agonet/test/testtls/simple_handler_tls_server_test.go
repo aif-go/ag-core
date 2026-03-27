@@ -3,7 +3,6 @@ package testtls
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
-	"ag-core/contribute/agonet/simple/codec"
 	"encoding/hex"
 	"fmt"
 	_ "net/http/pprof"
@@ -52,31 +51,46 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	})
 
 	// lengthDecod := lengthDecod.NewLengthFieldCodec(binary.BigEndian, 1024, 0, 4, 0, 0)
-	lengthDecod := codec.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
-	// lengthDecod := codec.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
-	lengthEncod := codec.NewLengthFieldEncoder(nil, 2, 0, false)
+	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
+	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
 
-	custCodec := codec.NewSimpleCodec(
+	custCodec := simple.NewSimpleCodec(
 		"custCodec",
-		func(msg []byte) ([][]byte, error) {
+		func(msg []byte) (out []any, err error) {
 			fmt.Println("custdecode msg:", string(msg))
-			return [][]byte{msg}, nil
+			out = append(out, msg)
+			out = append(out, string(msg))
+			return out, nil
+
 		},
-		func(msg []byte) ([]byte, error) {
+		func(msg []byte) ([]any, error) {
 			fmt.Println("custencode msg:", string(msg))
-			return msg, nil
+			return []any{msg}, nil
 		},
 	)
 
-	custCodec2 := &codec.SimpleCodec[[]byte, []byte]{
+	custCodec2 := &simple.SimpleCodec[string, string]{
 		CodeName: "custCodec2",
-		Encode: func(msg []byte) ([]byte, error) {
-			return msg, nil
+		Decode: func(msg string) ([]any, error) {
+			fmt.Println("custdecode2 msg:", msg)
+			return []any{msg}, nil
 		},
-		Decode: func(msg []byte) ([][]byte, error) {
-			return [][]byte{msg}, nil
+		Encode: func(msg string) ([]any, error) {
+			fmt.Println("custencode2 msg:", msg)
+			return []any{msg}, nil
 		},
 	}
+
+	// 通道激活事件
+	activeHand := simple.ActiveHandlerFunc(func(ctx simple.ActiveContext) {
+		fmt.Printf("test active, remote addr: %s\n", ctx.Channel().RemoteAddr())
+	})
+
+	// 通道非激活事件
+	inactiveHand := simple.InactiveHandlerFunc(func(ctx simple.InactiveContext, ex error) {
+		fmt.Printf("test inactive, remote addr: %s, reason: %v\n", ctx.Channel().RemoteAddr(), ex)
+	})
 
 	pipelineInitializer := func(c simple.Channel) error {
 		c.Pipeline().
@@ -87,6 +101,8 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 				custCodec,
 				custCodec2,
 				testHand,
+				activeHand,
+				inactiveHand,
 			)
 
 		// c.Pipeline().AddLast(testHand)

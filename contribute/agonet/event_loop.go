@@ -116,8 +116,8 @@ func (el *eventloop) read(c *conn) error {
 }
 
 func (el *eventloop) close(c *conn, err error) error {
-	// if _, ok := el.connections[c]; c.Conn == nil || !ok {
-	if _, ok := el.connections[c]; c.rawConn == nil || !ok {
+	_, ok := el.connections[c]
+	if c.rawConn == nil || !ok {
 		return nil // ignore stale wakes.
 	}
 
@@ -161,18 +161,27 @@ func (el *eventloop) handleAction(c *conn, action Action) error {
 var _ EventLoop = (*eventloop)(nil)
 
 func (el *eventloop) Register(ctx context.Context, addr net.Addr) (<-chan RegisteredResult, error) {
+	if el.eng.isShutdown() {
+		return nil, aerrors.ErrEngineInShutdown
+	}
+	if addr == nil {
+		return nil, aerrors.ErrInvalidNetworkAddress
+	}
+
 	// TODO
 	return nil, nil
 }
 
 func (el *eventloop) Enroll(ctx context.Context, c net.Conn) (<-chan RegisteredResult, error) {
+	if el.eng.isShutdown() {
+		return nil, aerrors.ErrEngineInShutdown
+	}
 	// TODO
 	return nil, nil
 }
 
-func (el *eventloop) Close(Conn) error {
-	// TODO
-	return nil
+func (el *eventloop) Close(c Conn, err error) error {
+	return el.close(c.(*conn), err)
 }
 
 // Deprecated
@@ -183,17 +192,24 @@ func (el *eventloop) InEventLoop() bool {
 	return el.goroutineId == cid
 }
 
-func (el *eventloop) ExecuteInEventLoop(fn func() error) error {
-	var err error
-	select {
-	case el.ch <- fn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		err = goroutine.DefaultWorkerPool.Submit(func() {
-			el.ch <- fn
-		})
-		// return aerrors.ErrEventLoopQueueFull //TODO 事件循环队列满的情况如何处理，是否异常
-	}
+// Execute executes the Runnable in the event-loop.
+// eg :
+//
+//	  Execute(
+//			context.Background(),
+//			RunnableFunc(fn),
+//		)
+func (el *eventloop) Execute(ctx context.Context, runnable Runnable) error {
 
-	return err
+	if el.eng.isShutdown() {
+		return aerrors.ErrEngineInShutdown
+	}
+	if runnable == nil {
+		return aerrors.ErrNilRunnable
+	}
+	return goroutine.DefaultWorkerPool.Submit(func() {
+		el.ch <- func() error {
+			return runnable.Run(ctx)
+		}
+	})
 }
