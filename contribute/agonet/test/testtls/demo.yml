@@ -4,7 +4,7 @@ agonet:
     config:
       security:
         type: tls_tlcp
-        certsDir: ./certs
+        certsDir: ../certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
           AuthCertPath: fgmsm/rsa_auth_cert.cer
@@ -26,7 +26,7 @@ agonet:
     config:
       security:
         type: tls
-        certsDir: ./certs
+        certsDir: ../certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
           AuthCertPath: fgmsm/rsa_auth_cert.cer

@@ -12,7 +12,7 @@ import (
 func TestServer(t *testing.T) {
 	// 加载证书和密钥
 	// cert, err := tls.LoadX509KeyPair("certs/tls/server.crt", "certs/tls/server.key")
-	cert, err := tls.LoadX509KeyPair("certs/fgmsm/rsa_sign.cer", "certs/fgmsm/rsa_sign_key.pem")
+	cert, err := tls.LoadX509KeyPair("../certs/fgmsm/rsa_sign.cer", "../certs/fgmsm/rsa_sign_key.pem")
 	if err != nil {
 		log.Fatal("证书加载失败:", err)
 	}

@@ -1,4 +1,4 @@
-package testtls
+package testsimple
 
 import (
 	"ag-core/contribute/agonet"

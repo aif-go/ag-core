@@ -13,7 +13,7 @@ import (
 func TestClient(t *testing.T) {
 	// 加载 CA 证书（用于验证服务器）
 	// caCert, err := os.ReadFile("certs/tls/ca.crt")
-	caCert, err := os.ReadFile("certs/fgmsm/RSA_CA.cer")
+	caCert, err := os.ReadFile("../certs/fgmsm/RSA_CA.cer")
 	if err != nil {
 		log.Fatal("读取CA证书失败:", err)
 	}

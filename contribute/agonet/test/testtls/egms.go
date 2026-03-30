@@ -11,19 +11,19 @@ import (
 )
 
 const (
-	egms_sm2CaCertPath   = "certs/fgmsm/SM2_CA.cer"
-	egms_sm2AuthCertPath = "certs/fgmsm/sm2_auth_cert.cer"
-	egms_sm2AuthKeyPath  = "certs/fgmsm/sm2_auth_key.pem"
-	egms_sm2SignCertPath = "certs/fgmsm/sm2_sign_cert.cer"
-	egms_sm2SignKeyPath  = "certs/fgmsm/sm2_sign_key.pem"
-	egms_sm2EncCertPath  = "certs/fgmsm/sm2_enc_cert.cer"
-	egms_sm2EncKeyPath   = "certs/fgmsm/sm2_enc_key.pem"
+	egms_sm2CaCertPath   = "../certs/fgmsm/SM2_CA.cer"
+	egms_sm2AuthCertPath = "../certs/fgmsm/sm2_auth_cert.cer"
+	egms_sm2AuthKeyPath  = "../certs/fgmsm/sm2_auth_key.pem"
+	egms_sm2SignCertPath = "../certs/fgmsm/sm2_sign_cert.cer"
+	egms_sm2SignKeyPath  = "../certs/fgmsm/sm2_sign_key.pem"
+	egms_sm2EncCertPath  = "../certs/fgmsm/sm2_enc_cert.cer"
+	egms_sm2EncKeyPath   = "../certs/fgmsm/sm2_enc_key.pem"
 
-	egms_rsaCaCertPath   = "certs/fgmsm/RSA_CA.cer"
-	egms_rsaAuthCertPath = "certs/fgmsm/rsa_auth_cert.cer"
-	egms_rsaAuthKeyPath  = "certs/fgmsm/rsa_auth_key.pem"
-	egms_rsaSignCertPath = "certs/fgmsm/rsa_sign.cer"
-	egms_rsaSignKeyPath  = "certs/fgmsm/rsa_sign_key.pem"
+	egms_rsaCaCertPath   = "../certs/fgmsm/RSA_CA.cer"
+	egms_rsaAuthCertPath = "../certs/fgmsm/rsa_auth_cert.cer"
+	egms_rsaAuthKeyPath  = "../certs/fgmsm/rsa_auth_key.pem"
+	egms_rsaSignCertPath = "../certs/fgmsm/rsa_sign.cer"
+	egms_rsaSignKeyPath  = "../certs/fgmsm/rsa_sign_key.pem"
 )
 
 // #### RSA Load ####
