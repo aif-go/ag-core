@@ -48,7 +48,7 @@ func (h *SimpleEventHandler) OnBoot(eng agonet.Engine) (action agonet.Action) {
 // OnClose
 func (h *SimpleEventHandler) OnClose(conn agonet.Conn, err error) (action agonet.Action) {
 	// 从context中获取pipeline
-	channel, err2 := getChannel(conn)
+	channel, err2 := getChannelFromConn(conn)
 	if err2 != nil {
 		return agonet.None
 	}
@@ -129,7 +129,7 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 	}()
 
 	// channel := conn.Context().(Channel) // TODO 从context中获取pipeline
-	channel, err := getChannel(conn)
+	channel, err := getChannelFromConn(conn)
 	if err != nil {
 		return agonet.Close
 	}
@@ -140,12 +140,12 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 	// 从通道中获取pipeline
 	pipeline := channel.Pipeline()
 
-	for conn.ReadableBytes() > 0 { // TODO 此处理应该提交到eventLoop中处理
-		// 触发通道读取事件
-		pipeline.FireChannelRead(reader)
-	}
+	// 触发通道读取事件
+	pipeline.FireChannelRead(reader)
 
-	// TODO 异常处理 -> 断连接 还是 shutdown
+	if conn.ReadableBytes() > 0 { // TODO 且数据被读取过，防止异常数据导致死循环
+		conn.Wake(nil) // eventloop中手动唤醒触发OnTraffic
+	}
 
 	return
 }
@@ -156,21 +156,3 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 // 	pipeline.AddLast(h.handlers...)
 // 	return nil
 // }
-
-// 从conn中获取channel
-func getChannel(conn agonet.Conn) (Channel, error) {
-	cctx := conn.Context()
-	if cctx == nil {
-		return nil, errors.New("conn.Context is nil")
-	}
-
-	if ctx, ok := cctx.(context.Context); ok {
-		channel, ok := ctx.Value(context_channel_key{}).(Channel)
-		if !ok {
-			return nil, errors.New("conn.Context is not context.Context")
-		}
-		return channel, nil
-	} else {
-		return nil, errors.New("conn.Context is not context.Context")
-	}
-}

@@ -107,6 +107,7 @@ func _simpleClientEventHandler() (agonet.EventHandler, error) {
 	// 通道非激活事件
 	inactiveHand := simple.InactiveHandlerFunc(func(ctx simple.InactiveContext, ex error) {
 		fmt.Printf("test inactive, remote addr: %s, reason: %v\n", ctx.Channel().RemoteAddr(), ex)
+
 		// TODO 要重连怎么办
 	})
 

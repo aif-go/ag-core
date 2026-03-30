@@ -34,6 +34,9 @@ type Conn interface {
 	// RemoteAddr  implements net.Conn.
 	RemoteAddr() net.Addr
 
+	// Wake triggers an OnTraffic event for the current connection, it's concurrency-safe.
+	Wake(callback AsyncCallback) error
+
 	// SetDeadline implements net.Conn.
 	SetDeadline(time.Time) error
 
@@ -62,9 +65,10 @@ type EventLoop interface {
 	// This method is not concurrency-safe, you must invoke it on the event loop.
 	Close(Conn, error) error
 
-	// Deprecated
+	// Deprecated 使用协程id判断，golang原生不建议使用
 	InEventLoop() bool
 
+	// Execute executes the given Runnable on the current event-loop.
 	Execute(ctx context.Context, runnable Runnable) error
 }
 

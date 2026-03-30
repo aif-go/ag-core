@@ -2,6 +2,7 @@ package simple
 
 import (
 	"ag-core/contribute/agonet"
+	"ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
 	"sync/atomic"
@@ -124,4 +125,22 @@ func (c *channel) invokeMethod(fn func()) (err error) {
 
 	fn()
 	return nil
+}
+
+// 从conn中获取channel
+func getChannelFromConn(conn agonet.Conn) (Channel, error) {
+	cctx := conn.Context()
+	if cctx == nil {
+		return nil, aerrors.ErrConnContextIsNil
+	}
+
+	if ctx, ok := cctx.(context.Context); ok {
+		channel, ok := ctx.Value(context_channel_key{}).(Channel)
+		if !ok {
+			return nil, aerrors.ErrInvalidChannelType
+		}
+		return channel, nil
+	} else {
+		return nil, aerrors.ErrInvalidContextType
+	}
 }

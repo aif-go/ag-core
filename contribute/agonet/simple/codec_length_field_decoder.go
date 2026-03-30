@@ -116,7 +116,7 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	}
 
 	if reader.ReadableBytes() < int(frameLength) {
-		return nil, nil
+		return nil, aerrors.ErrIncompletePacket
 	}
 
 	if l.initialBytesToStrip > int(frameLength) {

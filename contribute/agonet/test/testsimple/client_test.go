@@ -39,6 +39,9 @@ func TestClient(t *testing.T) {
 		con.Write(fullmsg)
 	}
 
+	writefunc("11111")
+	time.Sleep(time.Millisecond)
+
 	// 测试拆包
 	length := packFieldLength(binary.BigEndian, 2, 13)
 	con.Write(append(length, []byte("who")...))
@@ -74,7 +77,7 @@ func TestClient(t *testing.T) {
 	writefunc("aaaaa")
 	writefunc("bbbbb")
 	writefunc("ccccc")
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 5)
 
 }
 
