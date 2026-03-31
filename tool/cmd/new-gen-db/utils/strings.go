@@ -25,3 +25,17 @@ func ContainsIgnoreCase(list []string, item string) bool {
 	}
 	return false
 }
+
+
+
+// 辅助函数：转换为大驼峰命名
+func ToCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	result := ""
+	for _, part := range parts {
+		if part != "" {
+			result += strings.Title(strings.ToLower(part))
+		}
+	}
+	return result
+}

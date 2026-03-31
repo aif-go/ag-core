@@ -11,6 +11,8 @@ const (
 	TokenTypeExpr   TokenType = iota // 表达式
 	TokenTypeAND                     // AND操作符
 	TokenTypeOR                      // OR操作符
+	TokenTypeIN                      // IN操作符
+	TokenTypeNOTIN                   // NOT IN操作符
 	TokenTypeLParen                  // 左括号
 	TokenTypeRParen                  // 右括号
 )
@@ -19,106 +21,193 @@ const (
 type Token struct {
 	Type  TokenType
 	Value string
+	Pos   int // token在原始输入中的起始位置
 }
 
 // Lexer 词法分析器
 type Lexer struct {
 	input string
-	pos   int
+	runes []rune // 使用rune切片来正确处理中文字符
+	pos   int    // 当前rune位置
 }
 
 // NewLexer 创建词法分析器
 func NewLexer(input string) *Lexer {
 	return &Lexer{
 		input: input,
+		runes: []rune(input),
 		pos:   0,
 	}
 }
 
 // NextToken 获取下一个token
 func (l *Lexer) NextToken() *Token {
-	// 跳过空白字符
-	for l.pos < len(l.input) && (l.input[l.pos] == ' ' || l.input[l.pos] == '\t') {
+	// 记录当前token的起始位置
+	startPos := l.pos
+	
+	// 跳过空白字符和逗号
+	for l.pos < len(l.runes) && (l.runes[l.pos] == ' ' || l.runes[l.pos] == '\t' || l.runes[l.pos] == ',') {
 		l.pos++
 	}
 
-	if l.pos >= len(l.input) {
+	if l.pos >= len(l.runes) {
 		return nil
 	}
 
 	// 检查是否是括号
-	if l.input[l.pos] == '(' {
+	if l.runes[l.pos] == '(' {
 		l.pos++
-		return &Token{Type: TokenTypeLParen, Value: "("}
+		return &Token{Type: TokenTypeLParen, Value: "(", Pos: startPos}
 	}
-	if l.input[l.pos] == ')' {
+	if l.runes[l.pos] == ')' {
 		l.pos++
-		return &Token{Type: TokenTypeRParen, Value: ")"}
+		return &Token{Type: TokenTypeRParen, Value: ")", Pos: startPos}
 	}
 
 	// 检查是否是操作符，需要确保前后都是空白字符或者是表达式边界
 	// 检查AND操作符
-	if l.pos+2 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+3]) == "AND" {
+	if l.pos+2 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+3])) == "AND" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
 		// 检查后面是否是表达式边界（字符串结束或空格）
-		nextIsBoundary := l.pos+3 == len(l.input) || l.input[l.pos+3] == ' ' || l.input[l.pos+3] == '\t' || l.input[l.pos+3] == '('
+		nextIsBoundary := l.pos+3 == len(l.runes) || l.runes[l.pos+3] == ' ' || l.runes[l.pos+3] == '\t' || l.runes[l.pos+3] == '('
 		
 		if prevIsBoundary && nextIsBoundary {
 			l.pos += 3
-			return &Token{Type: TokenTypeAND, Value: "AND"}
+			return &Token{Type: TokenTypeAND, Value: "AND", Pos: startPos}
 		}
 	}
 	
 	// 检查OR操作符
-	if l.pos+1 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+2]) == "OR" {
+	if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "OR" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
 		// 检查后面是否是表达式边界（字符串结束或空格）
-		nextIsBoundary := l.pos+2 == len(l.input) || l.input[l.pos+2] == ' ' || l.input[l.pos+2] == '\t' || l.input[l.pos+2] == '('
+		nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
 		
 		if prevIsBoundary && nextIsBoundary {
 			l.pos += 2
-			return &Token{Type: TokenTypeOR, Value: "OR"}
+			return &Token{Type: TokenTypeOR, Value: "OR", Pos: startPos}
+		}
+	}
+	
+	// 检查NOT IN操作符（需要先检查，因为NOT IN包含IN）
+	if l.pos+5 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+6])) == "NOT IN" {
+		// 检查前面是否是表达式边界（字符串开始或空格）
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		// 检查后面是否是表达式边界（字符串结束或空格）
+		nextIsBoundary := l.pos+6 == len(l.runes) || l.runes[l.pos+6] == ' ' || l.runes[l.pos+6] == '\t' || l.runes[l.pos+6] == '('
+		
+		if prevIsBoundary && nextIsBoundary {
+			l.pos += 6
+			return &Token{Type: TokenTypeNOTIN, Value: "NOT IN", Pos: startPos}
+		}
+	}
+	
+	// 检查IN操作符
+	if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "IN" {
+		// 检查前面是否是表达式边界（字符串开始或空格）
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		// 检查后面是否是表达式边界（字符串结束或空格）
+		nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
+		
+		if prevIsBoundary && nextIsBoundary {
+			l.pos += 2
+			return &Token{Type: TokenTypeIN, Value: "IN", Pos: startPos}
 		}
 	}
 
 	// 否则是表达式，直到遇到操作符、括号或结束
 	start := l.pos
-	for l.pos < len(l.input) {
+	inBetween := false // 标记是否在BETWEEN表达式中
+	inIn := false      // 标记是否在IN表达式中
+	
+	for l.pos < len(l.runes) {
+		// 检查是否是BETWEEN关键字
+		if l.pos+6 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+7])) == "BETWEEN" {
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			nextIsBoundary := l.pos+7 == len(l.runes) || l.runes[l.pos+7] == ' ' || l.runes[l.pos+7] == '\t'
+			
+			if prevIsBoundary && nextIsBoundary {
+				inBetween = true
+				l.pos += 7
+				continue
+			}
+		}
+		
+		// 检查是否是IN关键字
+		if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "IN" {
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
+			
+			if prevIsBoundary && nextIsBoundary {
+				inIn = true
+				l.pos += 2
+				continue
+			}
+		}
+		
+		// 检查是否是NOT IN关键字
+		if l.pos+5 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+6])) == "NOT IN" {
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			nextIsBoundary := l.pos+6 == len(l.runes) || l.runes[l.pos+6] == ' ' || l.runes[l.pos+6] == '\t' || l.runes[l.pos+6] == '('
+			
+			if prevIsBoundary && nextIsBoundary {
+				inIn = true
+				l.pos += 6
+				continue
+			}
+		}
+		
 		// 检查是否是操作符的开始
-		if l.pos+2 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+3]) == "AND" {
+		if l.pos+2 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+3])) == "AND" {
 			// 检查前面是否是表达式边界（字符串开始或空格）
-			prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
 			// 检查后面是否是表达式边界（字符串结束或空格）
-			nextIsBoundary := l.pos+3 == len(l.input) || l.input[l.pos+3] == ' ' || l.input[l.pos+3] == '\t' || l.input[l.pos+3] == '('
+			nextIsBoundary := l.pos+3 == len(l.runes) || l.runes[l.pos+3] == ' ' || l.runes[l.pos+3] == '\t' || l.runes[l.pos+3] == '('
+			
+			// 如果在BETWEEN表达式中，跳过这个AND（它是BETWEEN的一部分）
+			if inBetween && prevIsBoundary && nextIsBoundary {
+				l.pos += 3
+				inBetween = false // AND之后，BETWEEN表达式结束
+				continue
+			}
 			
 			if prevIsBoundary && nextIsBoundary {
 				break
 			}
 		}
-		if l.pos+1 < len(l.input) && strings.ToUpper(l.input[l.pos:l.pos+2]) == "OR" {
+		if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "OR" {
 			// 检查前面是否是表达式边界（字符串开始或空格）
-			prevIsBoundary := l.pos == 0 || l.input[l.pos-1] == ' ' || l.input[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
 			// 检查后面是否是表达式边界（字符串结束或空格）
-			nextIsBoundary := l.pos+2 == len(l.input) || l.input[l.pos+2] == ' ' || l.input[l.pos+2] == '\t' || l.input[l.pos+2] == '('
+			nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
 			
 			if prevIsBoundary && nextIsBoundary {
 				break
 			}
 		}
 		// 检查是否是括号
-		if l.input[l.pos] == '(' || l.input[l.pos] == ')' {
-			break
+		if l.runes[l.pos] == '(' || l.runes[l.pos] == ')' {
+			// 如果在IN表达式中，遇到右括号才结束
+			if inIn && l.runes[l.pos] == ')' {
+				l.pos++ // 包含右括号
+				inIn = false
+				break
+			}
+			if !inIn {
+				break
+			}
 		}
 		l.pos++
 	}
-	return &Token{Type: TokenTypeExpr, Value: strings.TrimSpace(l.input[start:l.pos])}
+	return &Token{Type: TokenTypeExpr, Value: strings.TrimSpace(string(l.runes[start:l.pos])), Pos: startPos}
 }
 
 // Parser 语法分析器
 type Parser struct {
 	lexer *Lexer
+	input string // 保存原始输入
 	curr  *Token
 }
 
@@ -126,6 +215,7 @@ type Parser struct {
 func NewParser(lexer *Lexer) *Parser {
 	return &Parser{
 		lexer: lexer,
+		input: lexer.input,
 		curr:  lexer.NextToken(),
 	}
 }
@@ -191,7 +281,7 @@ func (p *Parser) parseCondition() *Condition {
 		}
 	}
 
-	// 处理表达式
+	// 处理表达式（包括 IN, NOT IN, BETWEEN AND 等）
 	if p.curr.Type == TokenTypeExpr {
 		expr := p.curr.Value
 		p.curr = p.lexer.NextToken()

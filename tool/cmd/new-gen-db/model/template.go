@@ -221,6 +221,15 @@ func generateQueryArgStruct(tableData *table.TableData, query table.QueryData) s
 	}
 
 	for _, wc := range query.WhereColFields {
+		// 如果前期已经指定了参数类型，则按照指定的处理
+		if wc.GoType !=""{
+			if wc.IsSlice {
+				fields = append(fields, fmt.Sprintf("\t%s []%s", wc.FieldName, wc.GoType))
+			} else {
+				fields = append(fields, fmt.Sprintf("\t%s %s", wc.FieldName, wc.GoType))
+			}
+			continue
+		}
 		for _, col := range tableData.Columns {
 			if col.Name == wc.ColName {
 				if wc.IsSlice {
@@ -248,6 +257,16 @@ func generateWithMethods(tableData *table.TableData, query table.QueryData) stri
 	var methods []string
 
 	for _, wc := range query.WhereColFields {
+		// 对于用户指定的go类型，此处只需按照指定的类型处理
+		if wc.GoType!=""{
+				methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{
+	%s%sArg.%s = %s
+	%s%sArg.FieldMask.Set("%s")
+	return %s%sArg
+} `, lowerStructName, queryName, structName, queryName, wc.FieldName, wc.FieldName, wc.GoType,structName,queryName,
+					lowerStructName, queryName, wc.FieldName, wc.FieldName, lowerStructName, queryName,wc.FieldName,lowerStructName, queryName))
+				continue			
+		}
 		for _, col := range tableData.Columns {
 			if col.Name == wc.ColName {
 				methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{

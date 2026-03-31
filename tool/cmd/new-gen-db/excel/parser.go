@@ -2,6 +2,8 @@ package excel
 
 import (
 	"ag-core/tool/cmd/new-gen-db/utils"
+	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -183,11 +185,21 @@ func processCustomScriptSheet(f *excelize.File,sheetName string, table *ExcelInf
 	if len(rows) == 0 {
 		return nil
 	}
-	for index, row := range rows {
-		if index == 0 {
-			continue // 跳过表头
+	dynamicTemplate:=false
+	for _, row := range rows {
+		// if index == 0 {
+		// 	continue // 跳过表头
+		// }
+		if strings.EqualFold(row[0],"动态模版"){
+			dynamicTemplate=true
+			continue
 		}
-
+		// 空白行  动态模版 方法名字都跳过改行不处理
+		if strings.EqualFold(row[0],"") || strings.EqualFold(row[0],"方法名字"){
+			continue
+		}
+		// 处理原先的自定义脚本
+		if !dynamicTemplate{
 		if len(row) >= 8 && strings.TrimSpace(row[0]) != "" {
 			query := &SelfQueryInfo{
 				SelectFields: strings.TrimSpace(row[1]),
@@ -200,7 +212,109 @@ func processCustomScriptSheet(f *excelize.File,sheetName string, table *ExcelInf
 			}
 			table.SelfQueries[strings.TrimSpace(row[0])] = query
 		}
+		}else{
+			// 处理自定义模版
+			err:=processDynamicTemplate(row,table)
+			if err!=nil{
+				return err
+			}
+		}
 	}
 
 	return nil
+}
+
+
+
+func processDynamicTemplate(rows []string, table *ExcelInfo) error{
+		if len(rows) >= 5 {
+			query := &SelfQueryInfo{
+				SelectFields: strings.TrimSpace(rows[1]),
+				SqlTemplate:  strings.TrimSpace(rows[2]),
+				Page:         strings.TrimSpace(rows[5]) == "Y",
+				Order: 		  strings.TrimSpace(rows[4]),
+				DynamicTemplate: true,
+			}
+			result, err := processWhereParam(query.SqlTemplate, strings.TrimSpace(rows[3]),table)
+			if err!=nil{
+				return err
+			}
+			query.WhereParams=result
+			// 解析参数对象，如果未指定的则去table对象中查找 用一个正则表达式找到模版中所有 @ 开头的变量，然后获取@后面的属性名字
+			table.SelfQueries[strings.TrimSpace(rows[0])] = query
+			return nil
+		}
+		return errors.New("动态模版部分格式不正确,请检查excel")
+}
+
+
+func processWhereParam(sqlTmpl string, whereparam string, table *ExcelInfo) ([]*WhereParam,error) {
+	// 提取出sqltmpl变量中所有 " @xxx " 规则的内容-->whereparam中paramName
+	// 处理whereparam 格式如下"属性名","类型","Y/N"--whereparam中的paramName,Type,Slice
+	
+	if strings.Contains(sqlTmpl, "1 = 1"){
+		return nil,errors.New("动态模版中不允许出现1=1的条件")
+	}
+	// 使用正则表达式提取所有 @xxx 格式的参数名
+	re := regexp.MustCompile(`@(\w+)`)
+	matches := re.FindAllStringSubmatch(sqlTmpl, -1)
+
+	// 将结果放到[]*whereparam中
+	var result []*WhereParam
+	// 创建参数名到 whereparam 配置的映射
+	// whereparam 格式: "属性名","类型","Y/N"
+	// 解析为 map[属性名]map[string]string{Type: 类型, Slice: Y/N}
+	paramConfig := make(map[string]bool)
+
+		if whereparam != "" {
+		// 按逗号分割，处理格式 "属性名","类型","Y/N"
+		params := strings.Split(whereparam, ";")
+		for _,param:=range params{
+			parts:=strings.Split(param,",")
+			// for i := 0; i < len(parts); i +=1 {
+				paramName := strings.TrimSpace(parts[0])
+				paramType := strings.TrimSpace(parts[1])
+				sliceFlag := strings.TrimSpace(parts[2])=="Y"
+				colName:=""
+				if len(parts)>=4{
+					colName=strings.TrimSpace(parts[3])
+				}
+				whereparam:=&WhereParam{
+					ParaName: paramName,
+					Type: paramType,
+					Slice: sliceFlag,
+					// 这个地方是否一定要有值???
+					ColName: colName,
+				}
+				result=append(result, whereparam)
+				paramConfig[paramName] = true
+			// }
+		}
+	}
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			paramName := match[1]
+			if _,ok:=paramConfig[paramName];ok {
+				continue
+			}
+			paramConfig[paramName] = true
+			
+			wp := &WhereParam{
+				ParaName: paramName,
+			}
+			
+			for _, col := range table.Columns {
+				// 这里应该有个驼峰策略
+				if utils.ToCamelCase(col.Name) == paramName {
+					wp.Type = col.Type
+					wp.ColName = col.Name
+					break
+				}
+			}
+			
+			result = append(result, wp)
+		}
+	}	
+	return result, nil
 }

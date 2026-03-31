@@ -388,12 +388,17 @@ func GenerateYAML(table *excel.ExcelInfo, outputPath string) error {
 			query := table.SelfQueries[queryName]
 			// 为查询属性定义固定顺序
 			queryData := yaml.MapSlice{}
-
+			
 			if query.SelectFields != "" {
 				queryData = append(queryData, yaml.MapItem{Key: "select_fields", Value: query.SelectFields})
 			}
 			queryData = append(queryData, yaml.MapItem{Key: "page", Value: query.Page})
-
+			// 是否动态模版
+			queryData = append(queryData, yaml.MapItem{Key: "dynamic_sql", Value: query.DynamicTemplate})
+			queryData = append(queryData, yaml.MapItem{Key: "sql_template", Value: query.SqlTemplate})
+			if query.WhereParams !=nil{
+				queryData = append(queryData, yaml.MapItem{Key: "Where_params", Value: query.WhereParams})
+			}
 			// 添加WHERE子句
 			if query.Where != nil {
 				// 打印where条件的内容，用于调试

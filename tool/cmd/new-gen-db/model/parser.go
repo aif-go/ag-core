@@ -3,6 +3,7 @@ package model
 import (
 	"ag-core/contribute/agdb/conditonwhere"
 	"ag-core/tool/cmd/new-gen-db/table"
+	"ag-core/tool/cmd/new-gen-db/utils"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -31,7 +32,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	}
 
 	// 转换表名为大驼峰命名
-	structName := toCamelCase(tableName)
+	structName := utils.ToCamelCase(tableName)
 
 	// 提取列信息
 	columns := []table.ColumnData{}
@@ -49,7 +50,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 				// 提取基本信息
 				if name, ok := colMap["name"].(string); ok {
 					col.Name = name
-					col.JsonTag = toCamelCase(name)
+					col.JsonTag = utils.ToCamelCase(name)
 				}
 
 				if colType, ok := colMap["type"].(string); ok {
@@ -185,8 +186,10 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			if queryMap, ok := query.(map[interface{}]interface{}); ok {
 				q := table.QueryData{
 					Name: name.(string),
+
 				}
 
+				// 如果加模版之后，这部分有问题，如何区分模版和普通的处理
 				if selectFields, ok := queryMap["select_fields"].(string); ok {
 					q.SelectFields = selectFields
 					if selectFields == "*" {
@@ -224,6 +227,29 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					// 提取所有字段信息
 					extractWhereFields(q.Where, &q.WhereFields, &q.WhereColFields)
 				}
+				// 提取whereparams
+				if params,ok:=queryMap["Where_params"].([]interface{}); ok{
+					q.DynamicSql = queryMap["dynamic_sql"].(bool)
+					q.SqlTemplate = queryMap["sql_template"].(string)
+					colWhereFields:= make([]table.WhereColField, 0, len(params))
+					fields:= make([]string, 0, len(params))
+					for _, param := range params {
+						if paramMap, ok := param.(map[interface{}]interface{}); ok {
+							whereColField:=table.WhereColField{
+								// 这个要补全
+								ColName: paramMap["colname"].(string),
+								FieldName: paramMap["paraname"].(string),
+								IsSlice: paramMap["slice"].(bool),
+								GoType: paramMap["type"].(string),
+							}
+							colWhereFields=append(colWhereFields, whereColField)
+
+							fields=append(fields, whereColField.ColName)		
+						}
+					}
+					q.WhereFields = fields
+					q.WhereColFields = colWhereFields					
+				}
 
 				selfQueries = append(selfQueries, q)
 			}
@@ -258,29 +284,40 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	}, nil
 }
 
+
 // 辅助函数：转换为大驼峰命名
-func toCamelCase(s string) string {
-	parts := strings.Split(s, "_")
-	result := ""
-	for _, part := range parts {
-		if part != "" {
-			result += strings.Title(strings.ToLower(part))
-		}
-	}
-	return result
-}
+// func toCamelCase(s string) string {
+// 	parts := strings.Split(s, "_")
+// 	result := ""
+// 	for _, part := range parts {
+// 		if part != "" {
+// 			result += strings.Title(strings.ToLower(part))
+// 		}
+// 	}
+// 	return result
+// }
 
 // 辅助函数：获取Go类型
 func getGoType(sqlType string) string {
 	switch sqlType {
-	case "int", "int32":
+	// 整数类型
+	case "int", "int32", "tinyint", "smallint":
 		return "int"
-	case "int64":
+	case "int64", "bigint":
 		return "int64"
-	case "string":
+	// 浮点类型
+	case "float", "float32", "double", "float64", "decimal":
+		return "float64"
+	// 字符串类型
+	case "string", "varchar", "char", "text":
 		return "string"
-	case "time":
+	// 布尔类型
+	case "bool", "boolean":
+		return "bool"
+	// 时间类型
+	case "time", "datetime", "timestamp", "date":
 		return "time.Time"
+	// 默认情况
 	default:
 		return "string"
 	}

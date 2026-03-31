@@ -720,6 +720,39 @@ func generateDoMethods(tableData *table.TableData) string {
 		} else {
 			resultType = structName + query.Name + "Res"
 		}
+		if query.DynamicSql{
+			// 动态模版的dao代码生成
+			doMethods += `// do` + query.Name + ` 执行` + query.Name + `查询（非分页）
+func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.` + resultType + `, error) {
+
+	queryArgs, ok := args.(*model.` + structName + query.Name + `Arg)
+	if !ok {
+		return nil, errors.New("do` + query.Name + ` args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "` + structName + `" + "_" + namingInfo.SqlName
+	execSql := ` + structName + `NamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+
+	sql,err:=gormdb.RendSql(execSql,queryArgs)
+	if err!=nil{
+		return nil,errors.New("parse sql failed,please check")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var list []*model.` + resultType + `
+	result := dao.DB(ctx).Raw(sql, argsMap).Find(&list)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return list, nil
+}
+
+`			
+			continue
+		}
 
 		if query.HasPage {
 			// 生成分页的do方法
@@ -942,6 +975,13 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (stri
 	// 生成示例SQL
 	var sqlExamples []string
 	for _, query := range tableData.SelfQueries {
+		var baseSql string
+		var sortClause = query.Sort
+		var whereClause string
+		// 动态模版
+		if query.DynamicSql{
+			baseSql = query.SqlTemplate
+		} else {
 		// 构建SELECT语句
 		selectClause := "SELECT *"
 		if query.SelectFields != "" && query.SelectFields != "*" {
@@ -949,7 +989,7 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (stri
 		}
 
 		// 构建WHERE条件
-		whereClause := "WHERE 1=1"
+		// whereClause := ""
 		if query.Where != nil {
 			sqlwhere,err:=conditonwhere.GenerateWhereSQL(query.Where)
 			if err != nil {
@@ -959,13 +999,13 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (stri
 		}
 
 		// 构建排序语句
-		sortClause := ""
-		if len(primaryKeys) > 0 {
+		if sortClause !="" && len(primaryKeys) > 0 {
 			sortClause = " ORDER BY " + strings.Join(primaryKeys, ", ")
 		}
-
 		// 组合基本SQL语句
-		baseSql := selectClause + " FROM " + tableName + " " + whereClause
+		baseSql = selectClause + " FROM " + tableName + " " + whereClause
+		}
+
 
 		// 根据是否需要分页生成分页SQL或基本SQL
 		if query.HasPage {
@@ -1009,14 +1049,14 @@ func GetDBTypeNamingSqlTemplate(tableData *table.TableData, dbType string) (stri
 	}
 
 	// 如果没有自定义查询，生成一个默认查询
-	if len(sqlExamples) == 0 {
-		defaultSql := "SELECT * FROM " + tableName + " WHERE 1=1"
-		if len(primaryKeys) > 0 {
-			defaultSql += " ORDER BY " + strings.Join(primaryKeys, ", ")
-		}
-		sqlExamples = append(sqlExamples, fmt.Sprintf("const %s_%s_Default = \"%s\"", dbType, structName, defaultSql))
-		// 默认查询是非分页的，不需要生成Count SQL
-	}
+	// if len(sqlExamples) == 0 {
+	// 	defaultSql := "SELECT * FROM " + tableName + " WHERE 1=1"
+	// 	if len(primaryKeys) > 0 {
+	// 		defaultSql += " ORDER BY " + strings.Join(primaryKeys, ", ")
+	// 	}
+	// 	sqlExamples = append(sqlExamples, fmt.Sprintf("const %s_%s_Default = \"%s\"", dbType, structName, defaultSql))
+	// 	// 默认查询是非分页的，不需要生成Count SQL
+	// }
 
 	// 生成初始化函数
 	initFunc := fmt.Sprintf("func Init%s%s() {\n", structName, dbType)

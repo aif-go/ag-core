@@ -40,6 +40,18 @@ type SelfQueryInfo struct {
 	SelectFields string
 	Where        *WhereClause
 	Page         bool
+	DynamicTemplate bool // 动态模版的逻辑
+	Order        string // 排序逻辑
+	WhereParams  []*WhereParam
+	SqlTemplate string // SQL模版
+}
+
+
+type WhereParam struct{
+	ColName string
+	ParaName string
+	Type string
+	Slice bool
 }
 
 // WhereClause WHERE子句信息
@@ -53,4 +65,6 @@ type Condition struct {
 	Operator   string
 	Conditions []*Condition
 	Expr       string
+	Field      string   // 字段名（用于IN/NOT IN操作）
+	Values     []string // 值列表（用于IN/NOT IN操作）
 }
