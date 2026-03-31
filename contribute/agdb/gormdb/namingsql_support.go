@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/cloudwego/kitex/tool/internal_pkg/log"
 )
 
 // 预编译正则表达式，避免每次调用时重新编译
@@ -160,21 +162,23 @@ func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []
 		if _, ok := excludeCols[fieldTyp.Name]; ok {
 			continue // 排除指定字段
 		}
-		// 2.1 判断是否有 gorm omitempty 标记
-		// gormTag := fieldTyp.Tag.Get("gorm")
+		// 2.1 获取gormtag的列名属性
+		gormTag := fieldTyp.Tag.Get("gorm")
+		gormTagArr := strings.Split(gormTag, ";")
 		// hasOmitEmpty := false
-		// for _, opt := range strings.Split(gormTag, ";") {
-		//     if opt == "omitempty" {
-		//         hasOmitEmpty = true
-		//         break
-		//     }
-		// }
-		// if !hasOmitEmpty {
-		//     continue // 没有 omitempty 标记，跳过
-		// }
+		colname:=""
+		for _, opt := range gormTagArr {
+			if strings.HasPrefix(opt,"column:"){
+				colname = strings.SplitAfter(opt,"column:")[1]
+			}
+		}
+		
+		if colname == ""{
+			log.Warn("属性:",fieldTyp.Name,"未指定对应的列名tag")
+		}
 		// 2.2 判断字段值是否为零值
 		if fieldVal.IsZero() {
-			result = append(result, fieldTyp.Name) // 满足条件，收集字段名
+			result = append(result, colname) // 满足条件，收集字段名
 		}
 	}
 

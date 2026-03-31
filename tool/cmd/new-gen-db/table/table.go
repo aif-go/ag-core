@@ -57,6 +57,7 @@ type WhereColField struct {
 	FieldName string // 字段名
 	IsSlice   bool   // 是否为切片类型
 	Operator  string // 操作符
+	GoType string // 类型
 }
 
 // QueryData 查询数据
@@ -69,4 +70,8 @@ type QueryData struct {
 	WhereColFields []WhereColField `json:"whereColFields"`
 	Where          *conditonwhere.MaskWhereCondition `json:"where"`
 	WhereDataYaml string          // 原始where条件的YAML字符串表示
+	SqlTemplate   string `json:"sqlTemplate"`
+	DynamicSql    bool // 是否动态sql
+	Sort string // 排序内容
+
 }
