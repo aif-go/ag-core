@@ -1,0 +1,130 @@
+agsarama:
+  brokers:
+    # - "127.0.0.1:9092"
+    - "sirius.cn:9092"
+
+  # Admin 相关配置
+  admin:
+    retry:
+      max: 6               # 重试次数，默认 5
+      backoff: 100         # 重试间隔，单位毫秒，默认 100ms
+    timeout: 3000          # Admin 操作超时时间，单位毫秒，默认 3s
+  
+  # 网络相关配置
+  net:
+    maxOpenRequests: 5     # 单个连接上允许的最大未完成请求数，默认 5
+    dialTimeout: 30000     # 建立连接超时时间，单位毫秒，默认 30s
+    readTimeout: 30000     # 读取响应超时时间，单位毫秒，默认 30s
+    writeTimeout: 30000    # 发送请求超时时间，单位毫秒，默认 30s
+    resolveCanonicalBootstrapServers: false  # 是否解析bootstrap服务器的规范主机名，默认 false
+    
+    # SASL 认证配置
+    sasl:
+      enable: false        # 是否启用 SASL 认证，默认 false
+      mechanism: "plain"   # SASL 机制，支持 plain, scram-sha-256, scram-sha-512, oauth, gssapi
+      version: 1           # SASL 协议版本，默认 1 (SASLHandshakeV1)
+      handshake: true      # 是否发送 SASL 握手请求，默认 true
+      authIdentity: ""     # 授权标识符，用于 SASL/PLAIN
+      user: ""             # 用户名，用于 SASL/PLAIN 和 SASL/SCRAM
+      password: ""         # 密码，用于 SASL/PLAIN 和 SASL/SCRAM
+      scramAuthzID: ""     # SCRAM 授权标识符，用于 SASL/SCRAM
+    
+    keepAlive: 0           # TCP keep-alive 时间，单位毫秒，默认 0 (禁用)
+  
+  # 元数据相关配置
+  metadata:
+    retry:
+      max: 3               # 元数据请求重试次数，默认 3
+      backoff: 250         # 重试间隔，单位毫秒，默认 250ms
+    refreshFrequency: 600000  # 元数据刷新频率，单位毫秒，默认 10分钟
+    full: true             # 是否维护完整的元数据，默认 true
+    timeout: 0             # 元数据请求超时时间，单位毫秒，默认 0 (禁用)
+    allowAutoTopicCreation: true  # 是否允许自动创建主题，默认 true
+    singleFlight: true     # 是否使用 SingleFlight 模式，默认 true
+  
+  # 生产者相关配置
+  producer:
+    maxMessageBytes: 1048576  # 单条消息最大字节数，默认 1MB (1024*1024)
+    # requiredAcks: "no_response"  # 确认机制，支持 no_response, wait_for_local, wait_for_all
+    # requiredAcks: "wait_for_all"  # 确认机制，支持 no_response, wait_for_local, wait_for_all
+    timeout: 10000          # 生产者请求超时时间，单位毫秒，默认 10s
+    compression: "gzip"     # 压缩算法，支持 none, gzip, snappy, lz4, zstd
+    compressionLevel: -1    # 压缩级别，默认 -1 (使用默认压缩级别)
+    Partitioner: "xxxx"
+    
+    # 幂等生产者配置
+    idempotent: false       # 是否启用幂等生产者，默认 false
+    transaction:
+      id: ""                # 事务ID，用于事务性生产者
+      timeout: 60000        # 事务超时时间，单位毫秒，默认 1分钟
+      retry:
+        max: 50             # 事务重试次数，默认 50
+        backoff: 100        # 事务重试间隔，单位毫秒，默认 100ms
+    
+    # 返回通道配置
+    return:
+      successes: true      # 是否返回成功消息通道，默认 false
+      errors: true          # 是否返回错误消息通道，默认 true
+    
+    # 批量刷新配置
+    flush:
+      bytes: 0              # 触发刷新的字节数阈值，默认 0
+      messages: 0           # 触发刷新的消息数阈值，默认 0
+      frequency: 0          # 刷新频率，单位毫秒，默认 0
+      maxMessages: 0        # 单次刷新的最大消息数，默认 0
+    
+    # 重试配置
+    retry:
+      max: 3                # 发送消息重试次数，默认 3
+      backoff: 100          # 重试间隔，单位毫秒，默认 100ms
+      maxBufferLength: 0    # 重试缓冲区最大长度，默认 0 (无限制)
+      maxBufferBytes: 0     # 重试缓冲区最大字节数，默认 0 (无限制)
+  
+  # 消费者相关配置
+  consumer:
+    group:
+      session:
+        timeout: 10000      # 会话超时时间，单位毫秒，默认 10s
+      heartbeat:
+        interval: 3000      # 心跳间隔，单位毫秒，默认 3s
+      rebalance:
+        timeout: 60000      # 重平衡超时时间，单位毫秒，默认 60s
+        retry:
+          max: 4            # 重平衡重试次数，默认 4
+          backoff: 2000     # 重平衡重试间隔，单位毫秒，默认 2s
+      # member:
+      #   userData: ""        # 用户自定义数据，base64编码字符串，留空表示无数据
+      instanceId: ""        # 消费者实例ID，用于静态成员资格
+      resetInvalidOffsets: true  # 是否重置无效偏移量，默认 true
+    
+    retry:
+      backoff: 2000         # 消费重试间隔，单位毫秒，默认 2s
+    
+    fetch:
+      min: 1                # 最小获取字节数，默认 1
+      default: 1048576      # 默认获取字节数，默认 1MB (1024*1024)
+      max: 0                # 最大获取字节数，默认 0 (无限制)
+    
+    maxWaitTime: 500        # 最大等待时间，单位毫秒，默认 500ms
+    maxProcessingTime: 100  # 最大处理时间，单位毫秒，默认 100ms
+    
+    return:
+      errors: false         # 是否返回错误通道，默认 false
+    
+    offsets:
+      autoCommit:
+        enable: true        # 是否启用自动提交，默认 true
+        interval: 1000      # 自动提交间隔，单位毫秒，默认 1s
+      initial: -1           # 初始偏移量，-1 表示 OffsetNewest，-2 表示 OffsetOldest
+      retention: 0          # 偏移量保留时间，单位毫秒，默认 0 (禁用)
+      retry:
+        max: 3              # 偏移量提交重试次数，默认 3
+    
+    isolationLevel: "read_uncommitted"  # 隔离级别，支持 read_uncommitted, read_committed
+  
+  # 全局配置
+  clientID: "agsarama-test-client"  # 客户端标识符，用于日志和监控
+  rackID: ""                 # 机架标识符，用于机架感知
+  channelBufferSize: 256     # 通道缓冲区大小，默认 256
+  apiVersionsRequest: true   # 是否发送 ApiVersions 请求，默认 true
+  version: "2.1.0"           # Kafka 版本，使用 sarama.ParseKafkaVersion 解析
