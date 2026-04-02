@@ -3,7 +3,6 @@ package testsimple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"testing"
@@ -76,11 +75,15 @@ func TestSimpleTlsClientHandler(t *testing.T) {
 
 	channel.IsActive()
 
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 10)
+
+	channel.Write("hello world")
+	time.Sleep(time.Second * 10)
+
 	// channel.Close(nil)
 	channel.Close(fmt.Errorf("我自己要关的"))
 
-	// time.Sleep(time.Second) // 等待重连
+	time.Sleep(time.Second)
 
 	client.Stop()
 
@@ -89,9 +92,10 @@ func TestSimpleTlsClientHandler(t *testing.T) {
 func _simpleClientEventHandler() (agonet.EventHandler, error) {
 
 	var testHand = simple.NewSimpleInboundHandler(func(ctx simple.InboundContext, msg []byte) {
-		hexStr := hex.EncodeToString(msg)
-		fmt.Printf("Received msg: %s, len: %d, hexStr: %s\n", string(msg), len(msg), hexStr)
-		fmt.Printf("client Received reply message: %s\n", msg)
+		// hexStr := hex.EncodeToString(msg)
+		// fmt.Printf("Received msg: %s, len: %d, hexStr: %s\n", string(msg), len(msg), hexStr)
+		// fmt.Printf("client Received reply message: %s\n", msg)
+		fmt.Printf("收: %s\n", string(msg))
 		ctx.FireRead(msg)
 	})
 

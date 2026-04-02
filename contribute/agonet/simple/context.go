@@ -84,6 +84,17 @@ func (hc *handlerContext) Write(message any) {
 	}
 }
 
+// Trigger impl EventContext
+func (hc *handlerContext) Trigger(event any) {
+	defer func() {
+		if err := recover(); nil != err {
+			hc.pipeline.FireChannelException(err.(error))
+		}
+	}()
+
+	hc.FireEvent(event)
+}
+
 // FireActive impl ActiveContext
 func (hc *handlerContext) FireActive() {
 	var next = hc
@@ -166,5 +177,17 @@ func (hc *handlerContext) FireExceptionCaught(ex error) {
 
 // FireEvent impl EventContext
 func (hc *handlerContext) FireEvent(event any) {
-	// TODO
+
+	var next = hc
+
+	for {
+		if next = next.nextContext(); nil == next {
+			break
+		}
+
+		if handler := next.cast2Event; nil != handler {
+			handler.HandleEvent(next, event)
+			break
+		}
+	}
 }

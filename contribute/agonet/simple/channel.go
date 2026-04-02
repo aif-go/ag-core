@@ -5,6 +5,7 @@ import (
 	"ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 	"time"
 )
@@ -69,6 +70,15 @@ func (c *channel) RemoteAddr() string {
 	return c.conn.RemoteAddr().String()
 }
 
+func (c *channel) Trigger(event any) {
+	if !c.IsActive() {
+		return
+	}
+	c.invokeMethod(func() {
+		c.pipeline.FireChannelEvent(event)
+	})
+}
+
 // Write write message to pipeline
 func (c *channel) Write(message any) error {
 	if !c.IsActive() {
@@ -105,11 +115,13 @@ func (c *channel) Write1(message []byte) (n int, err error) {
 // Close through the Pipeline
 func (c *channel) Close(err error) {
 	if atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
+		// 在事件循环中关闭conn
 		err2 := c.eventloop.Execute(context.Background(), agonet.RunnableFunc(func(_ context.Context) error {
 			return c.EventLoop().Close(c.conn, err)
 		}))
 
 		if err2 != nil {
+			slog.Error("channel close error", "err", err2)
 			// TODO 异常处理设计
 			// c.pipeline.FireChannelException(AsException(err))
 		}

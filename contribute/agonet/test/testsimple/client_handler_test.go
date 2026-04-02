@@ -25,14 +25,27 @@ func TestClientHandler(t *testing.T) {
 		ctx.FireRead(msg)
 	})
 
-	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
-	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
+	// lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
+	// 通道激活事件
+	activeHand := simple.ActiveHandlerFunc(func(ctx simple.ActiveContext) {
+		fmt.Printf("test active, remote addr: %s\n", ctx.Channel().RemoteAddr())
+	})
+
+	// 通道非激活事件
+	inactiveHand := simple.InactiveHandlerFunc(func(ctx simple.InactiveContext, ex error) {
+		fmt.Printf("test inactive, remote addr: %s, reason: %v\n", ctx.Channel().RemoteAddr(), ex)
+	})
 	pipelineInitializer := func(c simple.Channel) error {
 		c.Pipeline().
 			// AddLast(&echoHandler{}).
 			AddLast(
-				lengthDecod,
-				lengthEncod,
+				activeHand,
+				inactiveHand,
+				// lengthDecod,
+				// lengthEncod,
+				simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2),
+				simple.NewLengthFieldEncoder(nil, 2, 0, false),
 				testHand,
 			)
 
@@ -74,29 +87,33 @@ func TestClientHandler(t *testing.T) {
 		// 	t.Fatalf("tmpCtx is not simple.Channel")
 		// }
 
-		channel.Write("abc")
-		channel.Write("sirius")
-		channel.Write("张三")
-		channel.Write("hello world")
-		channel.Write("1")
-		channel.Write("2")
-		channel.Write("3")
-		channel.Write("4")
-		channel.Write("5")
+		channel.Write("12345")
+		channel.Write("123456789")
+		// channel.Write("abc")
+		// channel.Write("sirius")
+		// channel.Write("张三")
+		// channel.Write("hello world")
+		// channel.Write("1")
+		// channel.Write("2")
+		// channel.Write("3")
+		// channel.Write("4")
+		// channel.Write("5")
 
-		time.Sleep(time.Millisecond * 1)
+		time.Sleep(time.Second * 60)
+		// time.Sleep(time.Millisecond * 1)
 		channel.Close(nil)
 
 		channel.IsActive()
 	}
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
-		go func() {
-			for {
-				do()
-			}
+		// go func() {
+		func() {
+			// for {
+			do()
+			// }
 			defer wg.Done()
 		}()
 	}

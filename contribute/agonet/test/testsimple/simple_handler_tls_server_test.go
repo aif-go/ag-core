@@ -3,13 +3,17 @@ package testsimple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
-	"encoding/hex"
 	"fmt"
+	"log/slog"
 	_ "net/http/pprof"
 	"testing"
+	"time"
+
+	"github.com/petermattis/goid"
 )
 
 func TestSimpleTlsServerHandler(t *testing.T) {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	evenhand, err := _simpleServerEventHandler()
 	if err != nil {
@@ -39,10 +43,12 @@ func TestSimpleTlsServerHandler(t *testing.T) {
 func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	// var testHand = &simplehandler.SimpleHandler[[]byte]{
 	var testHand = simple.NewSimpleInboundHandler(func(ctx simple.InboundContext, msg []byte) {
-		hexStr := hex.EncodeToString(msg)
-		fmt.Printf("msg: %s, len: %d, hexStr: %s\n", string(msg), len(msg), hexStr)
+		// hexStr := hex.EncodeToString(msg)
+		gid := goid.Get()
+		// fmt.Printf("msg: %s, len: %d, gid: %d\n", string(msg), len(msg), gid)
 
-		replymsg := fmt.Sprintf("reply:%s", msg)
+		replymsg := fmt.Sprintf("R_%s_s:%d", msg, gid)
+		fmt.Println(replymsg)
 		// replymsg := msg
 
 		ctx.Channel().Write(replymsg)
@@ -51,21 +57,21 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	})
 
 	// lengthDecod := lengthDecod.NewLengthFieldCodec(binary.BigEndian, 1024, 0, 4, 0, 0)
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 10, 0, 2, 0, 2)
 	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
-	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
 	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
 
 	custCodec := simple.NewSimpleCodec(
 		"custCodec",
 		func(msg []byte) (out []any, err error) {
-			fmt.Println("custdecode msg:", string(msg))
+			// fmt.Println("custdecode msg:", string(msg))
 			out = append(out, msg)
-			out = append(out, string(msg))
+			// out = append(out, string(msg))
 			return out, nil
 
 		},
-		func(msg []byte) ([]any, error) {
-			fmt.Println("custencode msg:", string(msg))
+		func(msg string) ([]any, error) {
+			// fmt.Println("custencode msg:", string(msg))
 			return []any{msg}, nil
 		},
 	)
@@ -73,11 +79,11 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	custCodec2 := &simple.SimpleCodec[string, string]{
 		CodeName: "custCodec2",
 		Decode: func(msg string) ([]any, error) {
-			fmt.Println("custdecode2 msg:", msg)
+			// fmt.Println("custdecode2 msg:", msg)
 			return []any{msg}, nil
 		},
 		Encode: func(msg string) ([]any, error) {
-			fmt.Println("custencode2 msg:", msg)
+			// fmt.Println("custencode2 msg:", msg)
 			return []any{msg}, nil
 		},
 	}
@@ -85,11 +91,29 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	// 通道激活事件
 	activeHand := simple.ActiveHandlerFunc(func(ctx simple.ActiveContext) {
 		fmt.Printf("test active, remote addr: %s\n", ctx.Channel().RemoteAddr())
+		ctx.FireActive()
 	})
 
 	// 通道非激活事件
 	inactiveHand := simple.InactiveHandlerFunc(func(ctx simple.InactiveContext, ex error) {
 		fmt.Printf("test inactive, remote addr: %s, reason: %v\n", ctx.Channel().RemoteAddr(), ex)
+		ctx.FireInactive(ex)
+	})
+
+	// idleHandler := simple.IdleStateHandler(3, 0, 0, time.Second)
+	idleHandler := simple.IdleStateHandler(0, 0, 3, time.Second)
+
+	eventHandler := simple.EventHandlerFunc(func(ctx simple.EventContext, event any) {
+		if ie, ok := event.(simple.IdleStateEvent); ok {
+			slog.Info(fmt.Sprintf("idle state:%s, first:%v", ie.State, ie.First))
+		}
+		ctx.FireEvent(event)
+	})
+	eventHandler2 := simple.EventHandlerFunc(func(ctx simple.EventContext, event any) {
+		if ie, ok := event.(simple.IdleStateEvent); ok {
+			slog.Info(fmt.Sprintf("idle2 state:%s, first:%v", ie.State, ie.First))
+		}
+		ctx.FireEvent(event)
 	})
 
 	pipelineInitializer := func(c simple.Channel) error {
@@ -103,6 +127,9 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 				testHand,
 				activeHand,
 				inactiveHand,
+				idleHandler,
+				eventHandler,
+				eventHandler2,
 			)
 
 		// c.Pipeline().AddLast(testHand)

@@ -58,8 +58,6 @@ type lengthFieldDecoder struct {
 	lengthAdjustment    int              // 包体长度调整的大小，长度域的数值表示的长度加上这个修正值表示的就是带header的包长度
 	initialBytesToStrip int              // 拿到一个完整的数据包之后向业务解码器传递之前，应该跳过多少字节
 
-	// OutboundHandler
-	// Encoder
 }
 
 func (*lengthFieldDecoder) Name() string {
@@ -70,9 +68,10 @@ func (l *lengthFieldDecoder) HandleRead(ctx InboundContext, message any) {
 	// reader := utils.MustToReader(message)
 	reader, ok := message.(agonet.Reader)
 	if ok {
-		out, err := l.doDecode(reader) // TODO out 是否池化复用
+		out, err := l.doDecode(reader)
 		if err != nil {
-			utils.Assert(err) // TODO 直接panic吗？ 异常处理，如长度不够， 重要！！！！！
+			utils.Assert(err) // 异常直接panic穿透给EventHandler
+			return
 		}
 
 		for _, item := range out {
@@ -84,7 +83,6 @@ func (l *lengthFieldDecoder) HandleRead(ctx InboundContext, message any) {
 }
 
 func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
-
 	// 读取长度域
 	lengthFieldEndOffset := l.lengthFieldOffset + l.lengthFieldLength // 长度域的结束偏移量
 
@@ -110,29 +108,40 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 		return nil, errors.New("Adjusted frame length is less than lengthFieldEndOffset")
 	}
 
+	// 检查报文长度是否超过最大允许长度
 	if frameLength > int64(l.maxFrameLength) {
 		// TODO exceededFrameLength // TODO 处理超长报文
 		return nil, errors.New("exceeded frame length")
 	}
 
+	// 检查是否有足够的数据可读取，半包处理
 	if reader.ReadableBytes() < int(frameLength) {
-		return nil, aerrors.ErrIncompletePacket
+		// return nil, aerrors.ErrIncompletePacket
+		// 半包，等待后续数据，不再抛出异常
+		return nil, nil
 	}
 
-	if l.initialBytesToStrip > int(frameLength) {
-		// TODO  failOnFrameLengthLessThanInitialBytesToStrip(in, frameLength, initialBytesToStrip);
-		return nil, errors.New("Adjustd frame length is less than initialBytesToStrip")
+	msgLength := frameLength
+	if l.initialBytesToStrip > 0 {
+		if l.initialBytesToStrip > int(frameLength) {
+			// TODO  failOnFrameLengthLessThanInitialBytesToStrip(in, frameLength, initialBytesToStrip);
+			return nil, errors.New("Adjustd frame length is less than initialBytesToStrip")
+		}
+
+		_, err = reader.Discard(l.initialBytesToStrip)
+		if err != nil {
+			return nil, err
+		}
+		msgLength -= int64(l.initialBytesToStrip)
 	}
 
-	frameMsg, err := reader.Next(int(frameLength))
+	frameMsg, err := reader.Next(int(msgLength))
 	if err != nil {
 		if errors.Is(err, io.ErrShortBuffer) { // FIXME 根据前文判断，此处不应该返回错误
 			return nil, aerrors.ErrIncompletePacket
 		}
 		return nil, errors.Join(err, errors.New("read frame message failed"))
 	}
-
-	frameMsg = frameMsg[l.initialBytesToStrip:]
 
 	return []any{frameMsg}, nil
 }

@@ -42,6 +42,7 @@ func (el *eventloop) run() (err error) {
 	// 获取协程id
 	id := goid.Get()
 	el.goroutineId = id
+	slog.Debug(fmt.Sprintf("event-loop(%d) is running, gid: %d", el.idx, el.goroutineId))
 
 	for i := range el.ch {
 		switch v := i.(type) {

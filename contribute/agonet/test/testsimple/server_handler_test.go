@@ -5,9 +5,11 @@ import (
 	"ag-core/contribute/agonet/simple"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"testing"
+	"time"
 )
 
 func TestServerHandler(t *testing.T) {
@@ -33,6 +35,7 @@ func TestServerHandler(t *testing.T) {
 
 	// lengthDecod := lengthDecod.NewLengthFieldCodec(binary.BigEndian, 1024, 0, 4, 0, 0)
 	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 10, 0, 2, 0, 2)
 	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 0)
 	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
 
@@ -61,11 +64,31 @@ func TestServerHandler(t *testing.T) {
 	// 通道激活事件
 	activeHand := simple.ActiveHandlerFunc(func(ctx simple.ActiveContext) {
 		fmt.Printf("test active, remote addr: %s\n", ctx.Channel().RemoteAddr())
+		ctx.FireActive()
 	})
 
 	// 通道非激活事件
 	inactiveHand := simple.InactiveHandlerFunc(func(ctx simple.InactiveContext, ex error) {
 		fmt.Printf("test inactive, remote addr: %s, reason: %v\n", ctx.Channel().RemoteAddr(), ex)
+		ctx.FireInactive(ex)
+	})
+
+	// idleHandler := simple.IdleStateHandler(3, 0, 0, time.Second)
+	idleHandler := simple.IdleStateHandler(3, 4, 5, time.Second)
+
+	eventHandler := simple.EventHandlerFunc(func(ctx simple.EventContext, event any) {
+		if ie, ok := event.(simple.IdleStateEvent); ok {
+			slog.Info(fmt.Sprintf("idle1 state:%s, first:%v", ie.State, ie.First))
+		}
+		ctx.FireEvent(event)
+	})
+	eventHandler2 := simple.EventHandlerFunc(func(ctx simple.EventContext, event any) {
+		if ie, ok := event.(simple.IdleStateEvent); ok {
+			slog.Info(fmt.Sprintf("idle2 state:%s, first:%v", ie.State, ie.First))
+			// ctx.Channel().Write("idle2 close")
+			// ctx.Channel().Close(errors.New("idle2 close"))
+		}
+		ctx.FireEvent(event)
 	})
 
 	pipelineInitializer := func(c simple.Channel) error {
@@ -79,6 +102,10 @@ func TestServerHandler(t *testing.T) {
 				custCodec,
 				custCodec2,
 				testHand,
+
+				idleHandler,
+				eventHandler,
+				eventHandler2,
 			)
 
 		// c.Pipeline().AddLast(testHand)
@@ -97,6 +124,12 @@ func TestServerHandler(t *testing.T) {
 		Config: agonet.OptionsConfig{
 			Engine: agonet.EngineConfig{
 				NumEventLoop: 1,
+			},
+			KeepAlive: agonet.KeepAliveConfig{
+				Enable:   true,
+				Idle:     5,
+				Interval: 5,
+				Count:    3,
 			},
 		},
 	})

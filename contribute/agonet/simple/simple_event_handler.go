@@ -115,6 +115,15 @@ func (h *SimpleEventHandler) OnOpen(conn agonet.Conn) (out []byte, action agonet
 }
 
 func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) {
+	// channel := conn.Context().(Channel) // TODO 从context中获取pipeline
+	channel, err := getChannelFromConn(conn)
+	if err != nil {
+		return agonet.Close
+	}
+
+	// 从通道中获取pipeline
+	pipeline := channel.Pipeline()
+
 	defer func() {
 		if r := recover(); r != nil {
 			err, ok := r.(error)
@@ -124,26 +133,21 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 				return
 			}
 			slog.Error("OnTraffic failed", "err", err)
-			action = agonet.Close
+			pipeline.FireChannelException(err)
+			// action = agonet.Close
+			return
 		}
 	}()
-
-	// channel := conn.Context().(Channel) // TODO 从context中获取pipeline
-	channel, err := getChannelFromConn(conn)
-	if err != nil {
-		return agonet.Close
-	}
 
 	// 从连接中获取读取器
 	reader := conn.(agonet.Reader)
 
-	// 从通道中获取pipeline
-	pipeline := channel.Pipeline()
-
+	before := conn.ReadableBytes()
 	// 触发通道读取事件
 	pipeline.FireChannelRead(reader)
 
-	if conn.ReadableBytes() > 0 { // TODO 且数据被读取过，防止异常数据导致死循环
+	after := conn.ReadableBytes()
+	if after > 0 && after != before { // 判断数据被读取过，防止异常数据导致死循环
 		conn.Wake(nil) // eventloop中手动唤醒触发OnTraffic
 	}
 
