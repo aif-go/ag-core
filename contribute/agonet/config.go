@@ -47,8 +47,8 @@ func DefaultClientConfig() ClientConfig {
 func DefaultCommonConfig() OptionsConfig {
 	return OptionsConfig{
 		Engine: EngineConfig{
-			NumEventLoop: 1,
-			Multicore:    false,
+			NumEventLoop: 0,
+			Multicore:    true, // 默认多核心模式
 			// Ticker:       false,
 		},
 		KeepAlive: KeepAliveConfig{

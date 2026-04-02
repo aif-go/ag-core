@@ -14,6 +14,8 @@ type (
 	ActiveHandlerFunc func(ctx ActiveContext)
 
 	InactiveHandlerFunc func(ctx InactiveContext, ex error)
+
+	EventHandlerFunc func(ctx EventContext, event any)
 )
 
 func (headHandler) HandleWrite(ctx OutboundContext, message any) {
@@ -29,19 +31,10 @@ func (headHandler) HandleWrite(ctx OutboundContext, message any) {
 
 func (tailHandler) HandleException(ctx ExceptionContext, ex error) {
 	// The final closing operation will be provided when the user registered handler is not processing.
-	// fmt.Fprintln(os.Stderr,
-	// 	"An HandleException() event was fired, and it reached at the tail of the pipeline.",
-	// 	"It usually means the last handler in the pipeline did not handle the exception.",
-	// 	"We will close the channel, If you don't want to close the channel please add HandleException() to the pipeline.\n",
-	// 	"Exception throw on ", ctx.Channel().RemoteAddr(), "\n",
-	// 	ex,
-	// )
-	slog.Error(fmt.Sprintf("Exception throw on %s, err: %v", ctx.Channel().RemoteAddr(), ex))
+	slog.Error(fmt.Sprintf("An HandleException() event was fired, channel will be close. Exception throw on %s, err: %v", ctx.Channel().RemoteAddr(), ex))
 
-	// TODO 需反馈到EventLoop，进行链接关闭
-	// ctx.Channel().EventLoop()
-	// err := aerrors.ErrConnectionShutdown
-	// 将err传递给EventLoop 进行连接关闭
+	// FIXME 内部实现从eventloop中执行关闭操作
+	ctx.Channel().Close(ex)
 }
 
 func (fn ActiveHandlerFunc) HandleActive(ctx ActiveContext) {
@@ -50,4 +43,8 @@ func (fn ActiveHandlerFunc) HandleActive(ctx ActiveContext) {
 
 func (fn InactiveHandlerFunc) HandleInactive(ctx InactiveContext, ex error) {
 	fn(ctx, ex)
+}
+
+func (fn EventHandlerFunc) HandleEvent(ctx EventContext, event any) {
+	fn(ctx, event)
 }

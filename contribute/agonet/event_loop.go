@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"runtime"
 	"sync/atomic"
 
 	"github.com/petermattis/goid"
@@ -32,15 +33,16 @@ func (el *eventloop) run() (err error) {
 		}
 	}()
 
-	// TODO 绑定事件循环到当前线程
-	// if el.eng.opts.LockOSThread {
-	// 	runtime.LockOSThread()
-	// 	defer runtime.UnlockOSThread()
-	// }
+	// 绑定事件循环到当前线程
+	if el.eng.opts.LockOSThread {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+	}
 
 	// 获取协程id
 	id := goid.Get()
 	el.goroutineId = id
+	slog.Debug(fmt.Sprintf("event-loop(%d) is running, gid: %d", el.idx, el.goroutineId))
 
 	for i := range el.ch {
 		switch v := i.(type) {
@@ -113,6 +115,14 @@ func (el *eventloop) read(c *conn) error {
 	c.buffer.Reset()
 
 	return nil
+}
+
+func (el *eventloop) wake(c *conn) error {
+	if _, ok := el.connections[c]; !ok {
+		return nil // ignore stale wakes.
+	}
+	action := el.eventHandler.OnTraffic(c)
+	return el.handleAction(c, action)
 }
 
 func (el *eventloop) close(c *conn, err error) error {

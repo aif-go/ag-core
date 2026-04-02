@@ -15,7 +15,7 @@ agonet:
         type: tlcp
         type1: tls
         type2: none
-        certsDir: ./certs
+        certsDir: ../certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
           AuthCertPath: fgmsm/rsa_auth_cert.cer

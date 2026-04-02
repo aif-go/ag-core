@@ -121,7 +121,7 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 
 	// 循环接收客户端连接
 	for {
-		// 1. 等待客户端连接
+		// 等待客户端连接
 		tc, e := listener.Accept()
 		if e != nil {
 			err = e
@@ -133,7 +133,7 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 			return
 		}
 
-		// // 2. 初始化连接相关参数
+		// // 初始化连接相关参数
 		// // FIXME 初始化连接相关参数
 		// tcpConn, ok := tc.(*net.TCPConn)
 		// if ok {
@@ -144,18 +144,18 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 
 		el := eng.eventLoops.next(tc.RemoteAddr())
 
-		// 3. 组装连接对象
+		// 组装连接对象
 		c := newStreamConn(el, tc, nil)
 
-		// // 4. 触发连接打开事件
+		// // 触发连接打开事件
 		oconn := &openConn{
 			c: c,
 		}
 		el.ch <- oconn
 
-		// 5. 启动 goroutine 处理单个客户端连接（支持多客户端并发）
-		goroutine.DefaultWorkerPool.Submit(func() {
-			var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
+		// 启动 goroutine 处理单个客户端连接（支持多客户端并发）
+		err := goroutine.DefaultWorkerPool.Submit(func() {
+			var buffer [0x10000]byte
 			for {
 				// 监听连接读取数据
 				n, err := tc.Read(buffer[:])
@@ -165,22 +165,14 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 					el.ch <- &netErr{c, err}
 					return
 				}
-				// 6. 触发连接读取事件
+				// 触发连接读取事件
 				el.ch <- packTCPConn(c, buffer[:n])
+
 			}
-			// for {
-			// 	_, err := c.rawReader.Peek(0)
-			// 	// _, err := c.Reader.Peek(0)
-			// 	if err != nil {
-			// 		// 处理读取错误
-			// 		el.ch <- &netErr{c, err}
-			// 		return
-			// 	}
-			// 	fmt.Println("read data=====")
-			// 	// el.ch <- packTCPConn(c, buffer[:n])
-			// 	el.ch <- packTCPConn(c, nil)
-			// }
 		})
+		if err != nil {
+			return err
+		}
 	}
 }
 

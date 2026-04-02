@@ -48,4 +48,10 @@ var (
 	ErrUnknownAddStrategy = errors.New("agonet: unknown add strategy")
 
 	ErrIncompletePacket = errors.New("agonet: incomplete packet")
+
+	// ### simple ###
+	ErrChannelNotFound    = errors.New("agonet: channel not found in conn")
+	ErrConnContextIsNil   = errors.New("agonet: conn context is nil")
+	ErrInvalidChannelType = errors.New("agonet: invalid channel type in context")
+	ErrInvalidContextType = errors.New("agonet: invalid context type in conn")
 )

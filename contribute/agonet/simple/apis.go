@@ -16,6 +16,8 @@ type Channel interface {
 	// RemoteAddr remote address
 	RemoteAddr() string
 
+	// Trigger user event
+	Trigger(event any)
 	// Write write message to pipeline
 	Write(any) error
 	// Write1 write message to conn
@@ -113,6 +115,7 @@ type (
 		Channel() Channel
 		Handler() Handler
 		Write(message any)
+		Trigger(event any)
 	}
 
 	// ActiveContext defines an active handler

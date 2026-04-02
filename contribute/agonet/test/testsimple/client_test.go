@@ -39,8 +39,14 @@ func TestClient(t *testing.T) {
 		con.Write(fullmsg)
 	}
 
+	writefunc("123456789")
+	time.Sleep(time.Millisecond)
+
+	var length []byte
+
 	// 测试拆包
-	length := packFieldLength(binary.BigEndian, 2, 13)
+	fmt.Println("==== 测试拆包 ====")
+	length = packFieldLength(binary.BigEndian, 2, 13)
 	con.Write(append(length, []byte("who")...))
 	time.Sleep(time.Millisecond)
 	con.Write([]byte("is"))
@@ -50,13 +56,14 @@ func TestClient(t *testing.T) {
 	con.Write([]byte("dady"))
 
 	// 测试粘包
+	fmt.Println("==== 测试粘包 ====")
 	length = packFieldLength(binary.BigEndian, 2, 3)
 	length2 := packFieldLength(binary.BigEndian, 2, 6)
 	zmsg := append(length, []byte("abc")...)
 	zmsg = append(zmsg, length2...)
 	zmsg = append(zmsg, []byte("def")...)
 	con.Write(zmsg)
-	time.Sleep(time.Millisecond)
+	time.Sleep(time.Second)
 	con.Write([]byte("hig"))
 	time.Sleep(time.Millisecond)
 
@@ -74,7 +81,7 @@ func TestClient(t *testing.T) {
 	writefunc("aaaaa")
 	writefunc("bbbbb")
 	writefunc("ccccc")
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 5)
 
 }
 

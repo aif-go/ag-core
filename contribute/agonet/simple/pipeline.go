@@ -60,7 +60,6 @@ func (p *pipeline) ServeChannel(channel Channel) {
 
 func (p *pipeline) FireChannelActive() {
 	p.head.FireActive()
-	// TODO
 }
 
 func (p *pipeline) FireChannelInactive(ex error) {
@@ -80,7 +79,7 @@ func (p *pipeline) FireChannelException(ex error) {
 }
 
 func (p *pipeline) FireChannelEvent(event any) {
-	// TODO
+	p.head.FireEvent(event)
 }
 
 // addFirst to add handlers head

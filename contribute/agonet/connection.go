@@ -327,6 +327,27 @@ func (c *conn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
+func (c *conn) Wake(cb AsyncCallback) (rerr error) {
+	wakeFn := func() (err error) {
+		err = c.loop.wake(c)
+		if cb != nil {
+			_ = cb(c, err)
+		}
+		return
+	}
+
+	select {
+	case c.loop.ch <- wakeFn:
+	default:
+		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
+		rerr = goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.ch <- wakeFn
+		})
+	}
+
+	return
+}
+
 func (c *conn) SetDeadline(t time.Time) error {
 	tcpConn, ok := c.rawConn.(*net.TCPConn)
 	if !ok {
@@ -366,6 +387,7 @@ func (c *conn) release() {
 
 	c.inboundBuffer.CloseWithError(nil)
 	c.inboundBuffer = nil
+
 	byteslice.Put(c.inboundBytes) // 归还缓冲区
 
 	bytebufferpool.Put(c.buffer) // 归还缓冲区

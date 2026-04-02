@@ -37,7 +37,7 @@ type Options struct {
 
 	NumEventLoop int
 
-	// LockOSThread bool
+	LockOSThread bool
 
 	// Ticker bool
 
