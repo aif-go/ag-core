@@ -54,4 +54,5 @@ var (
 	ErrConnContextIsNil   = errors.New("agonet: conn context is nil")
 	ErrInvalidChannelType = errors.New("agonet: invalid channel type in context")
 	ErrInvalidContextType = errors.New("agonet: invalid context type in conn")
+	ErrPromiseTimeout     = errors.New("agonet: promise await timeout")
 )

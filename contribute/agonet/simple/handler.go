@@ -16,6 +16,8 @@ type (
 	InactiveHandlerFunc func(ctx InactiveContext, ex error)
 
 	EventHandlerFunc func(ctx EventContext, event any)
+
+	ExceptionHandlerFunc func(ctx ExceptionContext, ex error)
 )
 
 func (headHandler) HandleWrite(ctx OutboundContext, message any) {
@@ -47,4 +49,8 @@ func (fn InactiveHandlerFunc) HandleInactive(ctx InactiveContext, ex error) {
 
 func (fn EventHandlerFunc) HandleEvent(ctx EventContext, event any) {
 	fn(ctx, event)
+}
+
+func (fn ExceptionHandlerFunc) HandleException(ctx ExceptionContext, ex error) {
+	fn(ctx, ex)
 }

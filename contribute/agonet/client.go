@@ -19,7 +19,7 @@ type Client interface {
 	Start() error
 	Stop() error
 	Dial(network, addr string) (Conn, error)
-	// DialContext(network, addr string, ctx any) (Conn, error)
+	DialContext(network, addr string, ctx any) (Conn, error)
 	// Enroll(nc net.Conn) (Conn, error)
 	// EnrollContext(nc net.Conn, ctx any) (Conn, error)
 }

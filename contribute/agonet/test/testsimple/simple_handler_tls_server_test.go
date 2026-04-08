@@ -3,9 +3,11 @@ package testsimple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple"
+	"ag-core/contribute/agonet/simple/utils"
 	"fmt"
 	"log/slog"
 	_ "net/http/pprof"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +51,14 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 
 		replymsg := fmt.Sprintf("R_%s_s:%d", msg, gid)
 		fmt.Println(replymsg)
+
+		// 用于测试异常处理
+		if strings.HasPrefix(string(msg), "testerr") {
+			utils.Assert(fmt.Errorf("test error"))
+			return
+		}
 		// replymsg := msg
+		time.Sleep(time.Second)
 
 		ctx.Channel().Write(replymsg)
 
