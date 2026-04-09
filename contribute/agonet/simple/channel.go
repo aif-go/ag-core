@@ -74,7 +74,7 @@ func (c *channel) Trigger(event any) {
 	if !c.IsActive() {
 		return
 	}
-	c.invokeMethod(func() {
+	_ = c.invokeMethod(func() {
 		c.pipeline.FireChannelEvent(event)
 	})
 }

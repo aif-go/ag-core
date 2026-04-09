@@ -6,6 +6,7 @@ import (
 	"ag-core/contribute/agonet/simple/utils"
 	"fmt"
 	"log/slog"
+	"net/http"
 	_ "net/http/pprof"
 	"strings"
 	"testing"
@@ -15,7 +16,12 @@ import (
 )
 
 func TestSimpleTlsServerHandler(t *testing.T) {
-	slog.SetLogLoggerLevel(slog.LevelDebug)
+	// slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	// 启动 http pprof
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
 
 	evenhand, err := _simpleServerEventHandler()
 	if err != nil {
@@ -58,7 +64,7 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 			return
 		}
 		// replymsg := msg
-		time.Sleep(time.Second)
+		// time.Sleep(time.Second)
 
 		ctx.Channel().Write(replymsg)
 

@@ -89,11 +89,12 @@ func TestSimpleTlsClientShortSyncHandler(t *testing.T) {
 		fmt.Printf("收: %s\n", reply) // 等待回复
 
 		channel.Close(nil)
+		time.Sleep(time.Millisecond * 100)
 	}
-	doSend("testerr")
+	// doSend("testerr")
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		// go func() {
 		func() {

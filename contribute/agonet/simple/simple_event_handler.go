@@ -142,11 +142,11 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 	// 从连接中获取读取器
 	reader := conn.(agonet.Reader)
 
-	before := conn.ReadableBytes()
+	before := conn.InboundBuffered()
 	// 触发通道读取事件
 	pipeline.FireChannelRead(reader)
 
-	after := conn.ReadableBytes()
+	after := conn.InboundBuffered()
 	if after > 0 && after != before { // 判断数据被读取过，防止异常数据导致死循环
 		conn.Wake(nil) // eventloop中手动唤醒触发OnTraffic
 	}

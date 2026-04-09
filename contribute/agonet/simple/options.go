@@ -29,7 +29,7 @@ type eventHandlerOptions struct {
 	pipelineFactory func() Pipeline
 }
 
-func WithChannelInitializer(initializer ChannelInitializer) func(*eventHandlerOptions) {
+func WithChannelInitializer(initializer ChannelInitializer) Option {
 	return func(o *eventHandlerOptions) {
 		o.channelInitializer = initializer
 	}

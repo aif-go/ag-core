@@ -17,8 +17,8 @@ type IdleState string
 
 const (
 	READER_IDLE IdleState = "READER_IDLE"
-	WRITER_IDLE           = "WRITER_IDLE"
-	ALL_IDLE              = "ALL_IDLE"
+	WRITER_IDLE IdleState = "WRITER_IDLE"
+	ALL_IDLE    IdleState = "ALL_IDLE"
 )
 
 var (
@@ -60,7 +60,7 @@ func IdleStateHandler(readerIdleTime int64, writerIdleTime int64, allIdleTime in
 // idleHandler
 type idleHandler struct {
 	// mutex sync.RWMutex
-	state int
+	// state int
 
 	// idleTime time.Duration
 

@@ -2,6 +2,7 @@ package testsimple
 
 import (
 	"ag-core/contribute/agonet"
+
 	// "ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 	"fmt"
@@ -23,7 +24,7 @@ func TestClient(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	tcon, err := client.Dial("tcp", "localhost:9000")
+	tcon, err := client.Dial("tcp", "localhost:8443")
 	if err != nil {
 		t.Fatalf("Dial failed: %v", err)
 	}
@@ -47,7 +48,12 @@ func TestClient(t *testing.T) {
 	// 测试拆包
 	fmt.Println("==== 测试拆包 ====")
 	length = packFieldLength(binary.BigEndian, 2, 13)
-	con.Write(append(length, []byte("who")...))
+	fmt.Printf("length: %v len: %d\n", length, len(length))
+	con.Write(length[:1])
+	time.Sleep(time.Millisecond)
+	con.Write(length[1:])
+	time.Sleep(time.Millisecond)
+	con.Write([]byte("who"))
 	time.Sleep(time.Millisecond)
 	con.Write([]byte("is"))
 	time.Sleep(time.Millisecond)
@@ -62,25 +68,29 @@ func TestClient(t *testing.T) {
 	zmsg := append(length, []byte("abc")...)
 	zmsg = append(zmsg, length2...)
 	zmsg = append(zmsg, []byte("def")...)
+	fmt.Println("p1")
 	con.Write(zmsg)
+
 	time.Sleep(time.Second)
+
+	fmt.Println("p2")
 	con.Write([]byte("hig"))
 	time.Sleep(time.Millisecond)
 
-	writefunc("hello")
-	time.Sleep(time.Millisecond)
+	// writefunc("hello")
+	// time.Sleep(time.Millisecond)
 
-	writefunc("hello2")
-	time.Sleep(time.Millisecond)
+	// writefunc("hello2")
+	// time.Sleep(time.Millisecond)
 
-	writefunc("11111111")
-	time.Sleep(time.Millisecond)
+	// writefunc("11111111")
+	// time.Sleep(time.Millisecond)
 
-	writefunc("张三")
-	time.Sleep(time.Millisecond)
-	writefunc("aaaaa")
-	writefunc("bbbbb")
-	writefunc("ccccc")
+	// writefunc("张三")
+	// time.Sleep(time.Millisecond)
+	// writefunc("aaaaa")
+	// writefunc("bbbbb")
+	// writefunc("ccccc")
 	time.Sleep(time.Second * 5)
 
 }

@@ -2,7 +2,6 @@ package simple
 
 import (
 	"ag-core/contribute/agonet"
-	"ag-core/contribute/agonet/pkg/aerrors"
 	"ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 	"errors"
@@ -89,7 +88,9 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	lengthBuff, err := reader.Peek(lengthFieldEndOffset)
 	if err != nil {
 		if errors.Is(err, io.ErrShortBuffer) { // 长度域长度不足
-			return nil, aerrors.ErrIncompletePacket
+			// return nil, aerrors.ErrIncompletePacket
+			// 半包，等待后续数据，不再抛出异常
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	}
 
 	// 检查是否有足够的数据可读取，半包处理
-	if reader.ReadableBytes() < int(frameLength) {
+	if reader.InboundBuffered() < int(frameLength) {
 		// return nil, aerrors.ErrIncompletePacket
 		// 半包，等待后续数据，不再抛出异常
 		return nil, nil
@@ -138,7 +139,9 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	frameMsg, err := reader.Next(int(msgLength))
 	if err != nil {
 		if errors.Is(err, io.ErrShortBuffer) { // FIXME 根据前文判断，此处不应该返回错误
-			return nil, aerrors.ErrIncompletePacket
+			// return nil, aerrors.ErrIncompletePacket
+			// 半包，等待后续数据，不再抛出异常
+			return nil, nil
 		}
 		return nil, errors.Join(err, errors.New("read frame message failed"))
 	}

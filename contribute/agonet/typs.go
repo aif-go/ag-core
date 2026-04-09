@@ -110,8 +110,8 @@ type Reader interface {
 	// Discard advances the inbound buffer with next n bytes, returning the number of bytes discarded.
 	Discard(n int) (discarded int, err error)
 
-	// ReadableBytes returns the number of bytes that are available to read.
-	ReadableBytes() int
+	// InboundBuffered returns the number of bytes that are available to read.
+	InboundBuffered() int
 }
 
 // Writer is an interface that consists of a number of methods for writing that Conn must implement.

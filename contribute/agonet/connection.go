@@ -2,14 +2,14 @@ package agonet
 
 import (
 	"ag-core/contribute/agonet/pkg/aerrors"
+	"ag-core/contribute/agonet/pkg/buffer/elastic"
 	"ag-core/contribute/agonet/pkg/pool/byteslice"
 	goroutine "ag-core/contribute/agonet/pkg/pool/goroutline"
-	"errors"
 	"io"
 	"net"
 	"time"
 
-	"github.com/smallnest/ringbuffer"
+	// "github.com/smallnest/ringbuffer"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -37,26 +37,15 @@ type conn struct {
 	rawConn    net.Conn                   // original connection
 	localAddr  net.Addr                   // local server addr
 	remoteAddr net.Addr                   // remote addr
-	// inboundBuffer elastic.RingBuffer // buffer for data from the remote
 	// inboundBuffer *bytebufferpool.ByteBuffer
-	inboundBytes  []byte
-	inboundBuffer *ringbuffer.RingBuffer
-	// inboundBuffer *ring.Ring
-
-	// add by sirius
-	// rawReader *bufio.Reader
-	// rawWriter *bufio.Writer
-	// *bufio.Reader
-	// *bufio.Writer
+	// inboundBytes []byte
+	// inboundBuffer *ringbuffer.RingBuffer
+	inboundBuffer elastic.RingBuffer // buffer for data from the remote
 }
 
 func newStreamConn(el *eventloop, nc net.Conn, ctx any) (c *conn) {
-	// inboundBuffer := ring.New(0x10000) // 64KB 环形缓冲区
-	// rawReader := bufio.NewReader(nc)
-	// rawWriter := bufio.NewWriter(nc)
-	inboundBytes := byteslice.Get(1024 * 1024 * 1) // TODO 初始缓冲区过大
-	// ringBuffer := ringbuffer.New(1024) // TODO 环形缓冲区大小
-	ringBuffer := ringbuffer.NewBuffer(inboundBytes)
+	// inboundBytes := byteslice.Get(1024 * 1024 * 1) // TODO 初始缓冲区过大
+	// ringBuffer := ringbuffer.NewBuffer(inboundBytes)
 	return &conn{
 		ctx:     ctx,
 		loop:    el,
@@ -65,14 +54,8 @@ func newStreamConn(el *eventloop, nc net.Conn, ctx any) (c *conn) {
 		// Conn:          nc,
 		localAddr:  nc.LocalAddr(),
 		remoteAddr: nc.RemoteAddr(),
-		// inboundBuffer: bytebufferpool.Get(), // TODO RingBuffer 实现
-		// inboundBuffer: inboundBuffer,
-		inboundBytes:  inboundBytes,
-		inboundBuffer: ringBuffer,
-		// rawReader:     rawReader,
-		// rawWriter:     rawWriter,
-		// Reader: rawReader,
-		// Writer: rawWriter,
+		// inboundBytes:  inboundBytes,
+		// inboundBuffer: ringBuffer,
 	}
 }
 
@@ -148,7 +131,8 @@ func (c *conn) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (c *conn) Next(n int) (buf []byte, err error) {
-	inBufferLen := c.inboundBuffer.Length()
+	// inBufferLen := c.inboundBuffer.Length()
+	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
 		return nil, io.ErrShortBuffer
 	} else if n <= 0 {
@@ -167,7 +151,8 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 }
 
 func (c *conn) Peek(n int) (buf []byte, err error) {
-	inBufferLen := c.inboundBuffer.Length()
+	// inBufferLen := c.inboundBuffer.Length()
+	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
 		// 若有效数据长度小于 n，则返回错误
 		return nil, io.ErrShortBuffer
@@ -179,18 +164,25 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 		return c.buffer.B[:n], err
 	}
 
-	// head := make([]byte, 0, n)
-	buf = byteslice.Get(n)
+	// ==================
+	// buf = byteslice.Get(n)
+	// pn, err := c.inboundBuffer.Peek(buf)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// head, tail := c.inboundBuffer.Peek()
-	pn, err := c.inboundBuffer.Peek(buf)
-	if err != nil {
-		return nil, err
+	// if len(buf) == pn {
+	// 	return buf, err
+	// }
+	// ==================
+	head, tail := c.inboundBuffer.Peek(n)
+	if len(head) == n {
+		return head, err
 	}
-
-	if len(buf) == pn {
-		return buf, err
-	}
+	buf = byteslice.Get(n)[:0]
+	buf = append(buf, head...)
+	buf = append(buf, tail...)
+	// ==================
 
 	if inBufferLen >= n {
 		return
@@ -203,7 +195,7 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 	return
 }
 
-func (c *conn) Discard(n int) (discarded int, err error) {
+func (c *conn) Discard(n int) (int, error) {
 	// discarded, err = c.rawReader.Discard(n)
 	// return
 	if len(c.cache) > 0 {
@@ -211,7 +203,8 @@ func (c *conn) Discard(n int) (discarded int, err error) {
 		c.cache = nil
 	}
 
-	inBufferLen := c.inboundBuffer.Length()
+	// inBufferLen := c.inboundBuffer.Length()
+	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n >= totalLen || n <= 0 {
 		c.resetBuffer()
 		return totalLen, nil
@@ -222,8 +215,8 @@ func (c *conn) Discard(n int) (discarded int, err error) {
 		return n, nil
 	}
 
-	// discarded, _ := c.inboundBuffer.Discard(n)
-	discarded, _ = discardRB(c.inboundBuffer, n)
+	discarded, _ := c.inboundBuffer.Discard(n)
+	// discarded, _ = discardRB(c.inboundBuffer, n)
 	if discarded < inBufferLen {
 		return discarded, nil
 	}
@@ -233,8 +226,12 @@ func (c *conn) Discard(n int) (discarded int, err error) {
 	return n, nil
 }
 
-func (c *conn) ReadableBytes() int {
-	return c.inboundBuffer.Length() + c.buffer.Len()
+func (c *conn) InboundBuffered() int {
+	if c.buffer == nil {
+		return 0
+	}
+	// return c.inboundBuffer.Length() + c.buffer.Len()
+	return c.inboundBuffer.Buffered() + c.buffer.Len()
 }
 
 // ### conn implements Writer ###Q
@@ -385,10 +382,10 @@ func (c *conn) release() {
 		c.cache = nil
 	}
 
-	c.inboundBuffer.CloseWithError(nil)
-	c.inboundBuffer = nil
-
-	byteslice.Put(c.inboundBytes) // 归还缓冲区
+	// c.inboundBuffer.CloseWithError(nil)
+	// c.inboundBuffer = nil
+	// byteslice.Put(c.inboundBytes) // 归还缓冲区
+	c.inboundBuffer.Done()
 
 	bytebufferpool.Put(c.buffer) // 归还缓冲区
 	c.buffer = nil
@@ -398,58 +395,58 @@ func (c *conn) NetConn() net.Conn {
 	return c.rawConn
 }
 
-// discardRB 基于ringbuffer现有API实现丢弃n个字节的逻辑（非阻塞）
-// 返回实际丢弃的字节数和错误
-func discardRB(rb *ringbuffer.RingBuffer, n int) (discarded int, err error) {
-	if n < 0 {
-		return 0, errors.New("discard count cannot be negative")
-	}
-	if n == 0 {
-		return 0, nil
-	}
+// // discardRB 基于ringbuffer现有API实现丢弃n个字节的逻辑（非阻塞）
+// // 返回实际丢弃的字节数和错误
+// func discardRB(rb *ringbuffer.RingBuffer, n int) (discarded int, err error) {
+// 	if n < 0 {
+// 		return 0, errors.New("discard count cannot be negative")
+// 	}
+// 	if n == 0 {
+// 		return 0, nil
+// 	}
 
-	// 临时缓冲区：每次读取最多4KB（减少内存分配，也可直接用n长度）
-	// tempBuf := make([]byte, min(n, 4096))
-	tempBuf := make([]byte, 4096)
-	totalDiscarded := 0
+// 	// 临时缓冲区：每次读取最多4KB（减少内存分配，也可直接用n长度）
+// 	// tempBuf := make([]byte, min(n, 4096))
+// 	tempBuf := make([]byte, 4096)
+// 	totalDiscarded := 0
 
-	//获取缓冲区当前可用数据长度（核心：只丢弃实际存在的数据）
-	available := rb.Length()
-	if available == 0 {
-		return 0, nil // 无数据可丢弃，直接返回
-	}
+// 	//获取缓冲区当前可用数据长度（核心：只丢弃实际存在的数据）
+// 	available := rb.Length()
+// 	if available == 0 {
+// 		return 0, nil // 无数据可丢弃，直接返回
+// 	}
 
-	if available < n {
-		n = available
-	}
+// 	if available < n {
+// 		n = available
+// 	}
 
-	for totalDiscarded < n {
-		// 计算剩余需要丢弃的字节数
-		remaining := n - totalDiscarded
-		// 本次读取的长度：不超过临时缓冲区大小，也不超过剩余需要丢弃的长度
-		// readLen := min(len(tempBuf), remaining)
-		readLen := min(4096, remaining)
+// 	for totalDiscarded < n {
+// 		// 计算剩余需要丢弃的字节数
+// 		remaining := n - totalDiscarded
+// 		// 本次读取的长度：不超过临时缓冲区大小，也不超过剩余需要丢弃的长度
+// 		// readLen := min(len(tempBuf), remaining)
+// 		readLen := min(4096, remaining)
 
-		// 读取数据（丢弃，不使用tempBuf）
-		nRead, err := rb.Read(tempBuf[:readLen])
-		if nRead > 0 {
-			totalDiscarded += nRead
-		}
+// 		// 读取数据（丢弃，不使用tempBuf）
+// 		nRead, err := rb.Read(tempBuf[:readLen])
+// 		if nRead > 0 {
+// 			totalDiscarded += nRead
+// 		}
 
-		// 处理错误：非阻塞模式下，读空会返回错误，直接终止
-		if err != nil {
-			// 如果已经读取了部分数据，返回已读取的数量+错误；否则直接返回错误
-			if totalDiscarded > 0 {
-				return totalDiscarded, err
-			}
-			return 0, err
-		}
+// 		// 处理错误：非阻塞模式下，读空会返回错误，直接终止
+// 		if err != nil {
+// 			// 如果已经读取了部分数据，返回已读取的数量+错误；否则直接返回错误
+// 			if totalDiscarded > 0 {
+// 				return totalDiscarded, err
+// 			}
+// 			return 0, err
+// 		}
 
-		// 如果读取到0字节（无数据），终止循环
-		if nRead == 0 {
-			break
-		}
-	}
+// 		// 如果读取到0字节（无数据），终止循环
+// 		if nRead == 0 {
+// 			break
+// 		}
+// 	}
 
-	return totalDiscarded, nil
-}
+// 	return totalDiscarded, nil
+// }

@@ -12,8 +12,8 @@ agonet:
     addr: tcp://:8443
     config:
       security:
-        type: tls_tlcp
-        type1: none
+        type1: tls_tlcp
+        type: none
         certsDir: ../certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
@@ -36,9 +36,9 @@ agonet:
   client:
     config:
       security:
-        type: tlcp
+        type2: tlcp
         type1: tls
-        type2: none
+        type: none
         certsDir: ../certs
         TLS:
           CaPath: fgmsm/RSA_CA.cer
