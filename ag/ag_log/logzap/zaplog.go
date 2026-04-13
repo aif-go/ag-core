@@ -21,6 +21,7 @@ type ZlogProperties struct {
 	MaxAge      int    `value:"${max_age:0}"`
 	Console     bool   `value:"${console:false}"`
 	Prod        bool   `value:"${prod:false}"`
+	Stdout      bool   `value:"${:false}"` // 是否打印到控制台
 }
 
 func BindZlogProperties(binder ag_conf.IBinder, lced ag_conf.LocalConfigLoded) (*ZlogProperties, error) {
@@ -51,7 +52,9 @@ func NewZapLogP(p *ZlogProperties) *zap.Logger {
 		level = zap.InfoLevel
 	}
 	ws := []zapcore.WriteSyncer{}
-	ws = append(ws, zapcore.AddSync(os.Stdout))
+	if p.Stdout {
+		ws = append(ws, zapcore.AddSync(os.Stdout))
+	}
 	// 多套hook 对应多个zaplogger -->sloger [rpclogger,tradeinfologger,heartbealogger]
 	if lp != "" {
 		hook := lumberjack.Logger{
@@ -100,7 +103,7 @@ func NewZapLogP(p *ZlogProperties) *zap.Logger {
 	core := zapcore.NewCore(
 		encoder,
 		//zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(&hook)), // Print to console and file
-		zapcore.NewMultiWriteSyncer(ws...), // Print to console and file
+		zapcore.NewMultiWriteSyncer(ws...), // Print to console and file // FIXME 打印控制台通过参数控制，默认不打印
 		level,
 	)
 	if p.Prod {
