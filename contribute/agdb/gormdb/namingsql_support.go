@@ -129,8 +129,9 @@ func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType
 		startRecord = (pageNum-1)*pageSize + 1
 		endRecord = startRecord + pageSize - 1
 	}
+	// bugfix: 即使超过了总条数，也不能修改pagesize，因为pagesize是前端传过来的，代表了用户的意图，不能随意修改
 	if startRecord > totalCount {
-		return 0, 0, 0
+		return 0, pageSize, 0
 	}
 	if endRecord > totalCount {
 		endRecord = totalCount
