@@ -24,6 +24,7 @@ type FxInAgSlogBuilderParams struct {
 var FxAgSlogProvide = fx.Provide(
 	BindAgSlogProperties,
 	FxBuildAgSlogBuilder,
+	FxBuildTopLog,
 )
 
 // var FxAgSlogMode = fx.Module("ag_log.agslog",
@@ -34,25 +35,25 @@ var FxAgSlogProvide = fx.Provide(
 // 	),
 // )
 
-func FxBuildAgSlogBuilder(params FxInAgSlogBuilderParams) (*slog.Logger, error) {
-	builder := NewBuilder()
-	builder.WithProperties(params.Props)
-	builder.AddHandlers(params.Handlers...)
-	for _, handlers := range params.Handlerss {
-		builder.AddHandlers(handlers...)
-	}
+// FxBuildTopLog 构建顶层slog logger
+func FxBuildTopLog(builder *Builder) (*slog.Logger, error) {
+	return builder.Build()
+}
 
-	builder.AddHandlerFactorys(params.Factorys...)
-	for _, factorys := range params.Factoryss {
-		builder.AddHandlerFactorys(factorys...)
-	}
+// FxBuildAgSlogBuilder 构建slog logger builder
+func FxBuildAgSlogBuilder(params FxInAgSlogBuilderParams) (*Builder, error) {
+	builder := NewBuilder()
+
+	builder.WithProperties(params.Props)
+
+	builder.AddHandlers(params.Handlers)
+	builder.AddHandlerss(params.Handlerss)
+
+	builder.AddHandlerFactorys(params.Factorys)
+	builder.AddHandlerFactoryss(params.Factoryss)
 
 	// builder.AddHandlerDefs(params.HandlerDefs...)
 	builder.AddMiddlewares(params.Middlewares...)
 
-	logger, err := builder.Build()
-	if err != nil {
-		return nil, err // TODO 日志初始化是否要中断程序
-	}
-	return logger, nil
+	return builder, nil
 }

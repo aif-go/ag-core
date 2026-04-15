@@ -1,8 +1,9 @@
 aglog:
+  IsDefault: false
   # topHandler: [zap1,zap2,fanout1]
   topHandler: 
-    - "zap1"
-    - "zap2"
+    # - "zap1"
+    # - "zap2"
     - "f1"
   
   fanout:
@@ -10,10 +11,12 @@ aglog:
       f1: ["zap1","zap2"]
       f2: ["f1"]
       f3: ["f2"]
+      gftest: ["zap1"]
   zap:
     logs:
       zap1:
-        log_level: info
+        # log_level: error
+        log_level: debug
         encoding: console           # json or console
         # log_file_name: "logs/hhhzzzwww.log"
         # max_backups: 30
@@ -21,15 +24,16 @@ aglog:
         # max_size: 1024
         compress: true
         console: true
+        stdout: true
       zap2:
         log_level: debug
-        encoding: console           # json or console
+        encoding: json           # json or console
         # log_file_name: "logs/hhhzzzwww2.log"
         # max_backups: 30
         # max_age: 7
         # max_size: 1024
         compress: true
-        console: true
+        console: false
   # route:
   #   route1:
   #     condition: "handler_name == 'zap1'"

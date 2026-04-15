@@ -4,18 +4,13 @@ import (
 	"ag-core/ag/ag_conf"
 	"fmt"
 	"log/slog"
-	"os"
+	"sync"
 
 	slogmulti "github.com/samber/slog-multi"
 )
 
 const (
 	AgSlogPropertiesKeyPrefix = "aglog"
-)
-
-var (
-	// AgSlog will be set to the created logger if IsDefault is true in properties.
-	AgSlog = slog.Default()
 )
 
 // AgSlogProperties agslog配置
@@ -38,23 +33,32 @@ func BindAgSlogProperties(binder ag_conf.IBinder) (*AgSlogProperties, error) {
 
 // Builder for creating a slog.Logger.
 type Builder struct {
-	props    *AgSlogProperties
-	handlers []slog.Handler
+	props *AgSlogProperties
+	// handlers []slog.Handler // 直接注册的handler 好像没用
 	// 直接注册的tophandler
 	custTopHandlers []slog.Handler
 	// handlerDefs   []HandlerDefinition
-	namedHandlers map[string]INamedHandler
+	// handlersCaches map[string]INamedHandler
+	handlersCaches       sync.Map // 缓存每个原子handler
+	handlers             sync.Map // 缓存每个等层handler，其pipline了中间件
+	namedLogger          sync.Map
+	replaceableHandllers sync.Map
+	// namedHandlers  map[string]slog.Handler
 	// 工厂
 	factories []*HandlerFactory
 
 	middlewares []slogmulti.Middleware
+
+	logMu sync.Mutex // 用于保护namedLogger
 }
 
 // NewBuilder creates a new logger builder.
 func NewBuilder() *Builder {
-	return &Builder{
-		namedHandlers: make(map[string]INamedHandler),
-	}
+	return DefaultBuilder()
+}
+
+func newBuilder() *Builder {
+	return &Builder{}
 }
 
 // WithProperties sets the properties for the logger.
@@ -64,25 +68,63 @@ func (b *Builder) WithProperties(props *AgSlogProperties) *Builder {
 }
 
 // AddHandlerFactorys adds handler factories to the builder.
-func (b *Builder) AddHandlerFactorys(factorys ...*HandlerFactory) *Builder {
+func (b *Builder) AddHandlerFactorys(factorys []*HandlerFactory) *Builder {
+	// func (b *Builder) AddHandlerFactorys(factorys ...*HandlerFactory) *Builder {
 	if len(factorys) == 0 {
 		return b
 	}
-	b.factories = append(b.factories, factorys...)
+	b.AddHandlerFactory(factorys...)
+	return b
+}
+
+// AddHandlerFactoryss adds handler factories to the builder.
+func (b *Builder) AddHandlerFactoryss(factoryss [][]*HandlerFactory) *Builder {
+	// func (b *Builder) AddHandlerFactoryss(factoryss ...[]*HandlerFactory) *Builder {
+	if len(factoryss) == 0 {
+		return b
+	}
+	for _, factorys := range factoryss {
+		b.AddHandlerFactorys(factorys)
+	}
+	return b
+}
+
+// AddHandlerFactory adds handler factory to the builder.
+func (b *Builder) AddHandlerFactory(factory ...*HandlerFactory) *Builder {
+	if len(factory) == 0 {
+		return b
+	}
+	for _, factory := range factory {
+		b.addHandlerFactory(factory)
+	}
+	return b
+}
+
+func (b *Builder) addHandlerFactory(factory *HandlerFactory) *Builder {
+	if factory == nil {
+		return b
+	}
+	b.factories = append(b.factories, factory)
 	return b
 }
 
 // AddHandlers adds handlers to the builder.
-func (b *Builder) AddHandlers(handlers ...slog.Handler) *Builder {
+// func (b *Builder) AddHandlers(handlers ...slog.Handler) *Builder {
+func (b *Builder) AddHandlers(handlers []slog.Handler) *Builder {
 	if len(handlers) == 0 {
 		return b
 	}
+	return b.AddHandler(handlers...)
+}
 
-	for _, handler := range handlers {
-		err := b.addHandler(handler)
-		if err != nil {
-			fmt.Printf("agslog: handler add fail: %v", err)
-		}
+// AddHandlerss adds handlers to the builder.
+func (b *Builder) AddHandlerss(handlerss [][]slog.Handler) *Builder {
+	if len(handlerss) == 0 {
+		return b
+	}
+	for _, handlers := range handlerss {
+		// err := b.AddHandlers(handlers...)
+		b.AddHandlers(handlers)
 	}
 	return b
 }
@@ -109,6 +151,17 @@ func (b *Builder) Build() (*slog.Logger, error) {
 		b.props = &AgSlogProperties{IsDefault: true} // Default properties
 	}
 
+	logger, err := b.initTopLogger()
+	if err != nil {
+		return nil, err
+	}
+
+	b.tryReplaceNamedHandler()
+
+	return logger, nil
+}
+
+func (b *Builder) initTopLogger() (*slog.Logger, error) {
 	// 解析顶层handler
 	topHandlers, err := b.resolveTopHandlers()
 	if err != nil {
@@ -118,8 +171,10 @@ func (b *Builder) Build() (*slog.Logger, error) {
 
 	// 打印顶级handler信息
 	if len(topHandlers) == 0 {
-		fmt.Println("agslog: no top handler specified, use json handler with level info to stdout")
-		topHandlers = append(topHandlers, slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		fmt.Println("agslog: no top handler specified, use default slog handler")
+		// return TopLogger(), nil
+		// topHandlers = append(topHandlers, TopLogger().Handler())
+		topHandlers = append(topHandlers, slog.Default().Handler())
 	} else {
 		fmt.Printf("agslog: top handler specified, use %d handler(s)\n", len(topHandlers))
 		for _, handler := range topHandlers {
@@ -135,7 +190,12 @@ func (b *Builder) Build() (*slog.Logger, error) {
 
 	// 顶层的handler是以fanout的方式组合的
 	// FIXME slog将来将支持mutiHandler模式，且为fanout模式，届时考虑使用原生方式替换
-	rhandler := slogmulti.Fanout(topHandlers...)
+	var rhandler slog.Handler
+	if len(topHandlers) > 1 {
+		rhandler = slogmulti.Fanout(topHandlers...)
+	} else {
+		rhandler = topHandlers[0]
+	}
 
 	// 中间件（作用与顶层handler前）
 	if len(b.middlewares) > 0 {
@@ -144,32 +204,99 @@ func (b *Builder) Build() (*slog.Logger, error) {
 		// future: 动态日志级别支持
 	}
 
-	logger := slog.New(rhandler)
+	topLog := slog.New(rhandler)
 
 	// 是否设置当前log实现为slog默认实现，将直接替换slo的全局默认调用
 	if b.props.IsDefault {
-		slog.SetDefault(logger)
-		AgSlog = logger
+		slog.SetDefault(topLog)
 	}
 
-	return logger, nil
+	SetDefaultTop(topLog)
+
+	return topLog, nil
+}
+
+func (b *Builder) tryReplaceNamedHandler() {
+	b.replaceableHandllers.Range(func(k, v any) bool {
+		// 只处理ReplaceableHandler
+		rh, ok := v.(*ReplaceableHandler)
+		if !ok {
+			return true
+		}
+
+		// 检查handler是否符合name
+		if rh.IsMatchesName() {
+			return true
+		}
+
+		// 获取handler名称
+		name := rh.Name()
+
+		// 解析handler
+		h, err := b.resolveHandler(name)
+		if err != nil {
+			th := TopLogger().Handler()
+			// if rh.handler.Load() == th {
+			if (*rh.handler.Load()) == th {
+				return true
+			}
+			h = th // 若解析失败，则默认使用top handler
+		}
+
+		// 替换handler
+		rh.ReplaceHandler(h)
+
+		return true
+	})
+
+}
+
+// AddHandler 添加handler
+func (b *Builder) AddHandler(handler ...slog.Handler) *Builder {
+	if len(handler) == 0 {
+		return b
+	}
+	for _, h := range handler {
+		name, err := b.addHandler(h)
+		if err != nil {
+			// slog.Error("AddHandler fail", "name", name, "err", err)
+			slog.Error(fmt.Sprintf("AddHandler fail: %s err:%v", name, err))
+		}
+	}
+	return b
 }
 
 // addHandler 添加handler
-func (b *Builder) addHandler(handler slog.Handler) error {
+func (b *Builder) addHandler(handler slog.Handler) (name string, err error) {
 	if nameh, ok := handler.(INamedHandler); ok {
-		name := nameh.Name()
-		if _, exists := b.namedHandlers[name]; exists {
-			return fmt.Errorf("named handler [%s] already registered", name)
+		name = nameh.Name()
+		// if _, exists := b.namedHandlers[name]; exists {
+		// 	return name, fmt.Errorf("named handler [%s] already registered", name)
+		// }
+		// b.namedHandlers[name] = nameh
+		if _, exists := b.handlersCaches.Load(name); exists {
+			return name, fmt.Errorf("named handler [%s] already registered", name)
 		}
-		b.namedHandlers[name] = nameh
-		b.handlers = append(b.handlers, nameh)
-		fmt.Printf("agslog: registered handler name:[%s] type:[%T[%T]]\n", name, nameh, nameh.Original())
+		b.handlersCaches.Store(name, nameh)
+		// b.handlers = append(b.handlers, nameh)
+
+		fmt.Printf("agslog: regist handler name:[%s] type:[%T[%T]]\n", name, nameh, nameh.Original())
 	} else {
-		b.handlers = append(b.handlers, handler)
-		fmt.Printf("agslog: registered handler name:[unknown] type:[%T]\n", handler)
+		// b.handlers = append(b.handlers, handler)
+		// 获取handler类型名
+		name = fmt.Sprintf("%T", handler)
+		// if _, exists := b.namedHandlers[name]; exists {
+		// 	return name, fmt.Errorf("named handler [%s] already registered", name)
+		// }
+		// b.namedHandlers[name] = handler
+		if _, exists := b.handlersCaches.Load(name); exists {
+			return name, fmt.Errorf("named handler [%s] already registered", name)
+		}
+		b.handlersCaches.Store(name, handler)
+
+		fmt.Printf("agslog: regist handler name:[%s] type:[%T]\n", name, handler)
 	}
-	return nil
+	return
 }
 
 // resolveTopHandlers 解析顶层handler
@@ -202,8 +329,11 @@ func (b *Builder) resolveTopHandlers() ([]slog.Handler, error) {
 // resolveHandler 根据提供的handler的名称，获取对应handler
 func (b *Builder) resolveHandler(hname string) (slog.Handler, error) {
 	// 1. 直接注册的handler
-	if handler, ok := b.namedHandlers[hname]; ok {
-		return handler, nil
+	// if handler, ok := b.namedHandlers[hname]; ok {
+	// 		return handler, nil
+	// }
+	if handler, ok := b.handlersCaches.Load(hname); ok {
+		return handler.(slog.Handler), nil
 	}
 
 	// 2. 工厂注册的handler
@@ -213,11 +343,83 @@ func (b *Builder) resolveHandler(hname string) (slog.Handler, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			b.handlersCaches.Store(hname, handler) // 缓存handler
+
 			return handler, nil
 		}
 	}
 
 	return nil, fmt.Errorf("handler %s not found", hname)
+}
+
+func (b *Builder) GetSlogByName(hname string) *slog.Logger {
+	// 第一次检查
+	if logger, ok := b.namedLogger.Load(hname); ok {
+		return logger.(*slog.Logger)
+	}
+
+	// 加锁（每个名称独立的锁）
+	b.logMu.Lock()
+	defer b.logMu.Unlock()
+
+	// 在锁内，第二次检查
+	if logger, ok := b.namedLogger.Load(hname); ok {
+		return logger.(*slog.Logger)
+	}
+
+	// handler, ok := b.handlers.Load(hname)
+	// if ok {
+	// 	return slog.New(handler.(slog.Handler))
+	// }
+	var handler slog.Handler
+	handler = b.getNamedHandler(hname)
+	if handler == nil {
+
+		// blogger := TopLogger()
+		// if blogger == nil {
+		// 	blogger = slog.Default()
+		// }
+		blogger := slog.Default()
+		handler = blogger.Handler()
+	}
+
+	handler = NewReplaceableHandler(hname, handler)
+	b.replaceableHandllers.Store(hname, handler)
+
+	logger := slog.New(handler)
+
+	// 缓存logger
+	b.namedLogger.Store(hname, logger)
+	return logger
+}
+
+func (b *Builder) getNamedHandler(hname string) INamedHandler {
+	handler, ok := b.handlers.Load(hname)
+	if ok {
+		return handler.(INamedHandler)
+	}
+
+	// 解析handler创建logger
+	rh, err := b.resolveHandler(hname)
+	if err != nil || rh == nil {
+		return nil
+	}
+
+	if len(b.middlewares) > 0 {
+		rh = slogmulti.Pipe(b.middlewares...).Handler(rh)
+	}
+	handler = b.wrapNamedHandlerIfNeed(hname, rh)
+
+	b.handlers.Store(hname, handler)
+	return handler.(INamedHandler)
+}
+
+func (b *Builder) wrapNamedHandlerIfNeed(hname string, handler slog.Handler) slog.Handler {
+	if handler, ok := handler.(INamedHandler); ok {
+		return handler
+	}
+	return NewNamedHandler(hname, handler)
 }
 
 // BuildAgSlog 创建slog logger

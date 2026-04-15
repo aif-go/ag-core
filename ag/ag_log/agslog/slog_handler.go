@@ -7,14 +7,14 @@ import (
 	"sync"
 )
 
-// type HandlerNameCtxValue []string
-
-const (
-	HandlerNameKey = "agslog.handler"
+var (
+	_ slog.Handler  = (*NamedHandler)(nil)
+	_ INamedHandler = (*NamedHandler)(nil)
 )
 
 type INamedHandler interface {
 	slog.Handler
+
 	Name() string
 	// 获取原始handler
 	Original() slog.Handler
@@ -52,15 +52,24 @@ func (n *NamedHandler) Enabled(ctx context.Context, l slog.Level) bool {
 
 // Handle 处理日志
 func (n *NamedHandler) Handle(ctx context.Context, r slog.Record) error {
-	handlerName := ctx.Value(HandlerNameKey)
+	handlerName := ctx.Value(HandlerNameCtxKey{})
 	if handlerName == nil {
 		handlerName = n.name
 	} else {
 		handlerName = fmt.Sprintf("%s.%s", handlerName, n.name)
 	}
 
-	ctx = context.WithValue(ctx, HandlerNameKey, handlerName)
+	ctx = context.WithValue(ctx, HandlerNameCtxKey{}, handlerName)
 	// r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(handlerName.(string))})
+
+	startName := ctx.Value(HandlerStartCtxKey{})
+	if startName == nil {
+		startName = n.name
+		ctx = context.WithValue(ctx, HandlerStartCtxKey{}, startName)
+		// r.AddAttrs(slog.Attr{Key: HandlerStartKey, Value: slog.StringValue(startName.(string))})
+	}
+	ctx = context.WithValue(ctx, HandlerEndCtxKey{}, n.name)
+	// r.AddAttrs(slog.Attr{Key: HandlerEndKey, Value: slog.StringValue(n.name)})
 
 	return n.Handler.Handle(ctx, r)
 }
@@ -111,11 +120,6 @@ func (f *HandlerFactory) GetHandler(resolveHandler func(handlerName string) (slo
 		return f.instance, nil
 	}
 
-	// Name不可为空
-	if f.Name == "" {
-		return nil, fmt.Errorf("handler factory name is empty")
-	}
-
 	if f.DoGetHandler == nil {
 		return nil, fmt.Errorf("handler factory [%s] do build handler is nil", f.Name)
 	}
@@ -125,8 +129,26 @@ func (f *HandlerFactory) GetHandler(resolveHandler func(handlerName string) (slo
 		return nil, fmt.Errorf("handler factory [%s] get handler failed, err:\n >>> %w", f.Name, err)
 	}
 
-	if f.Name != "" {
-		return NewNamedHandler(f.Name, handler), nil
+	name := f.Name
+	var nhandler INamedHandler
+
+	if nhandler, ok = handler.(INamedHandler); ok {
+		name = nhandler.Name()
 	}
+
+	if name == "" {
+		return nil, fmt.Errorf("handler name is empty")
+	}
+
+	if nhandler == nil {
+		nhandler = NewNamedHandler(name, handler).(INamedHandler)
+	}
+
+	f.instance = nhandler
+
+	if f.Name != "" {
+		handler = NewNamedHandler(f.Name, handler)
+	}
+
 	return handler, nil
 }
