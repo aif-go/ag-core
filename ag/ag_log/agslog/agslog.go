@@ -32,9 +32,9 @@ var (
 
 func init() {
 	b := newBuilder()
-	// tlog := b.GetSlogByName(topLoggerName)
-	// topLogger.Store(tlog)           // topLogger 默认是slog.DefaultLogger
-	topLogger.Store(slog.Default()) // topLogger 默认是slog.DefaultLogger
+	tlog := b.GetSlogByName(topLoggerName)
+	topLogger.Store(tlog) // topLogger 默认是slog.DefaultLogger
+	// topLogger.Store(slog.Default()) // topLogger 默认是slog.DefaultLogger
 	builder.Store(b)
 }
 
@@ -44,9 +44,9 @@ func TopLogger() *slog.Logger {
 }
 
 // SetDefaultTop 设置默认的顶层slog.Logger
-func SetDefaultTop(l *slog.Logger) {
-	topLogger.Store(l)
-}
+// func SetDefaultTop(l *slog.Logger) {
+// 	topLogger.Store(l)
+// }
 
 func DefaultBuilder() *Builder {
 	return builder.Load()

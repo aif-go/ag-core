@@ -204,20 +204,33 @@ func (b *Builder) initTopLogger() (*slog.Logger, error) {
 		// future: 动态日志级别支持
 	}
 
-	topLog := slog.New(rhandler)
+	rhandler = b.wrapNamedHandlerIfNeed(topLoggerName, rhandler)
+
+	// 替换top handler
+	topLog := TopLogger()
+	thandler := topLog.Handler()
+	th, ok := thandler.(*ReplaceableHandler)
+	if ok {
+		// 检查handler是否符合name
+		if !th.IsMatchesName() {
+			th.ReplaceHandler(rhandler)
+		}
+	}
 
 	// 是否设置当前log实现为slog默认实现，将直接替换slo的全局默认调用
 	if b.props.IsDefault {
 		slog.SetDefault(topLog)
 	}
 
-	SetDefaultTop(topLog)
-
 	return topLog, nil
 }
 
 func (b *Builder) tryReplaceNamedHandler() {
 	b.replaceableHandllers.Range(func(k, v any) bool {
+		if k == topLoggerName {
+			return true // 不处理topLoggerName
+		}
+
 		// 只处理ReplaceableHandler
 		rh, ok := v.(*ReplaceableHandler)
 		if !ok {
@@ -375,17 +388,18 @@ func (b *Builder) GetSlogByName(hname string) *slog.Logger {
 	var handler slog.Handler
 	handler = b.getNamedHandler(hname)
 	if handler == nil {
+		blogger := TopLogger()
+		if hname == topLoggerName || blogger == nil {
+			blogger = slog.Default() // 若是topLoggerName，则使用默认handler,否则TopLogger.Handler会循环调用自己
+		}
 
-		// blogger := TopLogger()
-		// if blogger == nil {
-		// 	blogger = slog.Default()
-		// }
-		blogger := slog.Default()
 		handler = blogger.Handler()
 	}
 
 	handler = NewReplaceableHandler(hname, handler)
-	b.replaceableHandllers.Store(hname, handler)
+	if hname != topLoggerName { // 不是topLoggerName，才缓存
+		b.replaceableHandllers.Store(hname, handler)
+	}
 
 	logger := slog.New(handler)
 
@@ -402,7 +416,11 @@ func (b *Builder) getNamedHandler(hname string) INamedHandler {
 
 	// 解析handler创建logger
 	rh, err := b.resolveHandler(hname)
-	if err != nil || rh == nil {
+	if err != nil {
+		slog.Error(fmt.Sprintf("resolveHandler[%s] fail:%v", hname, err))
+		return nil
+	}
+	if rh == nil {
 		return nil
 	}
 
