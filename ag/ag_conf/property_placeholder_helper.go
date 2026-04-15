@@ -32,7 +32,8 @@ func NewPropertyPlaceholderHelper(placeholderPrefix string, placeholderSuffix st
 
 func (ph *PropertyPlaceholderHelper) ReplacePlaceholders(value string, placeholderResolver PlaceholderResolver) (string, error) {
 	if value == "" {
-		return "", fmt.Errorf("value is empty")
+		// return "", fmt.Errorf("value is empty")
+		return "", nil
 	}
 	return ph.parseStringValue(value, placeholderResolver)
 }

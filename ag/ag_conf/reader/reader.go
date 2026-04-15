@@ -3,6 +3,7 @@ package reader
 import (
 	"ag-core/ag/ag_conf/reader/json"
 	"ag-core/ag/ag_conf/reader/prop"
+	"ag-core/ag/ag_conf/reader/toml"
 	"ag-core/ag/ag_conf/reader/yaml"
 )
 
@@ -13,4 +14,5 @@ var Readers = map[string]Reader{
 	"yml":        yaml.Read,
 	"json":       json.Read,
 	"properties": prop.Read,
+	"toml":       toml.Read,
 }

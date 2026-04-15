@@ -11,6 +11,10 @@ import (
 	"sync"
 )
 
+const (
+	AppConfKey = "app.conf"
+)
+
 type LocalConfigLoded string
 
 var localConfLoadOnce sync.Once
@@ -26,29 +30,39 @@ func LoadLocalConfigToState(env IConfigurableEnvironment) (LocalConfigLoded, err
 // 2. 获取app.profile的环境的设置,例如dev,sit,uat等
 // 3. 如果1的场景未配置，则按照app.suffix app_profile.suffix的顺序加载,后续的内容会覆盖前者
 func LoadLocalConfig(env IConfigurableEnvironment) (rerr error) {
-	localConfLoadOnce.Do(
+	localConfLoadOnce.Do( // TODO 能否切换幂等逻辑，能重复加载本地配置，非全局的控制，以适应不同场景的重复加载
 		func() {
-			// 加载本地配置文件
-			err := doLoadLocalConfig(env)
-			if err != nil {
-				rerr = err
-				return
-			}
-			// 解密LocalConfig
-			err = DecryptLocalConfig(env)
-			if err != nil {
-				rerr = err
-				return
-			}
+			rerr = LoadLocalConfigRepeatable(env)
 		},
 	)
+	return
+}
+
+func LoadLocalConfigRepeatableToState(env IConfigurableEnvironment) (LocalConfigLoded, error) {
+	err := LoadLocalConfigRepeatable(env)
+	return LocalConfigLoded("localConfigRepeatableLoaded"), err
+}
+
+func LoadLocalConfigRepeatable(env IConfigurableEnvironment) (rerr error) {
+	// 加载本地配置文件
+	err := doLoadLocalConfig(env)
+	if err != nil {
+		rerr = err
+		return
+	}
+	// 解密LocalConfig
+	err = DecryptLocalConfig(env)
+	if err != nil {
+		rerr = err
+		return
+	}
 	return
 }
 
 func doLoadLocalConfig(env IConfigurableEnvironment) error {
 
 	slog.Info("--- LoadLocalConfig ---")
-	appConf := env.GetProperty("app.conf")
+	appConf := env.GetProperty(AppConfKey)
 	if appConf == "" {
 		// 获取当前main.go的目录
 		// dir, err := os.Getwd()
@@ -83,33 +97,39 @@ func doLoadLocalConfig(env IConfigurableEnvironment) error {
 }
 
 func LoadConfigFile(env IConfigurableEnvironment, appConfFile string) error {
-	context, err := os.ReadFile(appConfFile)
+	// context, err := os.ReadFile(appConfFile)
+	// if err != nil {
+	// 	return err
+	// }
+	// // suffix := filepath.Ext(appConfFile)
+	// acftype := format(appConfFile)
+	// reader, ok := reader.Readers[acftype]
+	// if !ok {
+	// 	return fmt.Errorf("app.conf type not supported: %s", acftype)
+	// }
+
+	// contextMap, err := reader(context)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// env.GetPropertySources().AddLast(&MapPropertySource{ // TODO 本地配置文件是否应该比SYS优先级高？ FIXME 应该SYS < localfile < nacos < -D
+	// 	NamedPropertySource: NamedPropertySource{
+	// 		Name: fmt.Sprintf("%s-%s", SourceKeyLocalPrefix, appConfFile), // "[LOCAL]-xxxx"
+	// 	},
+	// 	Source: flatmapcontext,
+	// })
+
+	propertySource, err := NewPropertySourceFromFile(appConfFile)
 	if err != nil {
 		return err
 	}
-	// suffix := filepath.Ext(appConfFile)
-	acftype := format(appConfFile)
-	reader, ok := reader.Readers[acftype]
-	if !ok {
-		return fmt.Errorf("app.conf type not supported: %s", acftype)
-	}
-
-	contextMap, err := reader(context)
-	if err != nil {
-		return err
-	}
-
-	flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
-	if err != nil {
-		return err
-	}
-
-	env.GetPropertySources().AddLast(&MapPropertySource{ // TODO 本地配置文件是否应该比SYS优先级高？ FIXME 应该SYS < localfile < nacos < -D
-		NamedPropertySource: NamedPropertySource{
-			Name: fmt.Sprintf("%s-%s", SourceKeyLocalPrefix, appConfFile), // "[LOCAL]-xxxx"
-		},
-		Source: flatmapcontext,
-	})
+	env.GetPropertySources().AddLast(propertySource)
 	return nil
 
 }
@@ -119,6 +139,36 @@ func LoadConfigDir(env IConfigurableEnvironment, appConfFile string) error {
 	err := fmt.Errorf("app.conf is a directory")
 	slog.Error("loadConfigDir", "err", err)
 	return err
+}
+
+func NewPropertySourceFromFile(confFile string) (IPropertySource, error) {
+	context, err := os.ReadFile(confFile)
+	if err != nil {
+		return nil, err
+	}
+	acftype := format(confFile)
+	reader, ok := reader.Readers[acftype]
+	if !ok {
+		return nil, fmt.Errorf("config type not supported: %s", acftype)
+	}
+
+	contextMap, err := reader(context)
+	if err != nil {
+		return nil, err
+	}
+
+	flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
+	if err != nil {
+		return nil, err
+	}
+
+	sps := &MapPropertySource{ // TODO 本地配置文件是否应该比SYS优先级高？ FIXME 应该SYS < localfile < nacos < -D
+		NamedPropertySource: NamedPropertySource{
+			Name: fmt.Sprintf("%s-%s", SourceKeyLocalPrefix, confFile), // "[LOCAL]-xxxx"
+		},
+		Source: flatmapcontext,
+	}
+	return sps, nil
 }
 
 func format(name string) string {
