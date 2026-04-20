@@ -73,8 +73,15 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 
 	// lengthDecod := lengthDecod.NewLengthFieldCodec(binary.BigEndian, 1024, 0, 4, 0, 0)
 	// lengthDecod := simple.NewLengthFieldDecoder(nil, 10, 0, 2, 0, 2)
+
 	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
 	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
+
+	// lengthDecod := simple.NewLengthFieldStrDecoder(1024, 0, 6, 0, 6)
+	// lengthEncod := simple.NewLengthFieldStrEncoder(6, 0, false)
+
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 6, 0, 6)
+	// lengthEncod := simple.NewLengthFieldEncoder(nil, 6, 0, false)
 
 	custCodec := simple.NewSimpleCodec(
 		"custCodec",

@@ -2,43 +2,35 @@ package simple
 
 import (
 	"ag-core/contribute/agonet/simple/utils"
-	"encoding/binary"
 )
 
-func NewLengthFieldEncoder(
-	byteOrder binary.ByteOrder,
+func NewLengthFieldStrEncoder(
 	lengthFieldLength int,
 	lengthAdjustment int,
 	lengthIncludesLengthFieldLength bool,
 ) Encoder {
 
-	if byteOrder == nil {
-		byteOrder = binary.BigEndian
-	}
+	// utils.AssertIf(lengthFieldLength != 1 && lengthFieldLength != 2 &&
+	// 	lengthFieldLength != 4 && lengthFieldLength != 8, "lengthFieldLength must be either 1, 2, 4 or 8")
 
-	utils.AssertIf(lengthFieldLength != 1 && lengthFieldLength != 2 &&
-		lengthFieldLength != 4 && lengthFieldLength != 8, "lengthFieldLength must be either 1, 2, 4 or 8")
-
-	return &lengthFieldEncoder{
-		byteOrder:                       byteOrder,
+	return &lengthFieldStrEncoder{
 		lengthFieldLength:               lengthFieldLength,
 		lengthAdjustment:                lengthAdjustment,
 		lengthIncludesLengthFieldLength: lengthIncludesLengthFieldLength,
 	}
 }
 
-type lengthFieldEncoder struct {
-	byteOrder                       binary.ByteOrder
+type lengthFieldStrEncoder struct {
 	lengthFieldLength               int
 	lengthAdjustment                int
 	lengthIncludesLengthFieldLength bool
 }
 
-func (l *lengthFieldEncoder) Name() string {
-	return "length-field-encoder"
+func (l *lengthFieldStrEncoder) Name() string {
+	return "length-field-string-encoder"
 }
 
-func (l *lengthFieldEncoder) HandleWrite(ctx OutboundContext, message any) {
+func (l *lengthFieldStrEncoder) HandleWrite(ctx OutboundContext, message any) {
 	bodyBytes := utils.MustToBytes(message)
 
 	length := len(bodyBytes) + l.lengthAdjustment
@@ -47,7 +39,7 @@ func (l *lengthFieldEncoder) HandleWrite(ctx OutboundContext, message any) {
 	}
 
 	// head buffer
-	lengthBuff := packFieldLength(l.byteOrder, l.lengthFieldLength, int64(length))
+	lengthBuff := packFieldLengthStr(l.lengthFieldLength, int64(length))
 
 	// HEAD | BODY
 	ctx.FireWrite(append(lengthBuff, bodyBytes...))

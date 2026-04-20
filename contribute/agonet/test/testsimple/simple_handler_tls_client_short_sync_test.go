@@ -178,7 +178,7 @@ func TestSimpleTlsClientShortClientSyncHandler(t *testing.T) {
 	}
 	wg.Wait()
 
-	doSend("testerr")
+	// doSend("testerr")
 	// shortCli.RequestSync(context.Background(), addr, "testerr")
 	time.Sleep(time.Millisecond * 100)
 
@@ -191,6 +191,12 @@ func _simpleShortSyncEventHandler2() (agonet.EventHandler, error) {
 
 	lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 2, 0, 2)
 	lengthEncod := simple.NewLengthFieldEncoder(nil, 2, 0, false)
+
+	// lengthDecod := simple.NewLengthFieldStrDecoder(1024, 0, 6, 0, 6)
+	// lengthEncod := simple.NewLengthFieldStrEncoder(6, 0, false)
+
+	// lengthDecod := simple.NewLengthFieldDecoder(nil, 1024, 0, 6, 0, 6)
+	// lengthEncod := simple.NewLengthFieldEncoder(nil, 6, 0, false)
 
 	pipelineInitializer := func(c simple.Channel) error {
 		c.Pipeline().

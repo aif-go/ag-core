@@ -3,7 +3,6 @@ package simple
 import (
 	"ag-core/contribute/agonet"
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -101,7 +100,8 @@ func (c *simpleShortClient) RequestSync(ctx context.Context, addr string, reques
 	// reply, err := promise.Await()
 	reply, err := promise.AwaitTimeout(timeout)
 	if err != nil {
-		fmt.Printf("Await failed: %v\n", err)
+		// fmt.Printf("Await failed: %v\n", err)
+		return nil, err
 	}
 
 	return reply, nil

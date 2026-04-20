@@ -3,22 +3,22 @@ package simple
 import (
 	"ag-core/contribute/agonet"
 	"ag-core/contribute/agonet/simple/utils"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 )
 
 var (
-	// _ CodecHandler = (*lengthFieldDecoder)(nil)
-	// _ Codec               = (*lengthFieldDecoder)(nil)
-	_ InboundHandler = (*lengthFieldDecoder)(nil)
-	_ Decoder        = (*lengthFieldDecoder)(nil)
+	// _ CodecHandler = (*lengthFieldStrDecoder)(nil)
+	// _ Codec               = (*lengthFieldStrDecoder)(nil)
+	_ InboundHandler = (*lengthFieldStrDecoder)(nil)
+	_ Decoder        = (*lengthFieldStrDecoder)(nil)
 )
 
 // LengthFieldCodec create a length field based codec
-func NewLengthFieldDecoder(
-	byteOrder binary.ByteOrder,
+func NewLengthFieldStrDecoder(
 	maxFrameLength int,
 	lengthFieldOffset int,
 	lengthFieldLength int,
@@ -29,16 +29,12 @@ func NewLengthFieldDecoder(
 	utils.AssertIf(maxFrameLength <= 0, "maxFrameLength must be a positive integer")
 	utils.AssertIf(lengthFieldOffset < 0, "lengthFieldOffset must be a non-negative integer")
 	utils.AssertIf(initialBytesToStrip < 0, "initialBytesToStrip must be a non-negative integer")
-	utils.AssertIf(lengthFieldLength != 1 && lengthFieldLength != 2 &&
-		lengthFieldLength != 4 && lengthFieldLength != 8, "lengthFieldLength must be either 1, 2, 4 or 8")
+	// utils.AssertIf(lengthFieldLength != 1 && lengthFieldLength != 2 &&
+	// 	lengthFieldLength != 4 && lengthFieldLength != 8, "lengthFieldLength must be either 1, 2, 4 or 8")
 	utils.AssertIf(lengthFieldOffset > maxFrameLength-lengthFieldLength,
 		"maxFrameLength must be equal to or greater than lengthFieldOffset + lengthFieldLength")
 
-	if byteOrder == nil {
-		byteOrder = binary.BigEndian
-	}
-	codec := &lengthFieldDecoder{
-		byteOrder:           byteOrder,
+	codec := &lengthFieldStrDecoder{
 		maxFrameLength:      maxFrameLength,
 		lengthFieldOffset:   lengthFieldOffset,
 		lengthFieldLength:   lengthFieldLength,
@@ -49,21 +45,20 @@ func NewLengthFieldDecoder(
 	return codec
 }
 
-type lengthFieldDecoder struct {
-	byteOrder           binary.ByteOrder // 字节序，大端 & 小端
-	maxFrameLength      int              // 最大允许数据包长度
-	lengthFieldOffset   int              // 长度域的偏移量，表示跳过指定长度个字节之后的才是长度域
-	lengthFieldLength   int              // 长度域的长度，单位字节
-	lengthAdjustment    int              // 包体长度调整的大小，长度域的数值表示的长度加上这个修正值表示的就是带header的包长度
-	initialBytesToStrip int              // 拿到一个完整的数据包之后向业务解码器传递之前，应该跳过多少字节
+type lengthFieldStrDecoder struct {
+	maxFrameLength      int // 最大允许数据包长度
+	lengthFieldOffset   int // 长度域的偏移量，表示跳过指定长度个字节之后的才是长度域
+	lengthFieldLength   int // 长度域的长度，单位字节
+	lengthAdjustment    int // 包体长度调整的大小，长度域的数值表示的长度加上这个修正值表示的就是带header的包长度
+	initialBytesToStrip int // 拿到一个完整的数据包之后向业务解码器传递之前，应该跳过多少字节
 
 }
 
-func (*lengthFieldDecoder) Name() string {
-	return "length-field-decoder"
+func (*lengthFieldStrDecoder) Name() string {
+	return "length-field-string-decoder"
 }
 
-func (l *lengthFieldDecoder) HandleRead(ctx InboundContext, message any) {
+func (l *lengthFieldStrDecoder) HandleRead(ctx InboundContext, message any) {
 	// reader := utils.MustToReader(message)
 	reader, ok := message.(agonet.Reader)
 	if ok {
@@ -81,7 +76,7 @@ func (l *lengthFieldDecoder) HandleRead(ctx InboundContext, message any) {
 	}
 }
 
-func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
+func (l *lengthFieldStrDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	// 读取长度域
 	lengthFieldEndOffset := l.lengthFieldOffset + l.lengthFieldLength // 长度域的结束偏移量
 
@@ -96,7 +91,8 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	}
 
 	// 解析长度域的数值，获取报文长度
-	frameLength := unpackFieldLength(l.byteOrder, l.lengthFieldLength, lengthBuff)
+	// frameLength := unpackFieldLength(l.byteOrder, l.lengthFieldLength, lengthBuff)
+	frameLength := unpackFieldLengthStr(l.lengthFieldLength, lengthBuff)
 
 	if frameLength < 0 {
 		return nil, errors.New("invalid frame length")
@@ -149,51 +145,44 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	return []any{frameMsg}, nil
 }
 
-func unpackFieldLength(byteOrder binary.ByteOrder, fieldLen int, buff []byte) (frameLength int64) {
-	switch fieldLen {
-	case 1:
-		frameLength = int64(buff[0])
-	case 2:
-		frameLength = int64(byteOrder.Uint16(buff))
-	case 4:
-		frameLength = int64(byteOrder.Uint32(buff))
-	case 8:
-		frameLength = int64(byteOrder.Uint64(buff))
-	default:
-		utils.Assert(fmt.Errorf("should not reach here, invalid fieldLen: %d", fieldLen))
+// 解包：字符串字节数组 → 数字长度
+// buff: 字符串的字节数组（如 []byte("0123")）
+func unpackFieldLengthStr(fieldLen int, buff []byte) (frameLength int64) {
+	// 安全校验
+	if len(buff) < fieldLen {
+		utils.Assert(fmt.Errorf("buffer too small, fieldLen:%d, buffLen:%d", fieldLen, len(buff)))
 	}
-	return
+
+	// 截取固定长度字符串
+	lenStr := string(buff[:fieldLen])
+	// 去掉空白（按需保留）
+	lenStr = strings.TrimSpace(lenStr)
+
+	// 字符串转整数
+	num, err := strconv.ParseInt(lenStr, 10, 64)
+	if err != nil {
+		utils.Assert(fmt.Errorf("parse length string failed: %s, err:%v", lenStr, err))
+	}
+
+	return num
 }
 
-func packFieldLength(byteOrder binary.ByteOrder, fieldLen int, dataLen int64) []byte {
-	lengthBuff := make([]byte, fieldLen)
-	switch fieldLen {
-	case 1:
-		lengthBuff[0] = byte(dataLen)
-	case 2:
-		byteOrder.PutUint16(lengthBuff, uint16(dataLen))
-	case 4:
-		byteOrder.PutUint32(lengthBuff, uint32(dataLen))
-	case 8:
-		byteOrder.PutUint64(lengthBuff, uint64(dataLen))
-	default:
-		utils.Assert(fmt.Errorf("should not reach here, invalid fieldLen: %d", fieldLen))
+// 打包：数字长度 → 固定长度字符串字节数组
+// fieldLen: 字符串长度（如 4 → "0123"）
+func packFieldLengthStr(fieldLen int, dataLen int64) []byte {
+	// 转字符串
+	lenStr := strconv.FormatInt(dataLen, 10)
+
+	// 超长校验（防止溢出）
+	if len(lenStr) > fieldLen {
+		utils.Assert(fmt.Errorf("length string too long: %s, max:%d", lenStr, fieldLen))
 	}
-	return lengthBuff
+
+	// 格式化：左补0，固定长度
+	// %0*d → 不足补0，如 4,123 → 0123
+	formatStr := fmt.Sprintf("%0*d", fieldLen, dataLen)
+	// 如需右对齐空格：formatStr := fmt.Sprintf("%*d", fieldLen, dataLen)
+
+	// 转字节数组返回
+	return []byte(formatStr)
 }
-
-// private void exceededFrameLength(ByteBuf in, long frameLength) {
-//     long discard = frameLength - in.readableBytes();
-//     tooLongFrameLength = frameLength;
-
-//     if (discard < 0) {
-//         // buffer contains more bytes then the frameLength so we can discard all now
-//         in.skipBytes((int) frameLength);
-//     } else {
-//         // Enter the discard mode and discard everything received so far.
-//         discardingTooLongFrame = true;
-//         bytesToDiscard = discard;
-//         in.skipBytes(in.readableBytes());
-//     }
-//     failIfNecessary(true);
-// }
