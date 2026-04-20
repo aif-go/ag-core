@@ -3,6 +3,7 @@ package test
 import (
 	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_log/agslog"
+	"ag-core/ag/ag_log/async"
 	"ag-core/ag/ag_log/fanout"
 	"ag-core/ag/ag_log/slogzap"
 	"ag-core/fxs"
@@ -46,12 +47,20 @@ func TestAgSlog(t *testing.T) {
 		// 加载配置
 		fxs.FxAgConfModule,
 
-		// 提供slog.Logger
+		/* aglog */
+		// agslog
 		agslog.FxAgSlogProvide,
+		// fanout
+		fanout.FxAgSlogFanoutProvide,
+		// async
+		async.FxAglogAsyncProvide,
 
+		// ag_log.FxAglogMode,
+
+		// slogzap
 		slogzap.FxAgSlogZapProvide,
 
-		fanout.FxAgSlogFanoutProvide,
+		slogzap.FxAgSlogZapProvide,
 
 		fx.Invoke(func(logger *slog.Logger) {
 			log := logger

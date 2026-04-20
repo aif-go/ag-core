@@ -1,0 +1,21 @@
+aglog:
+  topHandler: 
+    - "asynclog1"
+  async: 
+    group:
+      logg1:
+        worker: 2
+        queue: 1000
+        fullStrategy: "drop_new"
+    logs:
+      asynclog1:
+        group: logg1
+        log: zap1
+  zap:
+    logs:
+      zap1:
+        log_level: debug
+        encoding: console
+        compress: true
+        console: true
+        stdout: true

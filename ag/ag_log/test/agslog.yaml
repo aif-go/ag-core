@@ -2,9 +2,9 @@ aglog:
   IsDefault: false
   # topHandler: [zap1,zap2,fanout1]
   topHandler: 
-    # - "zap1"
+    - "zap1"
     # - "zap2"
-    - "f1"
+    # - "f1"
   
   fanout:
     logs:
