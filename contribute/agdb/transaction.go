@@ -9,7 +9,14 @@ import (
 type ctxTxKey struct{}
 
 // TM TransactionManager
-// var TM TransactionManager // TODO TransactionManager
+// var tm TransactionManager // TODO TransactionManager
+
+// func GetTransactionManager() TransactionManager {
+// 	return tm
+// }
+// func setTransactionManager(rtm TransactionManager) {
+// 	tm = rtm
+// }
 
 // TransactionPropagation 事务传播行为
 type TransactionPropagation int
@@ -31,6 +38,7 @@ func IsSupportsTransaction(tp TransactionPropagation) bool {
 
 type TransactionManager interface {
 	Transaction(ctx context.Context, fn func(ctx context.Context) error) error
+	// TransactionWithTP(ctx context.Context, tp TransactionPropagation, fn func(ctx context.Context) error) error
 	// WithTransaction(ctx context.Context, opts ...*sql.TxOptions) (context.Context, func(error) error)
 }
 

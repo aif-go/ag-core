@@ -21,4 +21,7 @@ var FxAgDbModule = fx.Module(
 		// 基础Dao的基础增强能力
 		agdao.FxNewAgGormBaseDao,
 	),
+	// fx.Invoke(func(rtm TransactionManager) {
+	// 	setTransactionManager(rtm)
+	// }),
 )

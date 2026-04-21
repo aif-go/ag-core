@@ -37,7 +37,7 @@ func NewRepository(
 }
 
 func NewTransactionManager(repository *Repository) agdb.TransactionManager {
-	//TM = repository // 保留一个全局对象，方便事务操作
+	// TM = repository // 保留一个全局对象，方便事务操作
 	return repository
 }
 
@@ -58,6 +58,10 @@ func (r *Repository) Transaction(ctx context.Context, fn func(ctx context.Contex
 		ctx = r.BindTxToCtx(ctx, tx)
 		return fn(ctx)
 	})
+}
+
+func (r *Repository) TransactionWithTP(ctx context.Context, tp agdb.TransactionPropagation, fn func(ctx context.Context) error) error {
+	return agdb.WithTransaction(ctx, r, tp, fn)
 }
 
 // func (r *Repository) WithTransaction(ctx context.Context, opts ...*sql.TxOptions) (context.Context, func(error) error) {

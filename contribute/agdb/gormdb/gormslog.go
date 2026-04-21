@@ -19,7 +19,7 @@ const ctxSlogLoggerKey = "slogLogger"
 type GormSlogLogger struct {
 	SlogLogger                *slog.Logger
 	SlowThreshold             time.Duration
-	Colorful                  bool
+	// Colorful                  bool
 	IgnoreRecordNotFoundError bool
 	ParameterizedQueries      bool
 	LogLevel                  logger.LogLevel
@@ -30,7 +30,7 @@ func NewSLogGormLog(slogLogger *slog.Logger) logger.Interface {
 		SlogLogger:                slogLogger,
 		LogLevel:                  logger.Warn,
 		SlowThreshold:             100 * time.Millisecond,
-		Colorful:                  false,
+		// Colorful:                  false,
 		IgnoreRecordNotFoundError: false,
 		ParameterizedQueries:      false,
 	}
@@ -89,7 +89,7 @@ func (l GormSlogLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 			"sql", sql)
 	case l.LogLevel == logger.Info:
 		sql, rows := fc()
-		logs.Log(ctx, slog.LevelInfo, "trace",
+		logs.Log(ctx, slog.LevelDebug, "trace",
 			"elapsed", elapsedStr,
 			"rows", rows,
 			"sql", sql)
