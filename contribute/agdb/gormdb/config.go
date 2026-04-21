@@ -5,9 +5,9 @@ const (
 )
 
 type Config struct {
-	User  UserConfig
-	Pool  PoolConfig
-	Debug bool
+	User   UserConfig
+	Pool   PoolConfig
+	Logger LoggerConfig
 }
 
 type UserConfig struct {
@@ -22,6 +22,16 @@ type PoolConfig struct {
 	ConnMaxIdleTime int // 连接最大空闲时间 单位：秒 默认0 表示不限制
 }
 
+type LoggerConfig struct {
+	Name  string
+	Debug bool
+}
+
 func NewDefaultConfig() *Config {
-	return &Config{}
+	return &Config{
+		Logger: LoggerConfig{
+			Name:  "agdb",
+			Debug: false,
+		},
+	}
 }

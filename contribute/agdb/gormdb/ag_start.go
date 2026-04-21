@@ -18,11 +18,15 @@ func NewAggormDbConfig(binder ag_conf.IBinder) (*Config, error) {
 
 // func FindGormLogger(conf *Config, slogLogger *slog.Logger) logger.Interface {
 func FindGormLoggerFromAgslog(conf *Config) logger.Interface {
-	slogLogger := agslog.GetSlogByName("agdb")
+	name := conf.Logger.Name
+	if name == "" {
+		name = "agdb"
+	}
+	slogLogger := agslog.GetSlogByName(name)
 	log := NewSLogGormLog(slogLogger)
 
 	// 调试模式
-	if conf.Debug {
+	if conf.Logger.Debug {
 		log = log.LogMode(logger.Info)
 	}
 

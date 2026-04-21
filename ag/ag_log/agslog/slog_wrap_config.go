@@ -417,7 +417,7 @@ func (b *Builder) getNamedHandler(hname string) INamedHandler {
 	// 解析handler创建logger
 	rh, err := b.resolveHandler(hname)
 	if err != nil {
-		slog.Error(fmt.Sprintf("resolveHandler[%s] fail:%v", hname, err))
+		slog.Warn(fmt.Sprintf("resolve log handler[%s] fail:%v", hname, err))
 		return nil
 	}
 	if rh == nil {
