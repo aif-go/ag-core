@@ -194,8 +194,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					}
 					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
 					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
-					primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
-					primaryKeyCheck += "\t\t\treturn list, result.Error\n"
+					// primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
+					// primaryKeyCheck += "\t\t\treturn list, result.Error\n"
 					primaryKeyCheck += "\t\t}\n"
 				}
 			}
