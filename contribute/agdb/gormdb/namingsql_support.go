@@ -105,16 +105,18 @@ func GetParamsByNames(arg interface{}, paramNames []string) ([]interface{}, erro
 // CalcPageStartRecord 计算分页查询的开始记录
 // 如果开始记录大于总数，返回0, 不让查询
 // 如果结束记录大于总数，返回总数
-func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType string) (int64, int64, int64) {
+func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType string) (int64, int64, int64, bool, error) {
 	// 1. 校验非法参数（提前拦截无效请求）
 	if pageNum <= 0 {
-		return 0, 0, 0 // 页码必须 ≥1
+		return 0, 0, 0, false, errors.New("pageNum must be ≥1") // 页码必须 ≥1
 	}
+
 	if pageSize <= 0 {
-		return 0, 0, 0 // 页大小必须 ≥1
+		return 0, 0, 0,  false, errors.New("pageSize must be ≥1") // 页大小必须 ≥1
 	}
+
 	if totalCount == 0 {
-		return 0, 0, 0 // 无数据，无需分页
+		return 0, 0, 0, false, nil // 	无数据，无需分页
 	}
 
 	// between and 左右区间都是闭合的 []，因此开始索引需要在 pageSize 基础上 +1
@@ -129,19 +131,24 @@ func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType
 		startRecord = (pageNum-1)*pageSize + 1
 		endRecord = startRecord + pageSize - 1
 	}
-	// bugfix: 即使超过了总条数，也不能修改pagesize，因为pagesize是前端传过来的，代表了用户的意图，不能随意修改
-	if startRecord > totalCount {
-		return 0, pageSize, 0
-	}
-	if endRecord > totalCount {
-		endRecord = totalCount
-	}
+
 	// 计算总页数，向上取整
 	totalPage := totalCount / pageSize
 	if totalCount%pageSize != 0 {
 		totalPage++
 	}
-	return startRecord, endRecord, totalPage
+
+	// bugfix: 即使超过了总条数，也不能修改pagesize，因为pagesize是前端传过来的，代表了用户的意图，不能随意修改
+	// bugfix: 如果开始记录数大于总数,说明已经超过最后一页
+	if startRecord > totalCount {
+		return pageNum, pageSize, totalPage, false, nil // 超过最后一页，返回当前页码和页大小，但不执行查询
+	}
+
+	if endRecord > totalCount {
+		endRecord = totalCount
+	}
+
+	return startRecord, endRecord, totalPage, true, nil
 }
 
 // collectZeroValWithOmitEmpty 收集：有 json omitempty 标记 + 值为零值 的字段名

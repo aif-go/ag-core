@@ -583,14 +583,21 @@ func (dao *` + structName + `Dao) FindByCondition(ctx context.Context, condition
 	var pageResult *gormdb.PageResult
 	// 如果需要分页
 	if page != nil {
-		start, _, totalPage := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
-		db = db.Limit(int(page.PageSize)).Offset(int(start))
+		start, _, totalPage, enablePage, err := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
+		if err != nil {
+			return nil, nil, err
+		}
 		pageResult = &gormdb.PageResult{
 			CurrentPage: page.PageNum,
 			PageSize:    page.PageSize,
 			TotalCount:  totalCount,
 			TotalPage:   totalPage,
 		}
+		// 总记录数为0或者当前页码超过总页数时，不执行查询，直接返回空结果和分页信息
+		if !enablePage {
+			return nil, pageResult, nil
+		}
+		db = db.Limit(int(page.PageSize)).Offset(int(start))
 	}
 
 	// 主动拼排序条件
@@ -800,7 +807,20 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	startRecord, endRecord, totalPage := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	startRecord, endRecord, totalPage, enablePage, err := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	if err!= nil{
+		return nil, err
+	}
+	if !enablePage {
+		return &model.` + structName + query.Name + `PageRes{
+			PageResult: gormdb.PageResult{
+				CurrentPage: queryArgs.PageNum,
+				PageSize:    queryArgs.PageSize,
+				TotalCount:  totalCount,
+				TotalPage:   totalPage,
+			},
+		}	, nil
+	}
 	argsMap["Start"] = startRecord
 	argsMap["End"] = endRecord
 	var list []*model.` + resultType + `
