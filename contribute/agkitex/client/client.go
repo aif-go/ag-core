@@ -92,6 +92,13 @@ func (builder *KitexSuiteBuilder) BuildSuite() (*KitexClientSuite, error) {
 		opts = append(opts, middlewareOpts...)
 	}
 
+	connConf := config.Conn
+
+	// 配置GRPC连接池大小
+	if connConf.GRPCConnPoolSize > 0 {
+		opts = append(opts, client.WithGRPCConnPoolSize(connConf.GRPCConnPoolSize))
+	}
+
 	suite := &KitexClientSuite{
 		opts: opts,
 	}

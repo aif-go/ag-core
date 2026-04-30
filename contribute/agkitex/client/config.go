@@ -21,6 +21,9 @@ type KitexClientConfig struct {
 
 	// 服务发现配置
 	Resolver ResolverConfig
+
+	// 连接配置
+	Conn ConnConfig
 }
 
 // ResolverConfig 服务发现配置
@@ -33,6 +36,11 @@ type ResolverConfig struct {
 
 	// Nacos配置
 	Nacos NacosConfig `value:"${Nacos}"`
+}
+
+type ConnConfig struct {
+	// GRPC连接池大小
+	GRPCConnPoolSize uint32 `value:"${:1}"`
 }
 
 // NacosConfig Nacos配置
