@@ -174,7 +174,10 @@ func (b *Builder) initTopLogger() (*slog.Logger, error) {
 		fmt.Println("agslog: no top handler specified, use default slog handler")
 		// return TopLogger(), nil
 		// topHandlers = append(topHandlers, TopLogger().Handler())
-		topHandlers = append(topHandlers, slog.Default().Handler())
+		// topHandlers = append(topHandlers, slog.Default().Handler())
+
+		tlog := TopLogger()
+		return tlog, nil
 	} else {
 		fmt.Printf("agslog: top handler specified, use %d handler(s)\n", len(topHandlers))
 		for _, handler := range topHandlers {
@@ -434,10 +437,11 @@ func (b *Builder) getNamedHandler(hname string) INamedHandler {
 }
 
 func (b *Builder) wrapNamedHandlerIfNeed(hname string, handler slog.Handler) slog.Handler {
-	if handler, ok := handler.(INamedHandler); ok {
-		return handler
-	}
-	return NewNamedHandler(hname, handler)
+	// if handler, ok := handler.(INamedHandler); ok {
+	// 	return handler
+	// }
+	// return NewNamedHandler(hname, handler)
+	return WrapNamedHandlerIfNeed(hname, handler)
 }
 
 // BuildAgSlog 创建slog logger
@@ -447,4 +451,14 @@ func BuildAgSlog(builder *Builder) (*slog.Logger, error) {
 		return nil, err
 	}
 	return logger, nil
+}
+
+func WrapNamedHandlerIfNeed(hname string, handler slog.Handler) slog.Handler {
+	if handler, ok := handler.(INamedHandler); ok {
+		if handler.Name() == hname {
+			return handler
+		}
+		return NewNamedHandler(hname, handler)
+	}
+	return NewNamedHandler(hname, handler)
 }
