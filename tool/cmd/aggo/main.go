@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	rootcmd.SetVersion(release)
+	// rootcmd.SetVersion(release)
 
 	err := rootcmd.Run()
 	if err != nil {

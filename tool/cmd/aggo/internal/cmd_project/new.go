@@ -43,23 +43,32 @@ func (p *Project) New(ctx context.Context, dir string, layout string, branch str
 	}
 	fmt.Printf("🚀 Creating service %s, layout repo is %s, please wait a moment.\n\n", p.Name, layout)
 	repo := base.NewRepo(layout, branch)
-	if err := repo.CopyTo(ctx, to, p.Name, []string{".git", ".github"}); err != nil {
+
+	ignore := []string{
+		".git",
+		".github",
+		".vscode",
+	}
+
+	replace := []string{}
+
+	// if err := repo.CopyTo(ctx, to, p.Name, []string{".git", ".github"}); err != nil {
+	if err := repo.CopyToV2(ctx, to, p.Name, ignore, replace); err != nil {
 		return err
 	}
-	e := os.Rename(
-		filepath.Join(to, "cmd", "server"),
-		filepath.Join(to, "cmd", p.Name),
-	)
-	if e != nil {
-		return e
-	}
+	// e := os.Rename(
+	// 	filepath.Join(to, "cmd", "server"),
+	// 	filepath.Join(to, "cmd", p.Name),
+	// )
+	// if e != nil {
+	// 	return e
+	// }
 	base.Tree(to, dir)
 
 	fmt.Printf("\n🍺 Project creation succeeded %s\n", color.GreenString(p.Name))
-	fmt.Print("💻 Use the following command to start the project 👇:\n\n")
-
+	// fmt.Print("💻 Use the following command to start the project 👇:\n\n")
 	// TODO
-	fmt.Println(color.WhiteString("TODO ...."))
+	// fmt.Println(color.WhiteString("TODO ...."))
 	// fmt.Println(color.WhiteString("$ go generate ./..."))
 	// fmt.Println(color.WhiteString("$ go build -o ./bin/ ./... "))
 	// fmt.Println(color.WhiteString("$ ./bin/%s -conf ./configs\n", p.Name))
