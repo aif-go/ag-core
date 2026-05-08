@@ -14,22 +14,20 @@ import (
 
 // HertzServerProperties is the properties of the Hertz server.
 type HertzServerProperties struct {
-	Host          string `value:"${host}"`            // Host to bind the Hertz server to.
-	Port          int    `value:"${port}"`            // Port to bind the Hertz server to.
-	AdaptivePort  bool   `value:"${adaptive-port}"`   // Whether to enable adaptive port.
-	EnableIPRange string `value:"${enable-ip-range}"` // Whether to enable IP range.
+	Host          string // Host to bind the Hertz server to.
+	Port          int    // Port to bind the Hertz server to.
+	AdaptivePort  bool   // Whether to enable adaptive port.
+	EnableIPRange string // Whether to enable IP range.
 
-	KeepAlive        bool          `value:"${keep-alive}"`         // Whether to enable keep alive.
-	KeepAliveTimeout time.Duration `value:"${keep-alive-timeout}"` // Keep alive timeout in seconds, default 60s.
-	Pprof            bool          `value:"${pprof}"`              // Whether to enable pprof.
-	PprofPath        string        `value:"${pprof-path}"`         // Pprof path.
-	EnableH2C        bool          `value:"${enable-h2c}"`         // Whether to enable H2C.
+	KeepAlive        bool          // Whether to enable keep alive.
+	KeepAliveTimeout time.Duration // Keep alive timeout in seconds, default 60s.
+	Pprof            bool          // Whether to enable pprof.
+	PprofPath        string        // Pprof path.
+	EnableH2C        bool          // Whether to enable H2C.
 
 	// Service info
-	ServiceName string            `value:"${service-name}"` // Service name.
-	Cluster     string            `value:"${cluster}"`      // Cluster name.
-	Group       string            `value:"${group}"`        // Group name.
-	Tags        map[string]string `value:"${tags}"`         // Tags.
+	ServiceName string            // Service name.
+	Tags        map[string]string // Tags.
 }
 
 // NewHertzServerProperties creates and bind a new HertzServerProperties.
