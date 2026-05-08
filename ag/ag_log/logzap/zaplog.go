@@ -17,7 +17,7 @@ type ZlogProperties struct {
 	LogLevel    string `value:"${log_level:}"`
 	MaxSize     int    `value:"${max_size:100}"`
 	MaxBackUps  int    `value:"${max_backups:0}"`
-	Compress    bool   `value:"${conpress:false}"`
+	Compress    bool   `value:"${compress:false}"`
 	MaxAge      int    `value:"${max_age:0}"`
 	Console     bool   `value:"${console:false}"`
 	Prod        bool   `value:"${prod:false}"`
