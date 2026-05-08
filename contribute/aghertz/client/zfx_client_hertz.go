@@ -3,6 +3,8 @@ package client
 import (
 	"ag-core/contribute/aghertz/metadata"
 
+	adiscovery "ag-core/contribute/aghertz/client/discovery"
+
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/app/client/discovery"
 	"github.com/cloudwego/hertz/pkg/common/config"
@@ -12,19 +14,29 @@ import (
 var FxModuleAgHertzClient = fx.Module(
 	"aghertz_client",
 	fx.Provide(
+		NewClientProperties,
+		BuildClientOptionWithConfig,
+		BuildMiddlewareOptionWithConfig,
+
 		FxNewHertzClientParams,
+
 		NewHertzClient,
+
 		// AgMetadate Hertz 客户端 元数据处理 中间件
 		NewFxClientMiddlewareProvider(
 			metadata.NewAgHertzClientAgMetadataMiddleware,
 		),
 	),
+
+	// 服务发现中间件模块
+	adiscovery.FxHertzResolverModule,
 )
 
 // FxHertzClientMiddlewareParams fx注入的Hertz客户端中间件参数
 type FxHertzClientMiddlewareParams struct {
 	fx.In
 
+	ClientProperties                 *HertzClientProperties
 	ClientOptions                    []*config.ClientOption           `group:"aghertz_client_options" ,optional:"true"`                // 客户端选项
 	ClientMiddleware                 []client.Middleware              `group:"aghertz_client_middleware" ,optional:"true"`             // 普通中间件（不保证顺序）
 	PrioritizedClientMiddleware      []PrioritizedClientMiddleware    `group:"aghertz_client_prioritized_middleware" ,optional:"true"` // 带优先级的中间件（保证顺序）
@@ -68,6 +80,7 @@ func NewFxClientPrioritizedMiddlewareSuiteProvider(t any) any {
 // FxNewHertzClientParams fx注入创建Hertz客户端参数
 func FxNewHertzClientParams(iparam FxHertzClientMiddlewareParams) *HertzClientParams {
 	return &HertzClientParams{
+		ClientProperties:                 iparam.ClientProperties,
 		ClientOptions:                    iparam.ClientOptions,
 		ClientMiddleware:                 iparam.ClientMiddleware,
 		PrioritizedClientMiddleware:      iparam.PrioritizedClientMiddleware,

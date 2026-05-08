@@ -2,7 +2,6 @@ package nacos
 
 import (
 	"ag-core/ag/ag_conf"
-	"ag-core/contribute/aghertz/client"
 
 	"github.com/cloudwego/hertz/pkg/app/client/discovery"
 	rnacos "github.com/hertz-contrib/registry/nacos"
@@ -10,7 +9,8 @@ import (
 )
 
 const (
-	HertzClientPropertiesPrefix = client.HertzClientPropertiesPrefix + ".discovery"
+	// HertzClientPropertiesPrefix = client.HertzClientPropertiesPrefix + ".discovery"
+	HertzClientPropertiesPrefix = "hertz.client" + ".discovery"
 )
 
 type (
@@ -19,23 +19,32 @@ type (
 	}
 
 	Properties struct {
-		Enabled bool            `value:"${enabled:true}"`
-		Nacos   NacosProperties `value:"${nacos}"`
+		Enabled bool
+		Type    string
+		Nacos   NacosProperties
 	}
 
 	NacosProperties struct {
-		Cluster string `value:"${cluster:DEFAULT}"`     // Cluster name.
-		Group   string `value:"${group:DEFAULT_GROUP}"` // Group name.
+		Cluster string // Cluster name.
+		Group   string // Group name.
 	}
 )
 
 func NewProperties(binder ag_conf.IBinder) (*Properties, error) {
-	p := &Properties{}
+	p := defaultProperties()
 	err := binder.Bind(p, HertzClientPropertiesPrefix)
 	return p, err
 }
 
 func NewResolver(param *Param, props *Properties) discovery.Resolver {
+	if !props.Enabled {
+		return nil
+	}
+
+	if props.Type != "nacos" {
+		return nil
+	}
+
 	if param.NamingClient != nil {
 		return rnacos.NewNacosResolver(
 			param.NamingClient,
@@ -44,4 +53,15 @@ func NewResolver(param *Param, props *Properties) discovery.Resolver {
 		)
 	}
 	return nil
+}
+
+func defaultProperties() *Properties {
+	return &Properties{
+		Enabled: true,
+		Type:    "nacos",
+		Nacos: NacosProperties{
+			Cluster: "DEFAULT",
+			Group:   "DEFAULT_GROUP",
+		},
+	}
 }

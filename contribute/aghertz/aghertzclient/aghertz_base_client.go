@@ -39,7 +39,8 @@ type (
 // NewHertzBaseClient is the constructor for HertzBaseClient.
 func NewHertzBaseClient(cli *client.Client, opts ...AgHertzClientOption) *HertzBaseClient {
 	client := &HertzBaseClient{
-		cli: cli,
+		isSD: true, // 默认开启服务发现
+		cli:  cli,
 	}
 
 	// Apply all options
@@ -133,10 +134,10 @@ func (c *HertzBaseClient) DoRequest(ctx context.Context, reqParam *RequestParam,
 	}
 
 	// 记录成功日志
-	slog.Debug("hertz client request succeeded",
-		"method", reqParam.Method,
-		"url", rurl,
-		"status", res.StatusCode())
+	// slog.Debug("hertz client request succeeded",
+	// 	"method", reqParam.Method,
+	// 	"url", rurl,
+	// 	"status", res.StatusCode())
 
 	return nil
 }

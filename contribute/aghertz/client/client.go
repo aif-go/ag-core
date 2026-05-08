@@ -11,6 +11,8 @@ import (
 
 // HertzClientParams is the parameters for creating a hertz client.
 type HertzClientParams struct {
+	ClientProperties *HertzClientProperties
+
 	ClientOptions    []*config.ClientOption
 	ClientMiddleware []client.Middleware
 

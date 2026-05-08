@@ -1,6 +1,7 @@
 package client
 
 import (
+	"ag-core/ag/ag_conf"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
@@ -13,27 +14,27 @@ const (
 
 type (
 	HertzClientProperties struct {
-		KeepAlive bool `value:"${keepAlive:true}"`
+		KeepAlive bool
 
 		// Timeout for establishing a connection to server. unit: ms
-		DialTimeout int `value:"${dialTimeout:1000}"`
+		DialTimeout int
 
 		// The max connection nums for each host
-		MaxConnsPerHost int `value:"${maxConnsPerHost:512}"`
+		MaxConnsPerHost int
 
 		// The max duration before idle keep-alive connection closed. unit: ms
-		MaxIdleConnDuration int `value:"${maxIdleConnDuration:10000}"`
-
-		// FIXME other options
-		Discovery DiscoveryProperties `value:"${discovery}"`
-	}
-
-	DiscoveryProperties struct {
-		Enabled bool `value:"${enabled:true}"`
-		// CustomizedAddrs is the customized addrs for service discovery.
-		CustomizedAddrs []string `value:"${:}"`
+		MaxIdleConnDuration int
 	}
 )
+
+func NewClientProperties(binder ag_conf.IBinder) (*HertzClientProperties, error) {
+	props := defaultClientProperties()
+	err := binder.Bind(props, HertzClientPropertiesPrefix)
+	if err != nil {
+		return nil, err
+	}
+	return props, nil
+}
 
 // BuildClientOptionWithConfig builds a client option with the given properties.
 func BuildClientOptionWithConfig(props *HertzClientProperties) *config.ClientOption {
@@ -62,4 +63,13 @@ func BuildMiddlewareOptionWithConfig(props *HertzClientProperties) PrioritizedCl
 	// )
 
 	return optSuite
+}
+
+func defaultClientProperties() *HertzClientProperties {
+	return &HertzClientProperties{
+		KeepAlive:           false,
+		DialTimeout:         1000, // 1s
+		MaxConnsPerHost:     512,
+		MaxIdleConnDuration: 10000, // 10s
+	}
 }
