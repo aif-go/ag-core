@@ -7,3 +7,9 @@ examples/hello/storage
 .vscode/launch.json
 tool/cmd/gen-go-db/.vscode/launch.json
 tool/cmd/gen-go-db/gendb/mps-template.xlsx.bak
+
+**.tar.gz
+.gitnexus
+.claude 
+.opencode
+
