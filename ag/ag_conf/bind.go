@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -724,11 +725,30 @@ func parseValue(value string, v reflect.Value, param BindParam) error {
 		}
 		v.SetInt(i)
 	case reflect.Int64:
-		i, err := strconv.ParseInt(value, 0, 64)
-		if err != nil {
-			return wrapError(err)
+		// 判断是不是 time.Duration 类型
+		if v.Type() == reflect.TypeOf(time.Duration(0)) {
+			d, err := time.ParseDuration(value)
+			if err != nil {
+				if strings.Contains(err.Error(), "missing unit in duration") {
+					num, errNum := strconv.ParseInt(value, 0, 64)
+					if errNum != nil {
+						return wrapError(errNum)
+					}
+					v.SetInt(num)
+				} else {
+					return wrapError(err)
+				}
+			} else {
+				v.SetInt(int64(d))
+			}
+		} else {
+			// 普通 int64 类型
+			i, err := strconv.ParseInt(value, 0, 64)
+			if err != nil {
+				return wrapError(err)
+			}
+			v.SetInt(i)
 		}
-		v.SetInt(i)
 
 	case reflect.Uint:
 		i, err := strconv.ParseUint(value, 0, 64)
