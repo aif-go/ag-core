@@ -32,7 +32,7 @@ func BuildAsyncHandlerFactorys(conf *AsyncGlobalProperties) ([]*agslog.HandlerFa
 
 		gconfig, ok := conf.Groups[gname]
 		if !ok {
-			slog.Warn("async log config group not found", "group", gname)
+			slog.Warn("async log config group not found, use default group", "group", gname)
 			gname = "default"
 			gconfig = defaultAsyncGroupConfig
 		}

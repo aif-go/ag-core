@@ -11,7 +11,7 @@ var (
 		Worker:          1,
 		Queue:           10000,
 		FullStrategy:    "drop_new",
-		ShutdownTimeout: 1,
+		ShutdownTimeout: time.Second,
 	}
 )
 
@@ -30,7 +30,7 @@ type AsyncGroupConfig struct {
 	Queue        int    `value:"${:10000}"`
 	FullStrategy string `value:"${:drop_new}"`
 	// 可选：其他 worker 配置
-	ShutdownTimeout time.Duration `value:"${:5s}"`
+	ShutdownTimeout time.Duration `value:"${:1s}"`
 }
 
 // 异步日志实例配置

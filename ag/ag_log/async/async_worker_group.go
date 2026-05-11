@@ -107,8 +107,11 @@ func (wg *WorkerGroup) Stop() error {
 	close(wg.shutdownChan)
 
 	// 等待所有 worker 完成
-	timeout := time.After(wg.config.ShutdownTimeout)
-
+	stimeout := wg.config.ShutdownTimeout
+	if stimeout <= 0 {
+		stimeout = time.Second
+	}
+	timeout := time.After(stimeout)
 	completed := 0
 	for completed < wg.config.Worker {
 		select {
