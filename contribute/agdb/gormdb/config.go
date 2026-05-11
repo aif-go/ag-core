@@ -1,5 +1,7 @@
 package gormdb
 
+import "runtime"
+
 const (
 	DBConfigPrefix = "data.db"
 )
@@ -28,10 +30,16 @@ type LoggerConfig struct {
 }
 
 func NewDefaultConfig() *Config {
+	numP := runtime.GOMAXPROCS(0)
+
 	return &Config{
 		Logger: LoggerConfig{
 			Name:  "agdb",
 			Debug: false,
+		},
+		Pool: PoolConfig{
+			MaxIdleConns: numP,
+			MaxOpenConns: numP,
 		},
 	}
 }

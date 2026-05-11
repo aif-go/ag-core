@@ -100,8 +100,6 @@ func NewDB_V2(cfg *Config, l logger.Interface) (*gorm.DB, error) {
 
 	if cfg.Pool.MaxOpenConns > 0 {
 		sqlDB.SetMaxOpenConns(cfg.Pool.MaxOpenConns)
-	} else {
-		sqlDB.SetMaxOpenConns(100)
 	}
 
 	if cfg.Pool.ConnMaxLifetime > 0 {
@@ -131,7 +129,6 @@ func init() {
 	_ = RegisterDBOpener("mysql", mysql.Open)
 }
 
-// 注意：修复拼写错误 opener
 type DBOpener func(dsn string) gorm.Dialector
 
 // RegisterDBOpener 注册驱动（支持判重）
