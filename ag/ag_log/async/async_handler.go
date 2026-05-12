@@ -3,7 +3,6 @@ package async
 import (
 	"context"
 	"log/slog"
-	"time"
 )
 
 var (
@@ -39,14 +38,11 @@ func (h *AsyncHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.original.Enabled(ctx, level)
 }
 func (h *AsyncHandler) Handle(ctx context.Context, r slog.Record) error {
-	task := &logTask{
-		ctx:       ctx,
-		record:    r,
-		timestamp: time.Now(),
-		handler:   h.original,
-	}
+	task := taskPool.Get().(*logTask)
+	task.ctx = ctx
+	task.record = r.Clone()
+	task.handler = h.original
 
-	// 委托给 WorkerGroup 处理
 	return h.workerGroup.Submit(task)
 }
 func (h *AsyncHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -66,6 +62,3 @@ func (h *AsyncHandler) WithGroup(name string) slog.Handler {
 func (h *AsyncHandler) GetStats() *WorkerStats {
 	return h.workerGroup.GetStats()
 }
-
-
-

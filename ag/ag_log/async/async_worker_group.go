@@ -42,11 +42,21 @@ type WorkerStats struct {
 }
 
 type logTask struct {
-	ctx       context.Context
-	record    slog.Record
-	timestamp time.Time
-	startTime time.Time
-	handler   slog.Handler // 携带 handler 引用
+	ctx     context.Context
+	record  slog.Record
+	handler slog.Handler
+}
+
+func (t *logTask) Reset() {
+	t.ctx = nil
+	t.record = slog.Record{}
+	t.handler = nil
+}
+
+var taskPool = sync.Pool{
+	New: func() any {
+		return &logTask{}
+	},
 }
 
 type worker struct {
@@ -202,17 +212,17 @@ func (w *worker) run() {
 }
 
 func (w *worker) processTask(task *logTask) {
-	task.startTime = time.Now()
-
-	// time.Sleep(time.Second) // TEST
+	defer func() {
+		task.Reset()
+		taskPool.Put(task)
+	}()
 
 	if err := task.handler.Handle(task.ctx, task.record); err != nil {
 		w.workerGroup.stats.Errors.Add(1)
 	} else {
 		w.workerGroup.stats.Processed.Add(1)
 	}
-	// 这里需要 AsyncHandler 提供的原始 handler
-	// 通过 task 携带或者 workerGroup 维护一个 handler 列表
+
 }
 
 // 2. WorkerGroupManager（管理多个 WorkerGroup）
