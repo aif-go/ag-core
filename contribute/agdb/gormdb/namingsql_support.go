@@ -7,9 +7,6 @@ import (
 	"html/template"
 	"reflect"
 	"regexp"
-	"strings"
-
-	"github.com/cloudwego/kitex/tool/internal_pkg/log"
 )
 
 // 预编译正则表达式，避免每次调用时重新编译
@@ -152,98 +149,98 @@ func CalcPageStartRecord(pageNum int64, pageSize int64, totalCount int64, dbType
 }
 
 // collectZeroValWithOmitEmpty 收集：有 json omitempty 标记 + 值为零值 的字段名
-func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []string {
-	var result []string
-	// 1. 解析入参：支持结构体或结构体指针
-	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem() // 指针解引用，获取底层结构体
-	}
-	if val.Kind() != reflect.Struct {
-		return result // 非结构体/指针直接返回空
-	}
-	typ := val.Type() // 获取结构体类型（用于解析 tag）
-	// 2. 遍历字段：判断 tag 和值
-	for i := 0; i < typ.NumField(); i++ {
-		fieldTyp := typ.Field(i) // 字段类型（含 tag）
-		fieldVal := val.Field(i) // 字段实际值
-		if _, ok := excludeCols[fieldTyp.Name]; ok {
-			continue // 排除指定字段
-		}
-		// 2.1 获取gormtag的列名属性
-		gormTag := fieldTyp.Tag.Get("gorm")
-		gormTagArr := strings.Split(gormTag, ";")
-		// hasOmitEmpty := false
-		colname:=""
-		for _, opt := range gormTagArr {
-			if strings.HasPrefix(opt,"column:"){
-				colname = strings.SplitAfter(opt,"column:")[1]
-			}
-		}
+// func CollectZeroValWithOmitEmpty(obj interface{}, excludeCols map[string]int) []string {
+// 	var result []string
+// 	// 1. 解析入参：支持结构体或结构体指针
+// 	val := reflect.ValueOf(obj)
+// 	if val.Kind() == reflect.Ptr {
+// 		val = val.Elem() // 指针解引用，获取底层结构体
+// 	}
+// 	if val.Kind() != reflect.Struct {
+// 		return result // 非结构体/指针直接返回空
+// 	}
+// 	typ := val.Type() // 获取结构体类型（用于解析 tag）
+// 	// 2. 遍历字段：判断 tag 和值
+// 	for i := 0; i < typ.NumField(); i++ {
+// 		fieldTyp := typ.Field(i) // 字段类型（含 tag）
+// 		fieldVal := val.Field(i) // 字段实际值
+// 		if _, ok := excludeCols[fieldTyp.Name]; ok {
+// 			continue // 排除指定字段
+// 		}
+// 		// 2.1 获取gormtag的列名属性
+// 		gormTag := fieldTyp.Tag.Get("gorm")
+// 		gormTagArr := strings.Split(gormTag, ";")
+// 		// hasOmitEmpty := false
+// 		colname:=""
+// 		for _, opt := range gormTagArr {
+// 			if strings.HasPrefix(opt,"column:"){
+// 				colname = strings.SplitAfter(opt,"column:")[1]
+// 			}
+// 		}
 		
-		if colname == ""{
-			log.Warn("属性:",fieldTyp.Name,"未指定对应的列名tag")
-		}
-		// 2.2 判断字段值是否为零值
-		if fieldVal.IsZero() {
-			result = append(result, colname) // 满足条件，收集字段名
-		}
-	}
+// 		if colname == ""{
+// 			log.Warn("属性:",fieldTyp.Name,"未指定对应的列名tag")
+// 		}
+// 		// 2.2 判断字段值是否为零值
+// 		if fieldVal.IsZero() {
+// 			result = append(result, colname) // 满足条件，收集字段名
+// 		}
+// 	}
 
-	return result
-}
+// 	return result
+// }
 
 
 // CollectNotZeroValColsAndVals 收集：值不为零值 的字段名和对应的值
-func CollectNotZeroValColsAndVals(obj interface{}, filterPkAndIndex bool) ([]string, []interface{}) {
-	var result []string
-	var resultVals []interface{}
-	// 1. 解析入参：支持结构体或结构体指针
-	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem() // 指针解引用，获取底层结构体
-	}
-	if val.Kind() != reflect.Struct {
-		return result, resultVals // 非结构体/指针直接返回空
-	}
-	typ := val.Type() // 获取结构体类型（用于解析 tag）
-	// 2. 遍历字段：判断 tag 和值
-	for i := 0; i < typ.NumField(); i++ {
-		fieldTyp := typ.Field(i) // 字段类型（含 tag）
-		fieldVal := val.Field(i) // 字段实际值
-		// 2.1 判断是否有 gorm omitempty 标记
-		gormTag := fieldTyp.Tag.Get("gorm")
-		collect := true
-		// 是否过滤主键和索引列（默认过滤）
-		var colName string
-		gormTagArr:=strings.Split(gormTag, ";")
-		// if (filterPkAndIndex){
-		for _, opt := range gormTagArr {
-			// 统计列名
-			if strings.HasPrefix(opt,"column:"){
-				colName = strings.SplitAfter(opt,"column:")[1]
-			}
-			if filterPkAndIndex {
-				if opt == "primaryKey" || strings.HasPrefix(opt, "index") {
-		        	collect = false
-		        	break
-		    	}
-			}
-		}
+// func CollectNotZeroValColsAndVals(obj interface{}, filterPkAndIndex bool) ([]string, []interface{}) {
+// 	var result []string
+// 	var resultVals []interface{}
+// 	// 1. 解析入参：支持结构体或结构体指针
+// 	val := reflect.ValueOf(obj)
+// 	if val.Kind() == reflect.Ptr {
+// 		val = val.Elem() // 指针解引用，获取底层结构体
+// 	}
+// 	if val.Kind() != reflect.Struct {
+// 		return result, resultVals // 非结构体/指针直接返回空
+// 	}
+// 	typ := val.Type() // 获取结构体类型（用于解析 tag）
+// 	// 2. 遍历字段：判断 tag 和值
+// 	for i := 0; i < typ.NumField(); i++ {
+// 		fieldTyp := typ.Field(i) // 字段类型（含 tag）
+// 		fieldVal := val.Field(i) // 字段实际值
+// 		// 2.1 判断是否有 gorm omitempty 标记
+// 		gormTag := fieldTyp.Tag.Get("gorm")
+// 		collect := true
+// 		// 是否过滤主键和索引列（默认过滤）
+// 		var colName string
+// 		gormTagArr:=strings.Split(gormTag, ";")
+// 		// if (filterPkAndIndex){
+// 		for _, opt := range gormTagArr {
+// 			// 统计列名
+// 			if strings.HasPrefix(opt,"column:"){
+// 				colName = strings.SplitAfter(opt,"column:")[1]
+// 			}
+// 			if filterPkAndIndex {
+// 				if opt == "primaryKey" || strings.HasPrefix(opt, "index") {
+// 		        	collect = false
+// 		        	break
+// 		    	}
+// 			}
+// 		}
 
 
-		// fmt.Println(fieldVal.Interface())
-		// 2.2 判断字段值是否为零值
-		if !collect || fieldVal.IsZero() {
-			continue
-		}
+// 		// fmt.Println(fieldVal.Interface())
+// 		// 2.2 判断字段值是否为零值
+// 		if !collect || fieldVal.IsZero() {
+// 			continue
+// 		}
 
-		result = append(result, colName) // 满足条件，收集字段名
-		resultVals = append(resultVals, fieldVal.Interface())
-	}
+// 		result = append(result, colName) // 满足条件，收集字段名
+// 		resultVals = append(resultVals, fieldVal.Interface())
+// 	}
 
-	return result,resultVals
-}
+// 	return result,resultVals
+// }
 
 // NamingSqlArg 支持将命名SQL参数转换为map,以解决命名SQL参数中包含in语句的问题
 type NamingSqlArg interface {

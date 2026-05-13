@@ -460,13 +460,17 @@ func (dao *` + structName + `Dao) InsertOne(ctx context.Context, entity *model.`
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *` + structName + `Dao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.` + structName + `) (int64, error) {
-	insertIgnoreZeroValSlice := gormdb.CollectZeroValWithOmitEmpty(entity, exclude` + structName + `ZeroColNames)
+	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
+	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
+	if err!= nil{
+		return 0, err	
+	}
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	result := db.Omit(insertIgnoreZeroValSlice...).Create(entity)
+	result := db.Omit(colnames...).Create(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -519,7 +523,10 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 ` + indexCheck + `
 ` + indexUsedCheck+`
 	// 除了主键和索引以外的其他列如果有值，也作为查询条件
-	colnames, colvals := gormdb.CollectNotZeroValColsAndVals(entity, true)
+	colnames, colvals, err := entity.ListZeroValueCols(true, true, true, false)
+	if err != nil {
+		return nil, err
+	}
 	if len(colnames) > 0 {
 		for i, colname := range colnames {
 			db = db.Where(colname+" = ?", colvals[i])
