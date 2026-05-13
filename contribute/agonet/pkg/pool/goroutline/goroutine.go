@@ -21,7 +21,7 @@ const (
 
 func init() {
 	// It releases the default pool from ants.
-	ants.Release()
+	// ants.Release() // FIXME houzw 不要默认释放默认池,会对其他使用ants框架的应用逻辑产生误解
 }
 
 // DefaultWorkerPool is the global worker pool.
