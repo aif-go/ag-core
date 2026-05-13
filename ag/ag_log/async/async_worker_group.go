@@ -197,17 +197,43 @@ func (w *worker) run() {
 		w.workerGroup.doneChan <- struct{}{}
 	}()
 
+	// for {
+	// 	select {
+	// 	case task, ok := <-w.workerGroup.logQueue:
+	// 		if !ok {
+	// 			return
+	// 		}
+	// 		w.processTask(task)
+
+	// 	case <-w.workerGroup.shutdownChan:
+	// 		return
+	// 	}
+	// }
 	for {
+		// 先阻塞等待一个任务
 		select {
 		case task, ok := <-w.workerGroup.logQueue:
 			if !ok {
 				return
 			}
 			w.processTask(task)
-
 		case <-w.workerGroup.shutdownChan:
 			return
 		}
+
+		// 再非阻塞读取所有剩余任务，批量处理
+		for {
+			select {
+			case task, ok := <-w.workerGroup.logQueue:
+				if !ok {
+					return
+				}
+				w.processTask(task)
+			default:
+				goto nextLoop // 无任务，退出批量处理
+			}
+		}
+	nextLoop:
 	}
 }
 
