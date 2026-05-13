@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -197,17 +198,113 @@ func TestNewFuture_MultipleAwaitAfterPanic(t *testing.T) {
 		panic("multi-boom")
 	})
 
+	// 第一次 Await: 成功消费，拿到 panic error
 	val1, err1 := fut.Await(context.Background())
+	// 第二次 Await: 被 CAS 拒绝，返回 "future already consumed"
 	val2, err2 := fut.Await(context.Background())
 
-	if err1 == nil || err2 == nil {
-		t.Fatal("both awaits should return the panic error")
+	if err1 == nil {
+		t.Fatal("first await should return panic error")
 	}
-	if err1.Error() != err2.Error() {
-		t.Fatalf("both awaits should return the same error: '%v' vs '%v'", err1, err2)
+	if err1.Error() != "panic: multi-boom" {
+		t.Fatalf("first await: expected 'panic: multi-boom', got '%v'", err1)
 	}
-	if val1 != val2 {
-		t.Fatalf("both awaits should return the same value: %v vs %v", val1, val2)
+	if val1 != 0 {
+		t.Fatalf("first await: expected zero value, got %v", val1)
+	}
+	if err2 == nil {
+		t.Fatal("second await should be rejected")
+	}
+	if err2.Error() != "future already consumed" {
+		t.Fatalf("second await: expected 'future already consumed', got '%v'", err2)
+	}
+	if val2 != 0 {
+		t.Fatalf("second await: expected zero value, got %v", val2)
+	}
+}
+
+func TestNewFuture_DuplicateAwaitRejected(t *testing.T) {
+	fut := NewFuture(func() (string, error) {
+		return "result", nil
+	})
+
+	val1, err1 := fut.Await(context.Background())
+	if err1 != nil {
+		t.Fatalf("first await: unexpected error: %v", err1)
+	}
+	if val1 != "result" {
+		t.Fatalf("first await: expected 'result', got '%v'", val1)
+	}
+
+	val2, err2 := fut.Await(context.Background())
+	if err2 == nil {
+		t.Fatal("second await should be rejected")
+	}
+	if err2.Error() != "future already consumed" {
+		t.Fatalf("second await: expected 'future already consumed', got '%v'", err2)
+	}
+	if val2 != "" {
+		t.Fatalf("second await: expected zero value, got '%v'", val2)
+	}
+}
+
+func TestNewFuture_ConcurrentAwaitRace(t *testing.T) {
+	fut := NewFuture(func() (int, error) {
+		time.Sleep(50 * time.Millisecond)
+		return 99, nil
+	})
+
+	var successCount int32
+	var rejectCount int32
+	done := make(chan bool, 5)
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			_, err := fut.Await(context.Background())
+			if err == nil {
+				atomic.AddInt32(&successCount, 1)
+			} else if err.Error() == "future already consumed" {
+				atomic.AddInt32(&rejectCount, 1)
+			} else {
+				t.Errorf("unexpected error: %v", err)
+			}
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 5; i++ {
+		<-done
+	}
+
+	if successCount != 1 {
+		t.Fatalf("exactly 1 goroutine should succeed, got %d", successCount)
+	}
+	if rejectCount != 4 {
+		t.Fatalf("exactly 4 goroutines should be rejected, got %d", rejectCount)
+	}
+}
+
+func TestNewFuture_ContextCancelLeavesFutureUnconsumable(t *testing.T) {
+	fut := NewFuture(func() (int, error) {
+		time.Sleep(100 * time.Millisecond)
+		return 42, nil
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err1 := fut.Await(ctx)
+	if err1 == nil {
+		t.Fatal("first await (cancelled) should return error")
+	}
+
+	// context 取消后，consumed 已被 CAS 设为 1，后续 Await 也应被拒绝
+	_, err2 := fut.Await(context.Background())
+	if err2 == nil {
+		t.Fatal("second await should be rejected after context cancel consumed it")
+	}
+	if err2.Error() != "future already consumed" {
+		t.Fatalf("expected 'future already consumed', got '%v'", err2)
 	}
 }
 
@@ -414,3 +511,4 @@ func TestFutureCall_PanicError(t *testing.T) {
 		t.Fatal("timeout waiting for callback")
 	}
 }
+
