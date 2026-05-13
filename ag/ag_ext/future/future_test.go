@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 )
@@ -20,8 +21,51 @@ func TestFuture(t *testing.T) {
 	fmt.Println(val2, ok2) // 输出: 0 false
 }
 
-func TestFuturePanic(t *testing.T) {
+// func init() {
+// 	// It releases the default pool from ants.
+// 	ants.Release()
+// }
 
+func TestFutureGPanic(t *testing.T) {
+	// ants.Reboot()
+
+	gpanic1()
+	gpanic2()
+	gpanic3()
+	time.Sleep(time.Second)
+	fmt.Println("主goroutine未被panic中断")
+}
+
+func gpanic1() {
+	fut := NewFutureFunc(func() (interface{}, error) {
+		panic("gpanic1")
+	})
+	_, err := fut()
+	if err != nil {
+		// fmt.Printf("gpanic1: %v\n", err)
+		slog.Error("gpanic1", "err", err)
+	}
+}
+
+func gpanic2() {
+	FutureCall(func() (interface{}, error) {
+		panic("gpanic2")
+	}, func(res interface{}, err error) {
+		if err != nil {
+			slog.Error("gpanic2", "err", err)
+		}
+	})
+}
+
+func gpanic3() {
+	fut := NewFuture(func() (interface{}, error) {
+		panic("gpanic3")
+	})
+	_, err := fut.Await(context.Background())
+	if err != nil {
+		// fmt.Printf("gpanic3: %v\n", err)
+		slog.Error("gpanic3", "err", err)
+	}
 }
 
 // =============================================================================

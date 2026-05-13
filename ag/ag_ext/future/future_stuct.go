@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+
+	"github.com/panjf2000/ants/v2"
 )
 
 // 最终结构
@@ -13,7 +15,8 @@ type Future[T any] struct {
 	err   error
 	ready chan struct{} // 每次取出必须重新 make
 	pool  *sync.Pool
-	ref   int32
+	// ref      int32
+	consumed int32 // 替代 ref：0=未消费, 1=已消费
 }
 
 // 按类型独立池
@@ -44,9 +47,13 @@ func NewFuture[T any](task func() (T, error)) *Future[T] {
 	f.val = *new(T)
 	f.err = nil
 	f.pool = pool
-	atomic.StoreInt32(&f.ref, 1)
 
-	go func() {
+	// atomic.StoreInt32(&f.ref, 1)
+	// consumed 池中可能残留1，需重置
+	atomic.StoreInt32(&f.consumed, 0)
+
+	// go func() {
+	err := ants.Submit(func() {
 		// panic 保护
 		defer func() {
 			if r := recover(); r != nil {
@@ -59,13 +66,23 @@ func NewFuture[T any](task func() (T, error)) *Future[T] {
 		val, err := task()
 		f.val = val
 		f.err = err
-	}()
+	})
+	if err != nil {
+		f.err = err
+		close(f.ready)
+	}
 
 	return f
 }
 
 // Await 不变
 func (f *Future[T]) Await(ctx context.Context) (T, error) {
+	// CAS: 0→1，只允许一个调用者进入
+	if !atomic.CompareAndSwapInt32(&f.consumed, 0, 1) {
+		var zero T
+		return zero, fmt.Errorf("future already consumed")
+	}
+
 	select {
 	case <-ctx.Done():
 		var zero T
@@ -76,10 +93,10 @@ func (f *Future[T]) Await(ctx context.Context) (T, error) {
 	val := f.val
 	err := f.err
 
-	// 最后一个调用者放回池
-	if atomic.AddInt32(&f.ref, -1) == 0 {
-		f.pool.Put(f)
-	}
+	// // 最后一个调用者放回池,解决同一个future异步并发Await的问题
+	// if atomic.AddInt32(&f.ref, -1) == 0 {
+	f.pool.Put(f)
+	// }
 
 	return val, err
 }
