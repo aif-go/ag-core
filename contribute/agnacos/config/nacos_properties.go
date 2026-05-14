@@ -9,27 +9,25 @@ const (
 
 // NacosConfigProperties nacos config properties
 type NacosConfigProperties struct {
-	Enable bool `value:"${enable:true}"`
+	Enable bool
 
 	common.SCProperties
-	// // server
-	// Schema      string `value:"${schema:http}"`
-	// ContextPath string `value:"${contextpath:/nacos}"`
 
-	// // client
-	// ServerAddr string `value:"${serveraddr}"`
-	// NameSpace  string `value:"${namespace}"`
-	// UserName   string `value:"${username}"`
-	// Password   string `value:"${password}"`
-
-	DataIDs []DataIDInfo `value:"${dataids}"`
+	DataIDs []DataIDInfo
 }
 
 // DataIDInfo nacso dataid相关的配置
 type DataIDInfo struct {
-	DataID string `value:"${dataid}"`              //required
-	Group  string `value:"${group:DEFAULT_GROUP}"` //required
-	Type   string `value:"${type:yaml}"`           //required
+	DataID string `required:"true"`                           //required
+	Group  string `value:"${:DEFAULT_GROUP}" required:"true"` //required
+	Type   string `value:"${:yaml}" required:"true"`          //required
 
-	AutoRefresh bool `value:"${autorefresh:true}"`
+	AutoRefresh bool `value:"${:true}"`
+}
+
+func defaultNacosConfigProperties() *NacosConfigProperties {
+	return &NacosConfigProperties{
+		Enable:       true,
+		SCProperties: common.DefaultSCProperties(),
+	}
 }

@@ -144,6 +144,11 @@ func (wm *WatcherManager) close() {
 func (wm *WatcherManager) startWatcher(w Watcher) {
 	wm.watchersLock.Lock()
 	defer wm.watchersLock.Unlock()
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error(fmt.Sprintf("startWatcher recover err:%v", r))
+		}
+	}()
 
 	// 如果wm已关闭，不启动watcher
 	if wm.ctx.Err() != nil {

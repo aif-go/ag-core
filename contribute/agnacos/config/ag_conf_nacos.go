@@ -22,17 +22,21 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 	}
 
 	dateids := p.DataIDs
-	if len(dateids) < 1 {
+	dataidCount := len(dateids)
+	if dataidCount < 1 {
 		slog.Info("nacos remote config dataids is empty")
 		return nil
 	}
 
-	for _, dataidinfo := range dateids {
+	for i := dataidCount - 1; i >= 0; i-- {
+		dataidinfo := dateids[i]
+
+		// for _, dataidinfo := range dateids {
 		if dataidinfo.DataID == "" {
 			return fmt.Errorf("nacos config must config dataid value")
 		}
 		if dataidinfo.Group == "" {
-			return fmt.Errorf("nacos configmust config group value")
+			return fmt.Errorf("nacos config must config group value")
 		}
 
 		var content string
@@ -54,55 +58,30 @@ func EnableNacosRemoteConfig(env ag_conf.IConfigurableEnvironment, iClient confi
 		if err != nil {
 			return err
 		}
-		// key := getSourceKey(&dataidinfo)
-		// cty := dataidinfo.Type
-		// reader, ok := reader.Readers[cty]
-		// if !ok {
-		// 	return fmt.Errorf("fileType:%s not be supported", cty)
-		// }
 
-		// contextMap, err := reader([]byte(content))
-		// if err != nil {
-		// 	return fmt.Errorf("dataId:%s Group:%s read error: %w", dataidinfo.DataID, dataidinfo.Group, err)
-		// }
-
-		// flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// nacosSource := NewNacosPropertySource(key, flatmapcontext)
-
-		ps := env.GetPropertySources()
-		if ps.ContainsSource(nacosSource) {
+		pss := env.GetPropertySources()
+		if pss.ContainsSource(nacosSource) {
 			slog.Info(fmt.Sprintf("nacos config already exists, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
-			err = ps.ReplaceSource(nacosSource)
+			err = pss.ReplaceSource(nacosSource)
 			if err != nil {
 				return fmt.Errorf("dataId:%s Group:%s replace error: %w", dataidinfo.DataID, dataidinfo.Group, err)
 			}
 		} else {
 			slog.Info(fmt.Sprintf("nacos config, dataId:%s Group:%s", dataidinfo.DataID, dataidinfo.Group))
-			// ps.AddLast(nacosSource)
-			ps.AddFirst(nacosSource)
+			err := pss.AddAfter(ag_conf.SourceKeySystemEnvironment, nacosSource) // nacos配置优先级在环境变量之后
+			if err != nil {
+				return err
+			}
 		}
 
-		registerNacosWatcherIfNeed(dataidinfo, iClient)
+		// 解密nacos配置
+		err = ag_conf.CreateOrUpdateDecryptForPropertySource(env, nacosSource)
+		if err != nil {
+			return err
+		}
 
-		// TODO Watch
-		// // 只要获取nacos的内容不返回error，就可以添加对应的监听
-		// iClient.ListenConfig(vo.ConfigParam{
-		// 	DataId: dataidinfo.DataID,
-		// 	Group:  dataidinfo.Group,
-		// Type:   vo.ConfigType(dataidinfo.Type), // 不指定类型能拿到吗
-		// 	OnChange: func(namespace string, group string, dataId string, data string) {
-		// 		// TODO dataId 和 group 是否可能不一致？
-		// 		err := addOrRefresh(env, data, &dataidinfo, true)
-		// 		if err != nil {
-		// 			slog.Error("nacos conf refresh", "dataId:", dataId, " errormsg:", err.Error())
-		// 		}
-		// 	},
-		// })
-		// TODO 怎么取消配置监听
+		// 注册nacos配置监听
+		registerNacosWatcherIfNeed(dataidinfo, iClient)
 	}
 	return nil
 }

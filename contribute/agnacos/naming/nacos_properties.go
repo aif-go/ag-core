@@ -9,7 +9,7 @@ const (
 
 // NacosNamingProperties nacos naming properties
 type NacosNamingProperties struct {
-	Enable bool `value:"${enable:true}"`
+	Enable bool
 
 	common.SCProperties
 	// // server
@@ -21,4 +21,11 @@ type NacosNamingProperties struct {
 	// NameSpace  string `value:"${namespace}"`
 	// UserName   string `value:"${username}"`
 	// Password   string `value:"${password}"`
+}
+
+func defaultNacosNamingProperties() *NacosNamingProperties {
+	return &NacosNamingProperties{
+		Enable:       true,
+		SCProperties: common.DefaultSCProperties(),
+	}
 }

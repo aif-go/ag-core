@@ -27,13 +27,6 @@ var FxAgConfModule = fx.Module("ag_conf",
 	fxAgConfigWatcherModule,
 )
 
-var FxAgConfigDecryptModule = fx.Module(
-	"ag_conf_decrypt",
-	fx.Invoke(
-		ag_conf.DecryptOtherConfig,
-	),
-)
-
 var fxAgConfigWatcherModule = fx.Module(
 	"ag_conf_watcher",
 	fx.Provide(

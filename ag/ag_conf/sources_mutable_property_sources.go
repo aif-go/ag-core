@@ -130,11 +130,11 @@ func (m *MutablePropertySources) AddBefore(name string, ps IPropertySource) erro
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	m.removeIfPresent(ps.GetName())
 	index := m.indexOfName(name)
 	if index == -1 {
 		return fmt.Errorf("PropertySource named '%s' not found", name)
 	}
+	m.removeIfPresent(ps.GetName())
 	m.propertySourceList.AddIndex(index, ps)
 	return nil
 }
@@ -146,11 +146,11 @@ func (m *MutablePropertySources) AddAfter(name string, ps IPropertySource) error
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.removeIfPresent(ps.GetName())
 	index := m.indexOfName(name)
 	if index == -1 {
 		return fmt.Errorf("PropertySource named '%s' not found", name)
 	}
+	m.removeIfPresent(ps.GetName())
 	m.propertySourceList.AddIndex(index+1, ps)
 	return nil
 }

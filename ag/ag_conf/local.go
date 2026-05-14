@@ -38,11 +38,6 @@ func LoadLocalConfig(env IConfigurableEnvironment) (rerr error) {
 	return
 }
 
-func LoadLocalConfigRepeatableToState(env IConfigurableEnvironment) (LocalConfigLoded, error) {
-	err := LoadLocalConfigRepeatable(env)
-	return LocalConfigLoded("localConfigRepeatableLoaded"), err
-}
-
 func LoadLocalConfigRepeatable(env IConfigurableEnvironment) (rerr error) {
 	// 加载本地配置文件
 	err := doLoadLocalConfig(env)
@@ -97,39 +92,17 @@ func doLoadLocalConfig(env IConfigurableEnvironment) error {
 }
 
 func LoadConfigFile(env IConfigurableEnvironment, appConfFile string) error {
-	// context, err := os.ReadFile(appConfFile)
-	// if err != nil {
-	// 	return err
-	// }
-	// // suffix := filepath.Ext(appConfFile)
-	// acftype := format(appConfFile)
-	// reader, ok := reader.Readers[acftype]
-	// if !ok {
-	// 	return fmt.Errorf("app.conf type not supported: %s", acftype)
-	// }
-
-	// contextMap, err := reader(context)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// flatmapcontext, err := ag_ext.GetFlattenedMap(contextMap)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// env.GetPropertySources().AddLast(&MapPropertySource{ // TODO 本地配置文件是否应该比SYS优先级高？ FIXME 应该SYS < localfile < nacos < -D
-	// 	NamedPropertySource: NamedPropertySource{
-	// 		Name: fmt.Sprintf("%s-%s", SourceKeyLocalPrefix, appConfFile), // "[LOCAL]-xxxx"
-	// 	},
-	// 	Source: flatmapcontext,
-	// })
-
 	propertySource, err := NewPropertySourceFromFile(appConfFile)
 	if err != nil {
 		return err
 	}
 	env.GetPropertySources().AddLast(propertySource)
+
+	// decryptSource, err := BuildDecryptForPropertySource(propertySource)
+	// if err != nil {
+	// 	return err
+	// }
+	// env.GetPropertySources().AddBefore(propertySource.GetName(), decryptSource)
 	return nil
 
 }

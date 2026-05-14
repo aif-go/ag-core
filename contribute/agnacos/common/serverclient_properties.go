@@ -8,15 +8,15 @@ import (
 
 type SCProperties struct {
 	// server
-	Schema      string `value:"${schema:http}"`
-	ContextPath string `value:"${contextpath:/nacos}"`
+	Schema      string
+	ContextPath string
 
 	// client
-	ServerAddr string `value:"${serveraddr}"`
-	NameSpace  string `value:"${namespace}"`
-	UserName   string `value:"${username}"`
-	Password   string `value:"${password}"`
-	LogLevel   string `value:"${:error}"`
+	ServerAddr string
+	NameSpace  string
+	UserName   string
+	Password   string
+	LogLevel   string
 }
 
 func BuildServerConfig(p SCProperties) ([]constant.ServerConfig, error) {
@@ -90,4 +90,16 @@ func BuildClientConfig(p SCProperties) (*constant.ClientConfig, error) {
 	clientConfig := constant.NewClientConfig(opts...)
 
 	return clientConfig, nil
+}
+
+func DefaultSCProperties() SCProperties {
+	return SCProperties{
+		Schema:      "http",
+		ContextPath: "/nacos",
+		// ServerAddr:  "127.0.0.1:8848",
+		// NameSpace:   "public",
+		// UserName:    "nacos",
+		// Password:    "nacos",
+		LogLevel: "error",
+	}
 }

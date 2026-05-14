@@ -122,7 +122,6 @@ func (cpb *ConfigurationPropertiesBinder) BindValue(bctx context.Context, v refl
 		})
 	}
 
-	slog.Debug("bind value", "key", param.Key)
 	defer func() {
 		if rterr != nil {
 			// TODO 绑定异常是否需要额外处理
@@ -681,6 +680,7 @@ func (cpb *ConfigurationPropertiesBinder) doBindValue(ctx context.Context, env I
 		}
 	}
 
+	slog.Debug(fmt.Sprintf("bind value %s", param.Key))
 	// TODO 默认值可能也有占位符 默认值暂不支持占位符
 	return parseValue(value, v, param)
 }

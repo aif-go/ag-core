@@ -82,9 +82,6 @@ func (pspr *PropertySourcesPropertyResolver) getProperty(key string, resolveNest
 	if pspr.PropertySources != nil {
 		pslist := pspr.PropertySources.GetPropertySources()
 		for _, ps := range pslist {
-			if slog.Default().Enabled(nil, slog.LevelDebug) {
-				slog.Debug("Searching for key '" + key + "' in PropertySource '" + ps.GetName() + "'")
-			}
 
 			// v := ps.GetProperty(key) // TODO v是否存在非string场景
 			v := getPropertyFold(key, ps) // 忽略key的大小写
@@ -108,9 +105,9 @@ func (pspr *PropertySourcesPropertyResolver) getProperty(key string, resolveNest
 		}
 	}
 
-	if slog.Default().Enabled(nil, slog.LevelDebug) {
-		slog.Debug("Could not find key '" + key + "' in any property source")
-	}
+	// if slog.Default().Enabled(nil, slog.LevelDebug) {
+	// 	slog.Debug("Could not find key '" + key + "' in any property source")
+	// }
 
 	return "", nil
 }

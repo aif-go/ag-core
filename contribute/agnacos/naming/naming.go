@@ -11,7 +11,8 @@ import (
 )
 
 func NewNacosNamingProperties(binder ag_conf.IBinder) (*NacosNamingProperties, error) {
-	p := &NacosNamingProperties{}
+	// p := &NacosNamingProperties{}
+	p := defaultNacosNamingProperties()
 	err := binder.Bind(p, NacosNamingPropertiesPrefix)
 	if err != nil {
 		return nil, err

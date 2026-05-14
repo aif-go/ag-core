@@ -8,6 +8,13 @@ import (
 )
 
 func (wm *WatcherManager) refreshPropertySources(propertySources []IPropertySource) {
+	wm.watchersLock.Lock()
+	defer wm.watchersLock.Unlock()
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error(fmt.Sprintf("refreshPropertySources recover err:%v", r))
+		}
+	}()
 	// TODO 刷新和watcher close的冲突如何兼容
 
 	// log
@@ -20,13 +27,14 @@ func (wm *WatcherManager) refreshPropertySources(propertySources []IPropertySour
 	wm.doRefreshPropertySource(propertySources)
 }
 
-func (wm *WatcherManager) doRefreshPropertySource(pss []IPropertySource) {
+func (wm *WatcherManager) doRefreshPropertySource(rpss []IPropertySource) {
 	env := wm.env
+	pss := env.GetPropertySources()
 	// 1. 获取所有有变化的key
 	// changeskv := make(map[string]interface{})
 	changeskeys := make([]string, 0)
-	for _, ps := range pss {
-		psbefor := env.GetPropertySources().Get(ps.GetName())
+	for _, ps := range rpss {
+		psbefor := pss.Get(ps.GetName())
 		if psbefor == nil {
 			slog.Warn(fmt.Sprintf("refreshPropertySources not found propertySource name=%s, will be ignore!!!", ps.GetName()))
 			continue
@@ -34,41 +42,70 @@ func (wm *WatcherManager) doRefreshPropertySource(pss []IPropertySource) {
 		befor := psbefor.GetSource()
 		after := ps.GetSource()
 		changs := changes(befor, after)
+		dps, err := BuildDecryptForPropertySource(ps)
+		// err := DecryptConfigSource(env, ps) // 密码解密Source更新
+		if err != nil {
+			slog.Error(fmt.Sprintf("refreshPropertySources DecryptConfigSource err source:%s, will be ignore!!!, err:%v, ", ps.GetName(), err))
+			continue
+		}
+
+		psexist := pss.ContainsSource(ps)
+
+		if psexist {
+			// 更新配置源
+			err = pss.ReplaceSource(ps)
+			if err != nil {
+				slog.Error(fmt.Sprintf("refreshPropertySources ReplaceSource err source:%s, will be ignore!!!, err:%v, ", ps.GetName(), err))
+				continue
+			}
+
+			if len(dps.GetSource()) > 0 {
+				err = pss.AddBefore(ps.GetName(), dps)
+				if err != nil {
+					slog.Error(fmt.Sprintf("refreshPropertySources AddDecryptSource err source:%s, will be ignore!!!, err:%v, ", ps.GetName(), err))
+				}
+			} else {
+				pss.RemoveIfPresent(dps.GetName())
+			}
+		} else {
+			slog.Error(fmt.Sprintf("refreshPropertySources propertySource name=%s is not exist, will be ignore!!!", ps.GetName()))
+			continue
+		}
+
 		for key, _ := range changs {
 			// changeskv[key] = val
 			changeskeys = append(changeskeys, key)
 		}
-		err := DecryptConfigSource(env, ps) // 密码解密Source更新
-		if err != nil {
-			slog.Warn(fmt.Sprintf("refreshPropertySources DecryptConfigSource err source:%s, will be ignore!!!, err:%v, ", ps.GetName(), err))
-			continue
-		}
-		env.GetPropertySources().ReplaceSource(ps) // 更新配置源
+
 	}
-	cjson, _ := json.MarshalIndent(changeskeys, "", " ")
-	slog.Info(fmt.Sprintf("doRefreshPropertySource changes:\n%s", cjson))
+
+	if len(changeskeys) == 0 {
+		slog.Info("doRefreshPropertySource no changes")
+		return
+	} else {
+		cjson, _ := json.MarshalIndent(changeskeys, "", " ")
+		slog.Info(fmt.Sprintf("doRefreshPropertySource changes:\n%s", cjson))
+	}
 
 	// 2. 获取所有变化的key的listener
 	wm.refreshMapLock.RLock()
 	defer wm.refreshMapLock.RUnlock()
-	invokListeners := make(map[string][]func(k, v string))
+	invokeListeners := make(map[string][]func(k, v string))
 
 	for key, listeners := range wm.refreshMap {
-		// TODO key的比对要考虑slice类型的key识别
-		// if _, ok := changeskv[key]; ok {
-		// 	invokListeners[key] = listeners
-		// }
+		if _, ok := invokeListeners[key]; ok {
+			continue
+		}
+
 		for _, changekey := range changeskeys {
-			// strings.EqualFold(changekey, key)
-			// if strings.HasPrefix(strings.ToLower(changekey), strings.ToLower(key)) {
 			if matchRefreshKey(changekey, key) {
-				invokListeners[key] = listeners
+				invokeListeners[key] = listeners
 			}
 		}
 	}
 
 	// 3. 执行所有变化的key的listener
-	for key, listeners := range invokListeners {
+	for key, listeners := range invokeListeners {
 		for _, listener := range listeners {
 			// 判断key是否为slice格式
 			listener(key, "")
