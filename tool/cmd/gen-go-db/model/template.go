@@ -136,6 +136,150 @@ func (%s *%s) Clone() *%s {
 }`, lowerStructName, structName, structName, lowerStructName, structName, strings.Join(fields, "\n"))
 }
 
+// isIndexColumn 检查列是否为主键或索引列
+func isIndexColumn(tableData *table.TableData, colName string) bool {
+	// 检查是否为主键
+	for _, pk := range tableData.PrimaryKeys {
+		if pk == colName {
+			return true
+		}
+	}
+	// 检查是否为索引列
+	for _, index := range tableData.Indexes {
+		for _, idxCol := range index.Columns {
+			if idxCol == colName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isSpecialColumn 检查列是否为特殊列（jpaVersion, create_time, last_update_time）
+func isSpecialColumn(colName string) bool {
+	specialCols := []string{"jpa_version", "create_time", "last_update_time", "jpaVersion", "createTime", "lastUpdateTime"}
+	for _, sc := range specialCols {
+		if strings.EqualFold(sc, colName) {
+			return true
+		}
+	}
+	return false
+}
+
+// getZeroCheck 获取零值检查表达式（参考dao模板的简洁实现）
+func getZeroCheck(lowerStructName string, col table.ColumnData) string {
+	switch col.GoType {
+	case "string":
+		return fmt.Sprintf("%s.%s == \"\"", lowerStructName, col.JsonTag)
+	case "time.Time":
+		return fmt.Sprintf("%s.%s.IsZero()", lowerStructName, col.JsonTag)
+	default:
+		// 数值类型（int, int64, float64等）
+		return fmt.Sprintf("%s.%s == 0", lowerStructName, col.JsonTag)
+	}
+}
+
+// containsPk 检查列名是否在主键列表中
+func containsPk(primaryKeys []string, colName string) bool {
+	for _, pk := range primaryKeys {
+		if pk == colName {
+			return true
+		}
+	}
+	return false
+}
+
+// generateListZeroValueColsMethod 生成ListZeroValueCols方法（匹配用户定义的签名）
+func generateListZeroValueColsMethod(tableData *table.TableData) string {
+	structName := tableData.StructName
+	lowerStructName := strings.ToLower(string(structName[0])) + structName[1:]
+
+	// 生成字段检查代码（使用if逐个判断，禁止反射）
+	var fieldChecks []string
+	generalColZeroValVarDefine := fmt.Sprintf(` // generalColZeroVal 用于普通列的零值检查，避免重复代码
+	%s
+	`,"var generalColZeroVal bool = false")
+	fieldChecks = append(fieldChecks, generalColZeroValVarDefine)
+	for _, col := range tableData.Columns {
+		isPrimary := containsPk(tableData.PrimaryKeys, col.Name)
+		isIndex := isIndexColumn(tableData, col.Name)
+		isSpecial := isSpecialColumn(col.Name)
+		zeroCheck := getZeroCheck(lowerStructName, col)
+		
+		// 生成字段检查代码
+		var fieldCheck string
+		
+		// 主键列
+		if isPrimary {
+			fieldCheck = fmt.Sprintf(`	// %s - 主键，索引列
+	if !filterPrimary {
+		isZero := %s
+		// false 保留零值 true 过滤零值
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "%s")
+			vals = append(vals, %s.%s)
+		}
+	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
+		} else if isIndex {
+		// 索引列（非主键）
+			fieldCheck = fmt.Sprintf(`	// %s - 索引列
+	if !filterIndex {
+		isZero := %s
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "%s")
+			vals = append(vals, %s.%s)
+		}
+	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
+		} else if isSpecial {
+		// 特殊列
+		specialDesc := "特殊用途"
+		if strings.Contains(strings.ToLower(col.Name), "version") {
+			specialDesc = "乐观锁"
+		} else if strings.Contains(strings.ToLower(col.Name), "create") {
+			specialDesc = "自动创建时间"
+		} else if strings.Contains(strings.ToLower(col.Name), "update") {
+			specialDesc = "自动更新时间"
+		}
+		fieldCheck = fmt.Sprintf(`	// %s - 特殊列，用于%s
+	if !filterSpecial {
+		isZero := %s
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "%s")
+			vals = append(vals, %s.%s)
+		}
+	}`, col.JsonTag, specialDesc, zeroCheck, col.Name, lowerStructName, col.JsonTag)
+		} else {
+		// 普通列
+		fieldCheck = fmt.Sprintf(`	// %s - 普通列
+	generalColZeroVal = %s
+	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
+		cols = append(cols, "%s")
+		vals = append(vals, %s.%s)
+	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
+	}
+		
+		fieldChecks = append(fieldChecks, fieldCheck)
+	}
+
+	return fmt.Sprintf(`// ListZeroValueCols 列出零值列或非零值列
+// filterPrimary: false-主键列正常处理 true-主键列被过滤掉
+// filterIndex: false-索引列正常处理 true-索引列被过滤掉
+// filterIsZero: false-只获取零值的列, true-只获取非零值的列
+// filterSpecial: 是否过滤特殊列(jpaVersion/createTime/lastUpdateTime)
+func (%s *%s) ListZeroValueCols(filterPrimary bool, filterIndex bool, filterIsZero bool, filterSpecial bool) ([]string, []interface{}, error) {
+	if %s == nil {
+		return nil, nil, fmt.Errorf("%s is nil")
+	}
+
+	var cols []string
+	var vals []interface{}
+
+%s
+
+	return cols, vals, nil
+}`, lowerStructName, structName, lowerStructName, lowerStructName, strings.Join(fieldChecks, "\n\n"))
+}
+
 // generateToStringMethod 生成ToString方法
 func generateToStringMethod(tableData *table.TableData) string {
 	structName := tableData.StructName
@@ -474,6 +618,10 @@ func GetModelTemplate(tableData *table.TableData) string {
 
 	// Clone方法
 	parts = append(parts, generateCloneMethod(tableData))
+	parts = append(parts, "\n\n")
+
+	// ListZeroValueCols方法
+	parts = append(parts, generateListZeroValueColsMethod(tableData))
 	parts = append(parts, "\n\n")
 
 	// ToString方法

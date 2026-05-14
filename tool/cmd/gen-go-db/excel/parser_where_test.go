@@ -110,7 +110,8 @@ func generateYAML(tc TestCase, result *WhereClause) {
 	}
 
 	// 生成文件名
-	safeName := sanitizeFilename(tc.Name)
+	// safeName := sanitizeFilename(tc.Name)
+	safeName := tc.Name
 	filename := filepath.Join(testDir, safeName+".yaml")
 
 	// 准备YAML内容
@@ -229,7 +230,8 @@ func TestGenerateAllYAML(t *testing.T) {
 			continue
 		}
 
-		safeName := sanitizeFilename(tc.name)
+		// safeName := sanitizeFilename(tc.name)
+		safeNme := tc.name
 		filename := filepath.Join(testDir, safeName+".yaml")
 
 		if err := os.WriteFile(filename, yamlBytes, 0644); err != nil {
