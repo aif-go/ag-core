@@ -9,6 +9,12 @@ import (
 
 type agHeadKey struct{}
 
+// mdWrapper 包装 MD 并提供并发安全的读写保护
+type mdWrapper struct {
+	mu sync.RWMutex
+	md MD
+}
+
 // var mdKeys = []string{}
 var (
 	mdKeys     = make(map[string]struct{}) // 用于去重检查
@@ -92,18 +98,18 @@ func (md MD) Set(k string, val string) {
 
 // AppendMdToContext 将新的元数据合并到上下文中
 func AppendMdToContext(ctx context.Context, newmd MD) context.Context {
-	// 从上下文提取已存在头信息
-	md, _ := ctx.Value(agHeadKey{}).(MD)
+	w, _ := ctx.Value(agHeadKey{}).(*mdWrapper)
 	rctx := ctx
 
-	// 将新的头信息合并到已存在头信息中
-	if md == nil {
-		md = make(MD, len(newmd))
-		// 将合并后的头信息设置到上下文
-		rctx = context.WithValue(ctx, agHeadKey{}, md)
+	if w == nil {
+		w = &mdWrapper{md: make(MD, len(newmd))}
+		rctx = context.WithValue(ctx, agHeadKey{}, w)
 	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	for k, v := range newmd {
-		md[k] = v
+		w.md[k] = v
 	}
 
 	return rctx
@@ -111,19 +117,22 @@ func AppendMdToContext(ctx context.Context, newmd MD) context.Context {
 
 // GetMdFromContext 从上下文中提取元数据
 func GetMdFromContext(ctx context.Context) MD {
-	if rmd, ok := ctx.Value(agHeadKey{}).(MD); ok {
-		// 复制元信息给外部访问，防止外部直接修改
-		return rmd.Copy()
+	if w, ok := ctx.Value(agHeadKey{}).(*mdWrapper); ok {
+		w.mu.RLock()
+		result := w.md.Copy()
+		w.mu.RUnlock()
+		return result
 	}
 	return MD{}
 }
 
 // GetMdValueFromContext 从上下文中提取元数据值
 func GetValueFromContext(ctx context.Context, key string) (string, bool) {
-	if rmd, ok := ctx.Value(agHeadKey{}).(MD); ok {
-		if v, ok := rmd[key]; ok {
-			return v, true
-		}
+	if w, ok := ctx.Value(agHeadKey{}).(*mdWrapper); ok {
+		w.mu.RLock()
+		v, ok := w.md[key]
+		w.mu.RUnlock()
+		return v, ok
 	}
 	return "", false
 }

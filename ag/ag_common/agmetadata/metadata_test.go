@@ -20,16 +20,16 @@ func TestMetadata(t *testing.T) {
 	fmt.Println(md) // map[]
 
 	md1 := GetMdFromContext(ctx1)
-	fmt.Println(md1) // map[a:a b:b]
+	fmt.Println(md1) // map[a:a b:b]  父ctx能获取新添加的元数据 为什么
 
 	md2 := GetMdFromContext(ctx2)
 	fmt.Println(md2) // map[a:a b:b]
 
-	cv := ctx2.Value(agHeadKey2{})
-	fmt.Println(cv) // <nil>
+	cv := ctx2.Value(agHeadKey2{}) // 必须精确key获取
+	fmt.Println(cv)                // <nil>
 
 	// 设计上禁止在上下文外部修改元数据
-	md2["c"] = "c"
+	md1["c"] = "c" // 手动在获取的MD中添加数据，不会在ctx中生效
 	md1 = GetMdFromContext(ctx1)
 	_, ok := md1["c"]
 	if ok {
@@ -65,4 +65,8 @@ func TestMetadata3(t *testing.T) {
 
 	aaa2 := ctx2.Value("aaa")
 	fmt.Println(aaa2) // a2
+}
+
+func TestMetadata4(t *testing.T) {
+    
 }
