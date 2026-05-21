@@ -23,7 +23,9 @@ type AgSlogProperties struct {
 
 // BindAgSlogProperties 绑定构建AgSlogProperties配置
 func BindAgSlogProperties(binder ag_conf.IBinder) (*AgSlogProperties, error) {
-	prop := &AgSlogProperties{}
+	prop := &AgSlogProperties{
+		IsDefault: true,
+	}
 	err := binder.Bind(prop, AgSlogPropertiesKeyPrefix)
 	if err != nil {
 		return nil, err
@@ -162,6 +164,23 @@ func (b *Builder) Build() (*slog.Logger, error) {
 }
 
 func (b *Builder) initTopLogger() (*slog.Logger, error) {
+	// 替换top handler
+	topLog := TopLogger()
+	if topLog == nil {
+		// 应该提前被init初始化了
+		return nil, fmt.Errorf("top logger is nil")
+	}
+	thandler := topLog.Handler()
+	th, ok := thandler.(*ReplaceableHandler)
+	if ok {
+		if th.IsReplaced() {
+			return topLog, nil
+		}
+	} else {
+		fmt.Printf("agslog: top logger handler is not replaceable, will ignore and continue\n")
+		return topLog, nil
+	}
+
 	// 解析顶层handler
 	topHandlers, err := b.resolveTopHandlers()
 	if err != nil {
@@ -169,15 +188,13 @@ func (b *Builder) initTopLogger() (*slog.Logger, error) {
 		return nil, err
 	}
 
+	var unsetDefault bool = false
 	// 打印顶级handler信息
 	if len(topHandlers) == 0 {
 		fmt.Println("agslog: no top handler specified, use default slog handler")
-		// return TopLogger(), nil
-		// topHandlers = append(topHandlers, TopLogger().Handler())
-		// topHandlers = append(topHandlers, slog.Default().Handler())
-
-		tlog := TopLogger()
-		return tlog, nil
+		tlog := slog.Default()
+		topHandlers = append(topHandlers, tlog.Handler())
+		unsetDefault = true // FIXME 若topHandler是slog.DefaultLogger，则不能设置默认实现,否则会导致循环调用
 	} else {
 		fmt.Printf("agslog: top handler specified, use %d handler(s)\n", len(topHandlers))
 		for _, handler := range topHandlers {
@@ -203,34 +220,24 @@ func (b *Builder) initTopLogger() (*slog.Logger, error) {
 	// 中间件（作用与顶层handler前）
 	if len(b.middlewares) > 0 {
 		rhandler = slogmulti.Pipe(b.middlewares...).Handler(rhandler)
-		// FIXME
-		// future: 动态日志级别支持
 	}
 
-	rhandler = b.wrapNamedHandlerIfNeed(topLoggerName, rhandler)
+	rhandler = b.wrapNamedHandlerIfNeed(const_topLoggerName, rhandler)
 
-	// 替换top handler
-	topLog := TopLogger()
-	thandler := topLog.Handler()
-	th, ok := thandler.(*ReplaceableHandler)
-	if ok {
-		// 检查handler是否符合name
-		if !th.IsMatchesName() {
-			th.ReplaceHandler(rhandler)
-		}
-	}
+	th.ReplaceHandler(rhandler)
 
 	// 是否设置当前log实现为slog默认实现，将直接替换slo的全局默认调用
-	if b.props.IsDefault {
-		slog.SetDefault(topLog)
+	if b.props.IsDefault && !unsetDefault {
+		slog.SetDefault(topLog) // TODO 若topHandler是
 	}
 
 	return topLog, nil
 }
 
+// tryReplaceNamedHandler 尝试替换replaceable handler
 func (b *Builder) tryReplaceNamedHandler() {
 	b.replaceableHandllers.Range(func(k, v any) bool {
-		if k == topLoggerName {
+		if k == const_topLoggerName {
 			return true // 不处理topLoggerName
 		}
 
@@ -240,8 +247,7 @@ func (b *Builder) tryReplaceNamedHandler() {
 			return true
 		}
 
-		// 检查handler是否符合name
-		if rh.IsMatchesName() {
+		if rh.IsReplaced() || rh.Name() == const_topLoggerName { // 若已替换或topLoggerName，则直接跳过
 			return true
 		}
 
@@ -249,14 +255,29 @@ func (b *Builder) tryReplaceNamedHandler() {
 		name := rh.Name()
 
 		// 解析handler
-		h, err := b.resolveHandler(name)
-		if err != nil {
-			th := TopLogger().Handler()
-			// if rh.handler.Load() == th {
-			if (*rh.handler.Load()) == th {
-				return true
+		var h slog.Handler
+		h = b.getNamedHandler(name)
+		if h == nil {
+			// 若解析失败，则默认使用top handler，解包 top handler，但套用top handler的中间件
+			th := TopLogger().Handler() // FIXME 此时topLogger已经渲染完毕
+			// if (*rh.handler.Load()) == th {
+			// 	return true
+			// }
+
+			if rth, ok := th.(*ReplaceableHandler); ok {
+				nh := rth.Original()
+				if nh != nil {
+					if nameh, ok := nh.(INamedHandler); ok {
+						h = nameh.Original()
+					}
+				} else {
+					h = slog.Default().Handler()
+				}
+			} else {
+				h = th
 			}
-			h = th // 若解析失败，则默认使用top handler
+
+			h = b.wrapNamedHandlerIfNeed(name, h)
 		}
 
 		// 替换handler
@@ -384,24 +405,22 @@ func (b *Builder) GetSlogByName(hname string) *slog.Logger {
 		return logger.(*slog.Logger)
 	}
 
-	// handler, ok := b.handlers.Load(hname)
-	// if ok {
-	// 	return slog.New(handler.(slog.Handler))
-	// }
 	var handler slog.Handler
 	handler = b.getNamedHandler(hname)
 	if handler == nil {
+		// 目标name没找到，则暂时使用topLogger的handler包装成ReplaceableHandler来代替，后续会尝试替换
 		blogger := TopLogger()
-		if hname == topLoggerName || blogger == nil {
+		if hname == const_topLoggerName || blogger == nil {
 			blogger = slog.Default() // 若是topLoggerName，则使用默认handler,否则TopLogger.Handler会循环调用自己
 		}
 
 		handler = blogger.Handler()
-	}
 
-	handler = NewReplaceableHandler(hname, handler)
-	if hname != topLoggerName { // 不是topLoggerName，才缓存
-		b.replaceableHandllers.Store(hname, handler)
+		handler = NewReplaceableHandler(hname, handler)
+
+		if hname != const_topLoggerName { // 不是topLoggerName，才缓存,topLogger
+			b.replaceableHandllers.Store(hname, handler)
+		}
 	}
 
 	logger := slog.New(handler)
@@ -411,6 +430,7 @@ func (b *Builder) GetSlogByName(hname string) *slog.Logger {
 	return logger
 }
 
+// getNamedHandler 获取命名handler，并包装完成的middleware，不存在则返回nil
 func (b *Builder) getNamedHandler(hname string) INamedHandler {
 	handler, ok := b.handlers.Load(hname)
 	if ok {
@@ -458,7 +478,7 @@ func WrapNamedHandlerIfNeed(hname string, handler slog.Handler) slog.Handler {
 		if handler.Name() == hname {
 			return handler
 		}
-		return NewNamedHandler(hname, handler)
+		return NewNamedHandler(hname, handler.Original())
 	}
 	return NewNamedHandler(hname, handler)
 }

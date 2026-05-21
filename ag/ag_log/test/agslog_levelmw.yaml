@@ -1,0 +1,28 @@
+aglog:
+  IsDefault: true
+  topHandler: 
+    - "log1"
+  level:
+    root: "error"
+    log1: "warn"
+    level1: "debug"
+    level2: "info"
+    level3: "warn"
+    level4: "error"
+  fanout:
+    logs:
+      log2:
+        - asynclog1
+        - zap1
+  async: 
+    logs:
+      log3:
+        log: unknownlog
+  zap:
+    logs:
+      log1:
+        log_level: debug
+        encoding: console
+        compress: true
+        console: true
+        stdout: true

@@ -25,6 +25,13 @@ var FxAgSlogProvide = fx.Provide(
 	BindAgSlogProperties,
 	FxBuildAgSlogBuilder,
 	FxBuildTopLog,
+
+	NewLevelMwConfig,
+	NewLevelMwConfigHelper,
+	fx.Annotate(
+		NewLevelMiddleware,
+		fx.ResultTags(`group:"agslog.middleware"`),
+	),
 )
 
 // var FxAgSlogMode = fx.Module("ag_log.agslog",

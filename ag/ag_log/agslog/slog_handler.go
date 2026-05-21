@@ -47,6 +47,12 @@ func (n *NamedHandler) Original() slog.Handler {
 
 // Enabled 判断是否启用
 func (n *NamedHandler) Enabled(ctx context.Context, l slog.Level) bool {
+	startName := ctx.Value(HandlerStartCtxKey{})
+	if startName == nil {
+		startName = n.name
+		ctx = context.WithValue(ctx, HandlerStartCtxKey{}, startName)
+		// r.AddAttrs(slog.Attr{Key: HandlerStartKey, Value: slog.StringValue(startName.(string))})
+	}
 	return n.Handler.Enabled(ctx, l)
 }
 
@@ -92,7 +98,7 @@ func (n *NamedHandler) WithGroup(name string) slog.Handler {
 
 type HandlerFactory struct {
 	Name     string
-	instance INamedHandler
+	instance slog.Handler
 	// DoGetHandler func([]INamedHandler, []HandlerFactory) (slog.Handler, error)
 	DoGetHandler func(func(handlerName string) (slog.Handler, error)) (slog.Handler, error)
 
@@ -109,9 +115,9 @@ func NewHandlerFactory(name string, doGetHandler func(func(handlerName string) (
 // GetHandler 获取handler，调用子实现DoGetHandler
 func (f *HandlerFactory) GetHandler(resolveHandler func(handlerName string) (slog.Handler, error)) (slog.Handler, error) {
 
-	ok := f.mu.TryLock() // TODO 此锁是控制递归循环调用，避免循环调用导致死循环
+	ok := f.mu.TryLock() // FIXME 此锁是控制递归循环调用，避免循环调用导致死循环
 	if !ok {
-		// 此处极有可能存在循环调用handler的情况 TODO 测试验证
+		// 此处极有可能存在循环调用handler的情况
 		return nil, fmt.Errorf("handler factory %s get handler failed, lock failed, maybe circular call", f.Name)
 	}
 	defer f.mu.Unlock()
@@ -129,26 +135,11 @@ func (f *HandlerFactory) GetHandler(resolveHandler func(handlerName string) (slo
 		return nil, fmt.Errorf("handler factory [%s] get handler failed, err:\n >>> %w", f.Name, err)
 	}
 
-	name := f.Name
-	var nhandler INamedHandler
-
-	if nhandler, ok = handler.(INamedHandler); ok {
-		name = nhandler.Name()
+	if handler == nil {
+		return nil, fmt.Errorf("handler factory [%s] get handler failed, handler is nil", f.Name)
 	}
 
-	if name == "" {
-		return nil, fmt.Errorf("handler name is empty")
-	}
-
-	if nhandler == nil {
-		nhandler = NewNamedHandler(name, handler).(INamedHandler)
-	}
-
-	f.instance = nhandler
-
-	if f.Name != "" {
-		handler = NewNamedHandler(f.Name, handler)
-	}
+	f.instance = handler
 
 	return handler, nil
 }

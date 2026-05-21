@@ -52,8 +52,9 @@ func getDoGetHandlerFunc(
 		for _, handlerName := range fanoutHandlerNames {
 			// 根据handlername获取handler
 			subhandler, err := getHandler(handlerName)
-			if err != nil {
-				return nil, err
+			if err != nil || subhandler == nil {
+				fmt.Printf("agslog: fanout handler %s not found, will ignore and continue, err: %v", handlerName, err)
+				continue
 			}
 
 			subHandlers = append(subHandlers, subhandler)

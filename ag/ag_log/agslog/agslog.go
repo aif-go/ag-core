@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	topLoggerName = "agslog_top"
+	const_topLoggerName = "agslog_top"
+	const_rootLevelKey  = "root"
 )
 
 // 允许应用获取slog实例
@@ -32,7 +33,7 @@ var (
 
 func init() {
 	b := newBuilder()
-	tlog := b.GetSlogByName(topLoggerName)
+	tlog := b.GetSlogByName(const_topLoggerName)
 	topLogger.Store(tlog) // topLogger 默认是slog.DefaultLogger
 	// topLogger.Store(slog.Default()) // topLogger 默认是slog.DefaultLogger
 	builder.Store(b)

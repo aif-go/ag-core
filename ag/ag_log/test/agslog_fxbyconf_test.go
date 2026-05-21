@@ -24,10 +24,10 @@ var (
 	rlog *slog.Logger
 )
 
-func init() {
-	rlog = agslog.GetSlogByName("zap1")
-	_test_log(rlog, "rlog000")
-}
+// func init() {
+// 	rlog = agslog.GetSlogByName("zap1")
+// 	_test_log(rlog, "rlog000")
+// }
 
 func TestAgSlog(t *testing.T) {
 
@@ -58,8 +58,6 @@ func TestAgSlog(t *testing.T) {
 		// ag_log.FxAglogMode,
 
 		// slogzap
-		slogzap.FxAgSlogZapProvide,
-
 		slogzap.FxAgSlogZapProvide,
 
 		fx.Invoke(func(logger *slog.Logger) {
