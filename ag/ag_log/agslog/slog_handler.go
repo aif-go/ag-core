@@ -58,24 +58,11 @@ func (n *NamedHandler) Enabled(ctx context.Context, l slog.Level) bool {
 
 // Handle 处理日志
 func (n *NamedHandler) Handle(ctx context.Context, r slog.Record) error {
-	// handlerName := ctx.Value(HandlerNameCtxKey{})
-	// if handlerName == nil {
-	// 	handlerName = n.name
-	// } else {
-	// 	handlerName = fmt.Sprintf("%s.%s", handlerName, n.name)
-	// }
-
-	// ctx = context.WithValue(ctx, HandlerNameCtxKey{}, handlerName)
-	// r.AddAttrs(slog.Attr{Key: HandlerNameKey, Value: slog.StringValue(handlerName.(string))})
-
 	startName := ctx.Value(HandlerStartCtxKey{})
 	if startName == nil {
 		startName = n.name
 		ctx = context.WithValue(ctx, HandlerStartCtxKey{}, startName)
-		// r.AddAttrs(slog.Attr{Key: HandlerStartKey, Value: slog.StringValue(startName.(string))})
 	}
-	// ctx = context.WithValue(ctx, HandlerEndCtxKey{}, n.name)
-	// r.AddAttrs(slog.Attr{Key: HandlerEndKey, Value: slog.StringValue(n.name)})
 
 	return n.Handler.Handle(ctx, r)
 }

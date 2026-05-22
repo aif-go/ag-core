@@ -35,19 +35,13 @@ func BindAgSlogProperties(binder ag_conf.IBinder) (*AgSlogProperties, error) {
 
 // Builder for creating a slog.Logger.
 type Builder struct {
-	props *AgSlogProperties
-	// handlers []slog.Handler // 直接注册的handler 好像没用
-	// 直接注册的tophandler
-	custTopHandlers []slog.Handler
-	// handlerDefs   []HandlerDefinition
-	// handlersCaches map[string]INamedHandler
-	handlersCaches       sync.Map // 缓存每个原子handler
-	handlers             sync.Map // 缓存每个等层handler，其pipline了中间件
-	namedLogger          sync.Map
-	replaceableHandllers sync.Map
-	// namedHandlers  map[string]slog.Handler
-	// 工厂
-	factories []*HandlerFactory
+	props               *AgSlogProperties
+	custTopHandlers     []slog.Handler
+	handlersCaches      sync.Map // 缓存每个原子handler
+	handlers            sync.Map // 缓存每个等层handler，其pipline了中间件
+	namedLogger         sync.Map
+	replaceableHandlers sync.Map
+	factories           []*HandlerFactory
 
 	middlewares []slogmulti.Middleware
 
@@ -236,7 +230,7 @@ func (b *Builder) initTopLogger() (*slog.Logger, error) {
 
 // tryReplaceNamedHandler 尝试替换replaceable handler
 func (b *Builder) tryReplaceNamedHandler() {
-	b.replaceableHandllers.Range(func(k, v any) bool {
+	b.replaceableHandlers.Range(func(k, v any) bool {
 		if k == const_topLoggerName {
 			return true // 不处理topLoggerName
 		}
@@ -419,7 +413,7 @@ func (b *Builder) GetSlogByName(hname string) *slog.Logger {
 		handler = NewReplaceableHandler(hname, handler)
 
 		if hname != const_topLoggerName { // 不是topLoggerName，才缓存,topLogger
-			b.replaceableHandllers.Store(hname, handler)
+			b.replaceableHandlers.Store(hname, handler)
 		}
 	}
 
@@ -434,7 +428,9 @@ func (b *Builder) GetSlogByName(hname string) *slog.Logger {
 func (b *Builder) getNamedHandler(hname string) INamedHandler {
 	handler, ok := b.handlers.Load(hname)
 	if ok {
-		return handler.(INamedHandler)
+		if nh, ok := handler.(INamedHandler); ok {
+			return nh
+		}
 	}
 
 	// 解析handler创建logger
@@ -453,7 +449,10 @@ func (b *Builder) getNamedHandler(hname string) INamedHandler {
 	handler = b.wrapNamedHandlerIfNeed(hname, rh)
 
 	b.handlers.Store(hname, handler)
-	return handler.(INamedHandler)
+	if nh, ok := handler.(INamedHandler); ok {
+		return nh
+	}
+	return nil
 }
 
 func (b *Builder) wrapNamedHandlerIfNeed(hname string, handler slog.Handler) slog.Handler {

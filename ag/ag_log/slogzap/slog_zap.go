@@ -4,7 +4,6 @@ import (
 	"ag-core/ag/ag_conf"
 	"ag-core/ag/ag_log/agslog"
 	"ag-core/ag/ag_log/logzap"
-	"fmt"
 	"log/slog"
 
 	slogzap "github.com/samber/slog-zap/v2"
@@ -24,14 +23,13 @@ type SlogZapOption struct {
 	AttrFromContext []agslog.SlogAttrFromContext
 }
 
-// BindSlogZapProperties 绑定slogzap配置
+// BindSlogZapProperties 绑定slogzap配置. 配置加载问题不中断应用, 打印警告并返回空配置.
 func BindSlogZapProperties(binder ag_conf.IBinder) (*SlogZapProperties, error) {
 	prop := &SlogZapProperties{}
 	err := binder.Bind(prop, SlogZapPropertiesKeyPrefix)
 	if err != nil {
-		fmt.Println("BindSlogZapProperties err:", err)
-		// return nil, err
-		return nil, nil // 日志配置加载问题，不中断应用
+		slog.Warn("BindSlogZapProperties err, zap log config may be ignored", "err", err)
+		return prop, nil
 	}
 
 	return prop, nil
@@ -39,9 +37,9 @@ func BindSlogZapProperties(binder ag_conf.IBinder) (*SlogZapProperties, error) {
 
 // NewSlogHandler4ZapProps 根据zap日志配置创建slogzap handler
 func NewSlogHandler4ZapProps(props *SlogZapProperties) ([]slog.Handler, error) {
-	if props == nil {
-		fmt.Println("NewSlogHandler4ZapProps props is nil")
-		return nil, nil // 日志加载异常不影响应用运行状态
+	if props == nil || props.Logs == nil || len(props.Logs) == 0 {
+		slog.Warn("NewSlogHandler4ZapProps props is nil, skip creating zap handlers")
+		return nil, nil
 	}
 
 	var handlers []slog.Handler

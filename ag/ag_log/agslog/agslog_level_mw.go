@@ -44,8 +44,8 @@ func NewLevelMwConfig(binder ag_conf.IBinder) (*LevelMwConfig, error) {
 	return conf, nil
 }
 
-func NewLevelMwConfigHelper(levelConfig *LevelMwConfig) LevelMwConfigHelper {
-	return LevelMwConfigHelper{
+func NewLevelMwConfigHelper(levelConfig *LevelMwConfig) *LevelMwConfigHelper {
+	return &LevelMwConfigHelper{
 		sfgrp:       &singleflight.Group{},
 		levelConfig: levelConfig,
 	}
@@ -115,7 +115,7 @@ func (lch *LevelMwConfigHelper) GetLevel(key string) (slog.Level, bool) {
 	return level, true
 }
 
-func NewLevelMiddleware(levelHelper LevelMwConfigHelper) slogmulti.Middleware {
+func NewLevelMiddleware(levelHelper *LevelMwConfigHelper) slogmulti.Middleware {
 	return slogmulti.NewEnabledInlineMiddleware(
 		levelHelper.Enable,
 	)
