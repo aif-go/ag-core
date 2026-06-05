@@ -1,46 +1,73 @@
-# PolyForm Noncommercial License 1.0.0
-# Official URL: https://polyformproject.org/licenses/noncommercial/1.0.0
+## PolyForm Noncommercial License 1.0.0
+
+[https://polyformproject.org/licenses/noncommercial/1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)
 
 ## Acceptance
-To receive any license under these terms, you must agree to all of these terms.
+
+In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
 
 ## Copyright License
-The licensor grants you a copyright license to do everything with the software that would otherwise infringe the licensor’s copyright in the software, except distributing copies and making changes or new works based on the software, which are licensed separately below.
+
+The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose. However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
 
 ## Distribution License
-The licensor grants you a copyright license to make copies of the software and distribute them, including copies of modified versions and new works based on the software permitted under the Changes and New Works License below.
+
+The licensor grants you an additional copyright license to distribute copies of the software. Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
 
 ## Notices
-When you distribute copies of the software or new works based on it, you must pass along all required notices from the software, either the full text of this license or its official URL above, and all notices the licensor included with the software starting with Required Notice:.
+
+You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software. For example:
+
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
 
 ## Changes and New Works License
-The licensor grants you a copyright license to make changes to the software and create new works based on the software.
+
+The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
 
 ## Patent License
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, now or in the future, that you would infringe by using the software.
+
+The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
 
 ## Noncommercial Purposes
-All noncommercial uses are permitted uses under this license. Noncommercial uses include personal use for research, experimentation, learning, hobby, entertainment, and similar private purposes; and use by nonprofit organizations, educational institutions, government agencies, and other public entities regardless of funding sources.
+
+Any noncommercial purpose is a permitted purpose.
+
+## Personal Uses
+
+Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+
+## Noncommercial Organizations
+
+Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
 
 ## Fair Use
-Nothing in this license limits rights you have under applicable law for fair use, fair dealing, or other copyright limitations and exceptions.
+
+You may have "fair use" rights for the software under the law. These terms do not limit them.
 
 ## No Other Rights
-This license does not grant any right to sublicense or transfer any of the licenses granted herein. The licensor may license the software separately to others. No other copyright, patent, or other intellectual property licenses are granted by implication or otherwise.
+
+These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else. These terms do not imply any other licenses.
 
 ## Patent Defense
-If you make a written claim that the software infringes any patent, your patent license under this license terminates immediately. If you work for a company and your company makes such a written claim, your patent license terminates for work you do for that company.
+
+If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
 
 ## Violations
-If the licensor notifies you in writing of a violation of this license, you have thirty-two calendar days from receipt of the notice to cure the violation. If you cure within that period, all your licenses continue in effect. If you do not cure within that period, all your licenses terminate immediately.
+
+The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice. Otherwise, all your licenses end immediately.
 
 ## No Liability
-To the fullest extent permitted by applicable law, the software is provided “as is” without warranty of any kind, and the licensor disclaims all liability for damages of any kind related to the software or this license.
+
+***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
 
 ## Definitions
-- Licensor: the person or legal entity offering the software under this license.
-- Software: the software the licensor makes available under this license.
-- You: the individual or legal entity agreeing to these terms.
-- Your company: any legal entity you work for and all entities under common control with it, where control means ownership of substantially all assets or power to direct management and policy by contract or otherwise.
-- Your licenses: all licenses granted to you under this license.
-- Use: any of the activities requiring license rights under this license.
+
+The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+
+**You** refers to the individual or entity agreeing to these terms.
+
+**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization. **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise. Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the software under these terms.
+
+**Use** means anything you do with the software requiring one of your licenses.
