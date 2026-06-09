@@ -219,14 +219,14 @@ func (p *{{$LServiceProxyName}}) getOriginalHandler(cif *ag_service.CallInfo) (a
         case "{{$LMethod.Name}}":
 	    {{- if and $LMethod.ClientStreaming $LMethod.ServerStreaming }}
 	    	// return p.impl.{{$LMethod.Name}}(stream), nil
-            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName)
+            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName())
 	    {{- else if $LMethod.ClientStreaming}}
 	    	// return p.impl.{{$LMethod.Name}}(stream), nil
-            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName)
+            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName())
 	    {{- else if $LMethod.ServerStreaming}}
 	    	// FIXME 流式接口暂不支持代理，不允许获取原始接口
 	    	// return p.impl.{{$LMethod.Name}}(req, stream), nil
-            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName)
+            return nil, fmt.Errorf("can not get original handler for streaming method: %s", cif.CallName())
 	    {{- else}}
 		    return func(ctx context.Context, req interface{}) (interface{}, error) {
 		    	return p.impl.{{$LMethod.Name}}(ctx, req.({{$LArg.Type}}))
