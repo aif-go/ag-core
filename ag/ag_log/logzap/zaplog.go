@@ -21,7 +21,8 @@ type ZlogProperties struct {
 	MaxAge      int    `value:"${max_age:0}"`
 	Console     bool   `value:"${console:false}"`
 	Prod        bool   `value:"${prod:false}"`
-	Stdout      bool   `value:"${:false}"` // 是否打印到控制台
+	Stdout      bool   `value:"${:false}"`       // 是否打印到控制台
+	LocalTime   bool   `value:"${local_time:true}"` // 归档文件名是否使用本地时间
 }
 
 func BindZlogProperties(binder ag_conf.IBinder, lced ag_conf.LocalConfigLoded) (*ZlogProperties, error) {
@@ -63,6 +64,7 @@ func NewZapLogP(p *ZlogProperties) *zap.Logger {
 			MaxBackups: p.MaxBackUps, // The maximum number of backups that can be saved for log files
 			MaxAge:     p.MaxAge,     // Maximum number of days the file can be saved
 			Compress:   p.Compress,   // Compression or not
+			LocalTime:  p.LocalTime, // 归档文件名是否使用本地时间
 		}
 
 		ws = append(ws, zapcore.AddSync(&hook))
