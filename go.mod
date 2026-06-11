@@ -9,12 +9,14 @@ require (
 	github.com/magiconair/properties v1.8.10
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.5
+	github.com/panjf2000/ants/v2 v2.11.6
 	github.com/pelletier/go-toml v1.9.5
 	github.com/samber/slog-multi v1.4.1
 	github.com/samber/slog-zap/v2 v2.6.2
 	github.com/spf13/cast v1.8.0
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.27.1
+	golang.org/x/sync v0.17.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20251222181119-0a764e51fe1b
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
