@@ -1,0 +1,16 @@
+go 1.24.8
+use .
+use ./contribute/agdb
+use ./contribute/aghertz
+use ./contribute/agkitex
+use ./contribute/agnacos
+use ./contribute/agonet
+use ./contribute/agredis
+use ./contribute/agsarama
+use ./tool/cmd/aggo
+use ./tool/cmd/gen-go-db
+use ./tool/cmd/protoc-gen-go-agapi
+use ./tool/cmd/protoc-gen-go-aghertz
+use ./tool/cmd/protoc-gen-go-agkitex
+use ./tool/cmd/protoc-gen-go-agserver
+use ./tool/cmd/protoc-gen-go-agservice

@@ -1,6 +1,6 @@
 **/__debug*
 examples/hello/storage
-**/go.work
+#**/go.work
 **/go.work.sum
 /*.sh
 
