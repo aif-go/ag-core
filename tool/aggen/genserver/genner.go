@@ -1,9 +1,9 @@
 package genserver
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/genserver/tpl"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/genserver/tpl"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"path"
 )
 

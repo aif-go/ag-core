@@ -1,9 +1,9 @@
 package config
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_conf/reader"
-	"ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader"
+	"github.com/aif-go/ag-core/ag/ag_ext"
 	"fmt"
 	"log/slog"
 

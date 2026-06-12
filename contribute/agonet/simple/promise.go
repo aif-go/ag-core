@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"fmt"
 	"sync"
 	"time"

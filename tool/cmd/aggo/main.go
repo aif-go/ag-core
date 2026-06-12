@@ -1,10 +1,10 @@
 package main
 
 import (
-	"ag-core/tool/cmd/aggo/internal/rootcmd"
+	"github.com/aif-go/ag-core/tool/cmd/aggo/internal/rootcmd"
 	"log"
 
-	_ "ag-core/tool/cmd/aggo/internal/init"
+	_ "github.com/aif-go/ag-core/tool/cmd/aggo/internal/init"
 )
 
 func main() {

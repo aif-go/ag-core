@@ -1,6 +1,6 @@
 package config
 
-import "ag-core/contribute/agnacos/common"
+import "github.com/aif-go/ag-core/contribute/agnacos/common"
 
 const (
 	// NacosConfigPropertiesPrefix nacos config properties prefix

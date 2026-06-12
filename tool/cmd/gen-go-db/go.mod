@@ -1,4 +1,4 @@
-module ag-core/tool/cmd/gen-go-db
+module github.com/aif-go/ag-core/tool/cmd/gen-go-db
 
 go 1.24.8
 

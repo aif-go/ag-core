@@ -1,7 +1,7 @@
 package hello
 
 import (
-	// "ag-core/ag/ag_netty/client"
+	// "github.com/aif-go/ag-core/ag/ag_netty/client"
 	"context"
 	"encoding/json"
 	"errors"

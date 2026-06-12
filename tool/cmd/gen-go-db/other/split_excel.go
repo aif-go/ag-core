@@ -1,7 +1,7 @@
 package other
 
 import (
-	"ag-core/tool/cmd/gen-go-db/utils"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 	"fmt"
 	"path/filepath"
 	"strconv"

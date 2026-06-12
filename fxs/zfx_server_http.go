@@ -1,8 +1,8 @@
 package fxs
 
 import (
-	"ag-core/ag/ag_server"
-	"ag-core/ag/ag_server/http"
+	"github.com/aif-go/ag-core/ag/ag_server"
+	"github.com/aif-go/ag-core/ag/ag_server/http"
 
 	"go.uber.org/fx"
 )

@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"ag-core/contribute/agkitex/server/registry/nacos"
+	"github.com/aif-go/ag-core/contribute/agkitex/server/registry/nacos"
 
 	"go.uber.org/fx"
 )

@@ -1,9 +1,9 @@
 package test
 
 import (
-	"ag-core/ag/ag_log/agslog"
-	"ag-core/ag/ag_log/logzap"
-	"ag-core/ag/ag_log/slogzap"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/ag/ag_log/logzap"
+	"github.com/aif-go/ag-core/ag/ag_log/slogzap"
 	"context"
 	"log/slog"
 	"os"

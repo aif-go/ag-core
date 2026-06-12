@@ -1,10 +1,10 @@
 package agonet
 
 import (
-	"ag-core/contribute/agonet/pkg/aerrors"
-	"ag-core/contribute/agonet/pkg/buffer/elastic"
-	"ag-core/contribute/agonet/pkg/pool/byteslice"
-	goroutine "ag-core/contribute/agonet/pkg/pool/goroutline"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/elastic"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/pool/byteslice"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"io"
 	"net"
 	"time"

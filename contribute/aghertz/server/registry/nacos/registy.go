@@ -1,7 +1,7 @@
 package nacos
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 
 	"github.com/cloudwego/hertz/pkg/app/server/registry"
 	rnacos "github.com/hertz-contrib/registry/nacos"

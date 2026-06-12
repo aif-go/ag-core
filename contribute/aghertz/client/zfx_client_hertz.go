@@ -1,9 +1,9 @@
 package client
 
 import (
-	"ag-core/contribute/aghertz/metadata"
+	"github.com/aif-go/ag-core/contribute/aghertz/metadata"
 
-	adiscovery "ag-core/contribute/aghertz/client/discovery"
+	adiscovery "github.com/aif-go/ag-core/contribute/aghertz/client/discovery"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/app/client/discovery"

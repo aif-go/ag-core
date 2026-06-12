@@ -1,9 +1,9 @@
 package model
 
 import (
-	"ag-core/contribute/agdb/conditonwhere"
-	"ag-core/tool/cmd/gen-go-db/table"
-	"ag-core/tool/cmd/gen-go-db/utils"
+	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 	"fmt"
 	"io/ioutil"
 	"strings"

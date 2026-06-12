@@ -1,8 +1,8 @@
 package server
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_ext/ip"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_ext/ip"
 	"fmt"
 	"log/slog"
 )

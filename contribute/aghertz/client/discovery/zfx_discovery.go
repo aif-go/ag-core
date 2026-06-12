@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"ag-core/contribute/aghertz/client/discovery/nacos"
+	"github.com/aif-go/ag-core/contribute/aghertz/client/discovery/nacos"
 
 	"go.uber.org/fx"
 )

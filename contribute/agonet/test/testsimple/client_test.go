@@ -1,9 +1,9 @@
 package testsimple
 
 import (
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet"
 
-	// "ag-core/contribute/agonet/simple/utils"
+	// "github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 	"fmt"
 	"log/slog"

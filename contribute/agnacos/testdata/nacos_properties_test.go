@@ -1,11 +1,11 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_conf/reader/yaml"
-	"ag-core/ag/ag_ext"
-	"ag-core/contribute/agnacos/config"
-	"ag-core/contribute/agnacos/naming"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/yaml"
+	"github.com/aif-go/ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/contribute/agnacos/config"
+	"github.com/aif-go/ag-core/contribute/agnacos/naming"
 	"encoding/json"
 	"fmt"
 	"os"

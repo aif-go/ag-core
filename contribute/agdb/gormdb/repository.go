@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	agdb "ag-core/contribute/agdb"
+	agdb "github.com/aif-go/ag-core/contribute/agdb"
 
 	"gorm.io/gorm"
 )

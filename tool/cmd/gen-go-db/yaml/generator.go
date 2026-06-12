@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"ag-core/tool/cmd/gen-go-db/excel"
-	"ag-core/tool/cmd/gen-go-db/utils"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/excel"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 
 	"gopkg.in/yaml.v2"
 )

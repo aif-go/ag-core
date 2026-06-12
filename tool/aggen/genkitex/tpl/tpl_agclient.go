@@ -1,14 +1,14 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 )
 
 // ClientImportsSetter 设置Import部分信息
 var AgClientImportsSetter = func(geni *types.GennerInfo) error {
 
-	geni.AddImport("agclient", "ag-core/contribute/agkitex/client")
+	geni.AddImport("agclient", "github.com/aif-go/ag-core/contribute/agkitex/client")
 	geni.AddImport("client", "github.com/cloudwego/kitex/client")
 
 	return nil

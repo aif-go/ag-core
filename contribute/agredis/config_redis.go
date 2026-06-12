@@ -1,7 +1,7 @@
 package agredis
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"time"
 )
 

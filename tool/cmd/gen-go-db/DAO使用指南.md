@@ -21,8 +21,8 @@ import (
     "context"
     "your-project/repository/dao"
     "your-project/repository/model"
-    db "ag-core/contribute/agdb/gormdb"
-    agdao "ag-core/contribute/agdb/agdao"
+    db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
+    agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
     "gorm.io/gorm"
 )
 
@@ -231,8 +231,8 @@ for _, item := range list {
 
 ```go
 import (
-    "ag-core/contribute/agdb/conditonwhere"
-    db "ag-core/contribute/agdb/gormdb"
+    "github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+    db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
 )
 
 // 构建查询条件
@@ -476,7 +476,7 @@ condition := conditonwhere.NewWhereClauseBuilder().
 **返回数据**：`*OrderBuilder` - 返回构建器本身，支持链式调用
 
 ```go
-import db "ag-core/contribute/agdb/gormdb"
+import db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
 
 // 升序
 orderBuilder := db.NewOrderBuilder().
@@ -540,7 +540,7 @@ orderBuilder.Clear()
 - `error` - 错误信息，成功时为nil
 
 ```go
-import db "ag-core/contribute/agdb/gormdb"
+import db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
 
 // 创建命名 SQL 参数
 namingInfo := &db.NameingSqlArgInfo{

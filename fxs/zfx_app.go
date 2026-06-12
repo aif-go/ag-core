@@ -1,8 +1,8 @@
 package fxs
 
 import (
-	"ag-core/ag/ag_app"
-	"ag-core/ag/ag_server"
+	"github.com/aif-go/ag-core/ag/ag_app"
+	"github.com/aif-go/ag-core/ag/ag_server"
 	"context"
 	"log/slog"
 

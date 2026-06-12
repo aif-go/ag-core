@@ -1,7 +1,7 @@
 package config
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"context"
 	"log/slog"
 

@@ -1,9 +1,9 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/genkitex/tpl/kitextpl"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 )
 
 // ClientImportsSetter 设置Import部分信息

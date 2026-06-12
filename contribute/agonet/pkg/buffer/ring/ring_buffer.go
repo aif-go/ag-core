@@ -26,8 +26,8 @@ import (
 	"io"
 	"unsafe"
 
-	"ag-core/contribute/agonet/pkg/math"
-	bsPool "ag-core/contribute/agonet/pkg/pool/byteslice"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/math"
+	bsPool "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/byteslice"
 )
 
 const (

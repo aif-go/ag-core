@@ -1,7 +1,7 @@
 package server
 
 import (
-	"ag-core/ag/ag_ext/ip"
+	"github.com/aif-go/ag-core/ag/ag_ext/ip"
 	"context"
 	"fmt"
 	"log/slog"

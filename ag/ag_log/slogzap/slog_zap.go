@@ -1,9 +1,9 @@
 package slogzap
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_log/agslog"
-	"ag-core/ag/ag_log/logzap"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/ag/ag_log/logzap"
 	"log/slog"
 
 	slogzap "github.com/samber/slog-zap/v2"

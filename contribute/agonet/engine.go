@@ -1,8 +1,8 @@
 package agonet
 
 import (
-	"ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "ag-core/contribute/agonet/pkg/pool/goroutline"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"errors"
 	"fmt"

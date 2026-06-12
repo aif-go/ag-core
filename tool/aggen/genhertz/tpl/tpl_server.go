@@ -1,8 +1,8 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 )
 
 // ServerImportsSetter 设置Import部分信息
@@ -40,8 +40,8 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	geni.AddImports("context")
 	geni.AddImport("app", "github.com/cloudwego/hertz/pkg/app")
 	geni.AddImport("consts", "github.com/cloudwego/hertz/pkg/protocol/consts")
-	// geni.AddImport("server", "ag-core/ag/ag_hertz/server")
-	geni.AddImport("hserver", "ag-core/contribute/aghertz/server")
+	// geni.AddImport("server", "github.com/aif-go/ag-core/ag/ag_hertz/server")
+	geni.AddImport("hserver", "github.com/aif-go/ag-core/contribute/aghertz/server")
 
 	return nil
 }

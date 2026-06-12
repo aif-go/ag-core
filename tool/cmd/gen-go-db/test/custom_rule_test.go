@@ -1,7 +1,7 @@
 package test
 
 import (
-	"ag-core/contribute/agdb/gormdb"
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"fmt"
 	"testing"
 	"time"

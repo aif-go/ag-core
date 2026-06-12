@@ -1,8 +1,8 @@
 package protoc
 
 import (
-	"ag-core/tool/aggen/types"
-	"ag-core/tool/aggen/util"
+	"github.com/aif-go/ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/util"
 	"context"
 	"fmt"
 	"log/slog"

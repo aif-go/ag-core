@@ -1,9 +1,9 @@
 package server
 
 import (
-	"ag-core/ag/ag_server"
-	"ag-core/contribute/aghertz/metadata"
-	ahregistry "ag-core/contribute/aghertz/server/registry"
+	"github.com/aif-go/ag-core/ag/ag_server"
+	"github.com/aif-go/ag-core/contribute/aghertz/metadata"
+	ahregistry "github.com/aif-go/ag-core/contribute/aghertz/server/registry"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ag-core/tool/cmd/gen-go-db/excel"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/excel"
 	"fmt"
 	"testing"
 )

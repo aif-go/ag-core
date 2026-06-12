@@ -1,8 +1,8 @@
 package cmd_upgrade
 
 import (
-	"ag-core/tool/cmd/aggo/internal/base"
-	"ag-core/tool/cmd/aggo/internal/rootcmd"
+	"github.com/aif-go/ag-core/tool/cmd/aggo/internal/base"
+	"github.com/aif-go/ag-core/tool/cmd/aggo/internal/rootcmd"
 	"fmt"
 	"log/slog"
 	"os"

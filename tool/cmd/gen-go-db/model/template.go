@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 
 // hasWhereDataToYAMLCache 检查是否有 WhereDataToYAMLCache 需要生成
@@ -29,10 +29,10 @@ func generateImports(tableData *table.TableData) string {
 
 	// 根据需要添加导入
 	if tableData.HasPage {
-		imports = append(imports, `db "ag-core/contribute/agdb/gormdb"`)
+		imports = append(imports, `db "github.com/aif-go/ag-core/contribute/agdb/gormdb"`)
 	}
 	if tableData.HasSelfQuery {
-		imports = append(imports, `"ag-core/contribute/agdb/conditonwhere"`)
+		imports = append(imports, `"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"`)
 	}
 
 	// 如果有 WhereDataToYAMLCache，需要导入 yaml 包

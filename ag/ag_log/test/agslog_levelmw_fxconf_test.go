@@ -1,10 +1,10 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_log"
-	"ag-core/ag/ag_log/agslog"
-	"ag-core/fxs"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_log"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/fxs"
 	"context"
 	"fmt"
 	"log/slog"

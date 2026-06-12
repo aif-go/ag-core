@@ -1,8 +1,8 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/contribute/agsarama"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/contribute/agsarama"
 	"encoding/json"
 	"fmt"
 	"testing"

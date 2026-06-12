@@ -1,8 +1,8 @@
 package testsimple
 
 import (
-	"ag-core/contribute/agonet"
-	"ag-core/contribute/agonet/simple"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/simple"
 	"context"
 	"fmt"
 	"sync"

@@ -1,7 +1,7 @@
 package test
 
 import (
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet"
 	"context"
 	"fmt"
 	"log/slog"

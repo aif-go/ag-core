@@ -1,7 +1,7 @@
 package test
 
 import (
-	"ag-core/contribute/agredis"
+	"github.com/aif-go/ag-core/contribute/agredis"
 	"context"
 	"fmt"
 	"testing"

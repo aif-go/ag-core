@@ -1,4 +1,4 @@
-module ag-core/contribute/agsarama
+module github.com/aif-go/ag-core/contribute/agsarama
 
 go 1.24.8
 

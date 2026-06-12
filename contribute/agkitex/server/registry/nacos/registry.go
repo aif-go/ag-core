@@ -1,7 +1,7 @@
 package nacos
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"log/slog"
 
 	"github.com/cloudwego/kitex/pkg/registry"

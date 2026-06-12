@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ag-core/tool/cmd/gen-go-db/model"
-	"ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/model"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 
 // YAMLParser 解析YAML文件

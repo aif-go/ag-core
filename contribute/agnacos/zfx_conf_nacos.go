@@ -1,8 +1,8 @@
 package agnacos
 
 import (
-	"ag-core/contribute/agnacos/config"
-	"ag-core/contribute/agnacos/naming"
+	"github.com/aif-go/ag-core/contribute/agnacos/config"
+	"github.com/aif-go/ag-core/contribute/agnacos/naming"
 
 	"go.uber.org/fx"
 )

@@ -1,7 +1,7 @@
 package ag_app
 
 import (
-	"ag-core/ag/ag_server"
+	"github.com/aif-go/ag-core/ag/ag_server"
 	"context"
 	"fmt"
 	"log"

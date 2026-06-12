@@ -1,8 +1,8 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 )
 
@@ -23,7 +23,7 @@ var ClientImportsSetter = func(geni *types.GennerInfo) error {
 
 	geni.AddImports("context")
 	geni.AddImport("config", "github.com/cloudwego/hertz/pkg/common/config")
-	geni.AddImport("client", "ag-core/ag/ag_hertz/client")
+	geni.AddImport("client", "github.com/aif-go/ag-core/ag/ag_hertz/client")
 
 	return nil
 }

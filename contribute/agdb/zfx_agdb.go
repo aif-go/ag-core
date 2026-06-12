@@ -1,8 +1,8 @@
 package agdb
 
 import (
-	"ag-core/ag/ag_service"
-	"ag-core/contribute/agdb/agdao"
+	"github.com/aif-go/ag-core/ag/ag_service"
+	"github.com/aif-go/ag-core/contribute/agdb/agdao"
 
 	"go.uber.org/fx"
 )

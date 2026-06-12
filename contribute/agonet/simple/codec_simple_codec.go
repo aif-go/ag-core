@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"ag-core/contribute/agonet/simple/utils"
+	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 )
 
 func NewSimpleCodec[T any, U any](name string, decode func(T) ([]any, error), encode func(U) ([]any, error)) Codec {

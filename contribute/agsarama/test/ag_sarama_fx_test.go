@@ -1,9 +1,9 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/contribute/agsarama"
-	"ag-core/fxs"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/contribute/agsarama"
+	"github.com/aif-go/ag-core/fxs"
 	"context"
 	"fmt"
 	"os"

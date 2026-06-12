@@ -1,12 +1,12 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_log/agslog"
-	"ag-core/ag/ag_log/async"
-	"ag-core/ag/ag_log/fanout"
-	"ag-core/ag/ag_log/slogzap"
-	"ag-core/fxs"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/ag/ag_log/async"
+	"github.com/aif-go/ag-core/ag/ag_log/fanout"
+	"github.com/aif-go/ag-core/ag/ag_log/slogzap"
+	"github.com/aif-go/ag-core/fxs"
 	"context"
 	"fmt"
 	"log/slog"

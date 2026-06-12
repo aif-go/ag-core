@@ -16,10 +16,10 @@
 package elastic
 
 import (
-	"ag-core/contribute/agonet/pkg/buffer/ring"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/ring"
 	"io"
 
-	rbPool "ag-core/contribute/agonet/pkg/pool/ringbuffer"
+	rbPool "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/ringbuffer"
 )
 
 // RingBuffer is the elastic wrapper of ring.Buffer.

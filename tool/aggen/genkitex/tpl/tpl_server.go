@@ -1,9 +1,9 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/genkitex/tpl/kitextpl"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/genkitex/tpl/kitextpl"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 )
 
 // ServerImportsSetter 设置Import部分信息
@@ -41,8 +41,8 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	// geni.AddImports("server") // 注意全局依赖的配置
 	geni.AddImport("server", "github.com/cloudwego/kitex/server")
 
-	// geni.AddImport("akserver", "ag-core/ag/ag_kitex/server")
-	geni.AddImport("akserver", "ag-core/contribute/agkitex/server")
+	// geni.AddImport("akserver", "github.com/aif-go/ag-core/ag/ag_kitex/server")
+	geni.AddImport("akserver", "github.com/aif-go/ag-core/contribute/agkitex/server")
 
 	return nil
 }

@@ -1,8 +1,8 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 )
 
@@ -25,9 +25,9 @@ var FxProxyImportsSetter_v2 = func(geni *types.GennerInfo) error {
 
 	geni.AddImport("fx", "go.uber.org/fx")
 
-	// geni.AddImport("smw", "ag-core/ag/ag_ext")
-	// geni.AddImport("smw", "ag-core/ag/ag_service")
-	geni.AddImport("ag_service", "ag-core/ag/ag_service")
+	// geni.AddImport("smw", "github.com/aif-go/ag-core/ag/ag_ext")
+	// geni.AddImport("smw", "github.com/aif-go/ag-core/ag/ag_service")
+	geni.AddImport("ag_service", "github.com/aif-go/ag-core/ag/ag_service")
 
 	serviceRef := fmt.Sprintf("%s/internal/service", _module.PwdGoMod)
 	geni.AddImport("service", serviceRef)

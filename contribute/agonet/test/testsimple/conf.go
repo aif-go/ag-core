@@ -1,9 +1,9 @@
 package testsimple
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_conf/reader/yaml"
-	"ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/yaml"
+	"github.com/aif-go/ag-core/ag/ag_ext"
 )
 
 var _agonet_tls_ser = `

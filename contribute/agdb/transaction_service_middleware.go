@@ -1,7 +1,7 @@
 package agdb
 
 import (
-	ag_service "ag-core/ag/ag_service"
+	ag_service "github.com/aif-go/ag-core/ag/ag_service"
 	"context"
 	"fmt"
 )

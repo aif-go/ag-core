@@ -1,6 +1,6 @@
 package simple
 
-import "ag-core/contribute/agonet"
+import "github.com/aif-go/ag-core/contribute/agonet"
 
 type Channel interface {
 	// ID get channel id

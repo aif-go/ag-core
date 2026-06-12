@@ -1,7 +1,7 @@
 package cmd_project
 
 import (
-	"ag-core/tool/cmd/aggo/internal/rootcmd"
+	"github.com/aif-go/ag-core/tool/cmd/aggo/internal/rootcmd"
 	"context"
 	"errors"
 	"fmt"

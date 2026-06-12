@@ -4,8 +4,8 @@ agkitex fx注入部分模板
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 )
 
@@ -18,7 +18,7 @@ var FxImportsSetter = func(geni *types.GennerInfo) error {
 	// geni.AddImport("api", fmt.Sprintf("%s/%s", _module.PwdGoMod, "api"))
 
 	geni.AddImport("fx", "go.uber.org/fx")
-	geni.AddImport("akserver", "ag-core/contribute/agkitex/server")
+	geni.AddImport("akserver", "github.com/aif-go/ag-core/contribute/agkitex/server")
 
 	return nil
 }

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"ag-core/contribute/aghertz/server/consts"
+	"github.com/aif-go/ag-core/contribute/aghertz/server/consts"
 	"fmt"
 	"log/slog"
 	"time"

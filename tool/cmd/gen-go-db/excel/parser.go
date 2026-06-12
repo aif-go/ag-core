@@ -1,7 +1,7 @@
 package excel
 
 import (
-	"ag-core/tool/cmd/gen-go-db/utils"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 	"errors"
 	"regexp"
 	"strings"

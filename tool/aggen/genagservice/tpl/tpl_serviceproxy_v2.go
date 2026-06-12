@@ -1,8 +1,8 @@
 package tpl
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 )
 
@@ -42,9 +42,9 @@ var ProxyImportsSetter_v2 = func(geni *types.GennerInfo) error {
 
 	serviceRef := fmt.Sprintf("%s/internal/service", _module.PwdGoMod)
 	geni.AddImport("service", serviceRef) // 模块servcie import
-	// geni.AddImport("smw", "ag-core/ag/ag_ext") // 服务中间件扩展
-	// geni.AddImport("smw", "ag-core/ag/ag_service")
-	geni.AddImport("ag_service", "ag-core/ag/ag_service")
+	// geni.AddImport("smw", "github.com/aif-go/ag-core/ag/ag_ext") // 服务中间件扩展
+	// geni.AddImport("smw", "github.com/aif-go/ag-core/ag/ag_service")
+	geni.AddImport("ag_service", "github.com/aif-go/ag-core/ag/ag_service")
 	geni.AddImport("slog", "log/slog")
 
 	return nil

@@ -1,9 +1,9 @@
 package server
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_ext/ip"
-	"ag-core/contribute/aghertz/server/consts"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_ext/ip"
+	"github.com/aif-go/ag-core/contribute/aghertz/server/consts"
 	"fmt"
 	"log/slog"
 	"net"

@@ -1,4 +1,4 @@
-module ag-core/contribute/agnacos
+module github.com/aif-go/ag-core/contribute/agnacos
 
 go 1.24.8
 

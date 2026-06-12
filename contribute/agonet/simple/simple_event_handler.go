@@ -1,8 +1,8 @@
 package simple
 
 import (
-	"ag-core/contribute/agonet"
-	"ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
 	"log/slog"

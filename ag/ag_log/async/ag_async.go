@@ -1,8 +1,8 @@
 package async
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
 	"fmt"
 	"log/slog"
 )

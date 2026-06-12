@@ -1,4 +1,4 @@
-module ag-core/contribute/aghertz
+module github.com/aif-go/ag-core/contribute/aghertz
 
 go 1.24.8
 

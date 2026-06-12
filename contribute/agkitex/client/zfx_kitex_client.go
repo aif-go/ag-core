@@ -1,7 +1,7 @@
 package client
 
 import (
-	"ag-core/contribute/agkitex/metadata"
+	"github.com/aif-go/ag-core/contribute/agkitex/metadata"
 
 	"github.com/cloudwego/kitex/client"
 	"github.com/cloudwego/kitex/pkg/discovery"

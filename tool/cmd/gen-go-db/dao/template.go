@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"ag-core/contribute/agdb/conditonwhere"
-	"ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 
 // generateZeroValueCheck 生成零值判断代码
@@ -392,21 +392,21 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		initMethods = "Init" + structName + "NamingSql()"
 		importStrings = "\"strings\""
 		// 添加conditonwhere导入
-		// importStrings += "\n\t\"ag-core/contribute/agdb/conditonwhere\""
+		// importStrings += "\n\t\"github.com/aif-go/ag-core/contribute/agdb/conditonwhere\""
 	}
 
 	// 构建完整的模板字符串
 	return `package dao
 
 import (
-	"ag-core/contribute/agdb/gormdb"
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"` + moduleName + `/repository/model"
 	"context"
 	"reflect"
 	"errors"
-	"ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
 
-	agdao "ag-core/contribute/agdb/agdao"
+	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
 	` + importStrings + `
 
 	"gorm.io/gorm"
@@ -983,7 +983,7 @@ var %sNamingInfo = &db.NameingSqlArgInfo{
  if len(tableData.SelfQueries) > 0 {
   dbImports += `
 import (
- db "ag-core/contribute/agdb/gormdb"
+ db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
  "` + moduleName + `/repository/model"
 )
 

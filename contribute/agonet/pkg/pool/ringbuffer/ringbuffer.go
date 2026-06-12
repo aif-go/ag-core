@@ -25,7 +25,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"ag-core/contribute/agonet/pkg/buffer/ring"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/ring"
 )
 
 const (

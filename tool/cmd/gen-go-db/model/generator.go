@@ -1,7 +1,7 @@
 package model
 
 import (
-	"ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 	"fmt"
 	"os"
 	"strings"

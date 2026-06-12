@@ -1,7 +1,7 @@
 package ag_conf
 
 import (
-	"ag-core/ag/ag_crypto"
+	"github.com/aif-go/ag-core/ag/ag_crypto"
 	"fmt"
 	"log/slog"
 	"strings"

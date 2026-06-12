@@ -1,7 +1,7 @@
 package test
 
 import (
-	ahclient "ag-core/contribute/aghertz/client"
+	ahclient "github.com/aif-go/ag-core/contribute/aghertz/client"
 	"fmt"
 	"log/slog"
 	"testing"

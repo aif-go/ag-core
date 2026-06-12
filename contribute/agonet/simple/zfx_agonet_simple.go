@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet"
 
 	"go.uber.org/fx"
 )

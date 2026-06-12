@@ -1,7 +1,7 @@
 package util
 
 import (
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"encoding/json"
 	"fmt"
 	"go/token"

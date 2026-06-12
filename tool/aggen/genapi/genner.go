@@ -1,9 +1,9 @@
 package genapi
 
 import (
-	"ag-core/tool/aggen/genapi/tpl"
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/genapi/tpl"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 	"path"
 )

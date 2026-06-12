@@ -1,9 +1,9 @@
 package genhertz
 
 import (
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/genhertz/tpl"
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/genhertz/tpl"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 	"log/slog"
 	"path"

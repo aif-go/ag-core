@@ -1,7 +1,7 @@
 package agonet
 
 import (
-	"ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"log/slog"
 	"net"

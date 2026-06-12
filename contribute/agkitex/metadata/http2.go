@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"ag-core/ag/ag_common/agmetadata"
+	"github.com/aif-go/ag-core/ag/ag_common/agmetadata"
 	"context"
 	"log/slog"
 

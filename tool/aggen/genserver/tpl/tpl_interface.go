@@ -2,8 +2,8 @@ package tpl
 
 // FIXME api的生成移至genapi中
 // import (
-// 	"ag-core/tool/aggen/generator"
-// 	"ag-core/tool/aggen/types"
+// 	"github.com/aif-go/ag-core/tool/aggen/generator"
+// 	"github.com/aif-go/ag-core/tool/aggen/types"
 // )
 
 // // === PackageGroup级别 ===

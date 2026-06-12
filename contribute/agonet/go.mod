@@ -1,4 +1,4 @@
-module ag-core/contribute/agonet
+module github.com/aif-go/ag-core/contribute/agonet
 
 go 1.24.8
 

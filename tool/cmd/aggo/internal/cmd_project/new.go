@@ -9,7 +9,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 
-	"ag-core/tool/cmd/aggo/internal/base"
+	"github.com/aif-go/ag-core/tool/cmd/aggo/internal/base"
 )
 
 // Project is a project template.

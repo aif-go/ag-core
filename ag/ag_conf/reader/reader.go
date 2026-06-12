@@ -1,10 +1,10 @@
 package reader
 
 import (
-	"ag-core/ag/ag_conf/reader/json"
-	"ag-core/ag/ag_conf/reader/prop"
-	"ag-core/ag/ag_conf/reader/toml"
-	"ag-core/ag/ag_conf/reader/yaml"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/json"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/prop"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/toml"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/yaml"
 )
 
 type Reader func(b []byte) (map[string]any, error)

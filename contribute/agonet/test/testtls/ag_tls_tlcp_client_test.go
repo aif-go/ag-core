@@ -1,7 +1,7 @@
 package testtls
 
 import (
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet"
 	"fmt"
 	"log/slog"
 	"net"

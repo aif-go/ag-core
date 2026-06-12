@@ -1,7 +1,7 @@
 package agsarama
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"fmt"
 
 	"github.com/IBM/sarama"

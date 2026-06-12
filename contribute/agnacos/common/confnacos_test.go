@@ -1,7 +1,7 @@
 package common
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"testing"
 )
 

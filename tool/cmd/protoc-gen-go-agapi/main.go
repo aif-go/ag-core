@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"ag-core/tool/aggen/genapi"
-	"ag-core/tool/aggen/generator"
-	"ag-core/tool/aggen/parser/protoc"
+	"github.com/aif-go/ag-core/tool/aggen/genapi"
+	"github.com/aif-go/ag-core/tool/aggen/generator"
+	"github.com/aif-go/ag-core/tool/aggen/parser/protoc"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"

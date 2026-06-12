@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ag-core/contribute/agdb/agdao"
+	"github.com/aif-go/ag-core/contribute/agdb/agdao"
 	"context"
 	"testing"
 )

@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ag-core/tool/cmd/gen-go-db/model"
-	"ag-core/tool/cmd/gen-go-db/table"
-	"ag-core/tool/cmd/gen-go-db/utils"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/model"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 )
 
 // GenerateDAOFromYAML 从YAML文件生成DAO文件

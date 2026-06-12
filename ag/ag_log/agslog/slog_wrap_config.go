@@ -1,7 +1,7 @@
 package agslog
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"fmt"
 	"log/slog"
 	"sync"

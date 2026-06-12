@@ -1,4 +1,4 @@
-module ag-core/contribute/agredis
+module github.com/aif-go/ag-core/contribute/agredis
 
 go 1.24.8
 

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"ag-core/tool/cmd/gen-go-db/dao"
-	"ag-core/tool/cmd/gen-go-db/other"
-	"ag-core/tool/cmd/gen-go-db/yaml"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/dao"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/other"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/yaml"
 )
 
 var (

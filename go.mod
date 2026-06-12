@@ -1,4 +1,4 @@
-module ag-core
+module github.com/aif-go/ag-core
 
 go 1.24.8
 

@@ -1,8 +1,8 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/contribute/agonet"
 	"fmt"
 	"log/slog"
 	"testing"

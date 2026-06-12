@@ -1,10 +1,10 @@
 package testtls
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_conf/reader/yaml"
-	"ag-core/ag/ag_ext"
-	"ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf/reader/yaml"
+	"github.com/aif-go/ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/contribute/agonet"
 	"testing"
 )
 

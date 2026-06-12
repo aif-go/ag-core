@@ -1,7 +1,7 @@
 package ag_conf
 
 import (
-	"ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/ag/ag_ext"
 	"fmt"
 	"sync"
 )

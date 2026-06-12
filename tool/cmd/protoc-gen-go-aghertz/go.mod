@@ -1,13 +1,8 @@
-module ag-core/tool/cmd/protoc-gen-go-aghertz
+module github.com/aif-go/ag-core/tool/cmd/protoc-gen-go-aghertz
 
 go 1.24.8
 
-replace ag-core => ../../../
-
-require (
-	ag-core v0.0.0-00010101000000-000000000000
-	google.golang.org/protobuf v1.36.8
-)
+require google.golang.org/protobuf v1.36.8
 
 require (
 	github.com/cloudwego/kitex v0.14.1 // indirect

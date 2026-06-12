@@ -2,7 +2,7 @@
 package protoc
 
 import (
-	"ag-core/tool/aggen/types"
+	"github.com/aif-go/ag-core/tool/aggen/types"
 	"fmt"
 	"net/http"
 	"os"

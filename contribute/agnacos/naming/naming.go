@@ -1,8 +1,8 @@
 package naming
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/contribute/agnacos/common"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/contribute/agnacos/common"
 	"errors"
 
 	"github.com/nacos-group/nacos-sdk-go/clients"

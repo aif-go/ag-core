@@ -1,4 +1,4 @@
-module ag-core/contribute/agkitex
+module github.com/aif-go/ag-core/contribute/agkitex
 
 go 1.24.8
 

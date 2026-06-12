@@ -1,4 +1,4 @@
-module ag-core/tool/cmd/aggo
+module github.com/aif-go/ag-core/tool/cmd/aggo
 
 go 1.24.8
 

@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"ag-core/contribute/agonet/simple/utils"
+	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 )
 
 func NewLengthFieldStrEncoder(

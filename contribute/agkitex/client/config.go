@@ -1,7 +1,7 @@
 package client
 
 import (
-	"ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_conf"
 	"log/slog"
 	"runtime"
 	"time"

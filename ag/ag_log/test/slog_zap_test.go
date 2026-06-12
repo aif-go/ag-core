@@ -1,9 +1,9 @@
 package test
 
 import (
-	"ag-core/ag/ag_conf"
-	"ag-core/ag/ag_ext"
-	"ag-core/ag/ag_log/slogzap"
+	"github.com/aif-go/ag-core/ag/ag_conf"
+	"github.com/aif-go/ag-core/ag/ag_ext"
+	"github.com/aif-go/ag-core/ag/ag_log/slogzap"
 	"fmt"
 	"os"
 	"testing"

@@ -1,9 +1,9 @@
 package server
 
 import (
-	"ag-core/ag/ag_server"
-	"ag-core/contribute/agkitex/metadata"
-	agkitexReg "ag-core/contribute/agkitex/server/registry"
+	"github.com/aif-go/ag-core/ag/ag_server"
+	"github.com/aif-go/ag-core/contribute/agkitex/metadata"
+	agkitexReg "github.com/aif-go/ag-core/contribute/agkitex/server/registry"
 
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/registry"

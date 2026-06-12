@@ -1,10 +1,10 @@
 package ag_log
 
 import (
-	"ag-core/ag/ag_log/agslog"
-	"ag-core/ag/ag_log/async"
-	"ag-core/ag/ag_log/fanout"
-	"ag-core/ag/ag_log/slogzap"
+	"github.com/aif-go/ag-core/ag/ag_log/agslog"
+	"github.com/aif-go/ag-core/ag/ag_log/async"
+	"github.com/aif-go/ag-core/ag/ag_log/fanout"
+	"github.com/aif-go/ag-core/ag/ag_log/slogzap"
 	"log/slog"
 
 	"go.uber.org/fx"

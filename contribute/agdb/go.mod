@@ -1,4 +1,4 @@
-module ag-core/contribute/agdb
+module github.com/aif-go/ag-core/contribute/agdb
 
 go 1.24.8
 

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	aghertzclient "ag-core/contribute/aghertz/client"
+	aghertzclient "github.com/aif-go/ag-core/contribute/aghertz/client"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/protocol"
