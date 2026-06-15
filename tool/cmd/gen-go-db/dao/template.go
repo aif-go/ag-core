@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/conditonwhere"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 

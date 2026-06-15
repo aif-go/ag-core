@@ -13,3 +13,6 @@ tool/cmd/gen-go-db/gendb/mps-template.xlsx.bak
 .claude 
 .opencode
 
+tool/cmd/*/protoc-gen-*
+tool/cmd/*/aggo
+tool/cmd/*/gen-go-db

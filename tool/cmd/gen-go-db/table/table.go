@@ -1,6 +1,6 @@
 package table
 
-import "github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+import "github.com/aif-go/ag-core/tool/cmd/gen-go-db/conditonwhere"
 
 // TableData 存储解析后的表数据，用于模板渲染
 type TableData struct {
