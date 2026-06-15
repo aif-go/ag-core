@@ -17,7 +17,7 @@ var (
 func init() {
 	rootcmd.RegCommand(CmdUpgrade)
 
-	baseMode = "ag-core"
+	baseMode = "github.com/aif-go/ag-core"
 	CmdUpgrade.Flags().StringVarP(&baseMode, "base-mode", "b", baseMode, "base mode")
 }
 
@@ -29,7 +29,7 @@ var CmdUpgrade = &cobra.Command{
 	Run:   Run,
 }
 
-// var basemodulename = "ag-core"
+// var basemodulename = "github.com/aif-go/ag-core"
 
 // Run upgrade the aggo tools.
 func Run(_ *cobra.Command, _ []string) {
