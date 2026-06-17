@@ -1,0 +1,23 @@
+schema: ag-core
+
+context: |
+  Tech stack: Go 1.25 + ag-core microservice framework (Hertz/Kitex + GORM + fx DI)
+  Project: ag-core framework library (contribute/ modules as core)
+  Test framework: go test, test file naming *_test.go
+  Logger: aglog (zap)
+  Coding conventions:
+    - Exported symbols must have Go doc comments
+    - Error handling must wrap context with fmt.Errorf
+    - Constants use custom string types (e.g. PartitionerType style)
+    - Casing style unified as all lowercase
+
+rules:
+  design:
+    - List the test file path and test strategy (unit/integration) for each behavior
+    - Specify new or modified function signatures and their files
+  tasks:
+    - All coding tasks must use RED/GREEN format
+    - RED must specify: test file path, test function name, assertion
+    - GREEN must specify: source file path, function name, referenced RED test
+  specs:
+    - Use WHEN/THEN format; each scenario maps to one independently runnable test case
