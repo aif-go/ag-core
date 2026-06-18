@@ -50,7 +50,7 @@ agsarama:
     timeout: 10000          # 生产者请求超时时间，单位毫秒，默认 10s
     compression: "gzip"     # 压缩算法，支持 none, gzip, snappy, lz4, zstd
     compressionLevel: -1    # 压缩级别，默认 -1 (使用默认压缩级别)
-    Partitioner: "xxxx"
+    Partitioner: "random"
     
     # 幂等生产者配置
     idempotent: false       # 是否启用幂等生产者，默认 false

@@ -7,6 +7,42 @@ import (
 	"github.com/IBM/sarama"
 )
 
+func TestPartitionerType_ToSarama(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   PartitionerType
+		wantErr bool
+	}{
+		{"hash", PartitionerTypeHash, false},
+		{"manual lowercase", PartitionerTypeManual, false},
+		{"Manual uppercase", "Manual", false},
+		{"MANUAL allcaps", "MANUAL", false},
+		{"random", PartitionerTypeRandom, false},
+		{"roundrobin", PartitionerTypeRoundRobin, false},
+		{"invalid", "unknown", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.input.ToSarama()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("ToSarama() expected error, got nil")
+				}
+				if got != nil {
+					t.Fatal("ToSarama() expected nil constructor for invalid type")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ToSarama() error = %v, want nil", err)
+			}
+			if got == nil {
+				t.Fatal("ToSarama() returned nil constructor")
+			}
+		})
+	}
+}
+
 func TestSaramaConfig(t *testing.T) {
 	sconf := sarama.NewConfig()
 	fmt.Sprintf("%v", sconf)
@@ -22,7 +58,6 @@ func TestNewConfig(t *testing.T) {
 func TestToSaramaConfig(t *testing.T) {
 	conf := NewDefaultConfig()
 
-	// 设置一些配置
 	conf.ClientID = "test-client"
 	conf.Producer.RequiredAcks = RequiredAcksWaitForAll
 	conf.Producer.Compression = CompressionGZIP
@@ -58,7 +93,6 @@ func TestValidate(t *testing.T) {
 		t.Errorf("Validate failed on default config: %v", err)
 	}
 
-	// 测试无效配置
 	conf.Version = "invalid-version"
 	err = conf.Validate()
 	if err == nil {
@@ -73,8 +107,6 @@ func TestExtendSaramaConfigWithOptions(t *testing.T) {
 		t.Fatalf("ToSaramaConfig failed: %v", err)
 	}
 
-	// 使用 config_options.go 中的函数
-	// 先添加一些示例配置选项
 	err = ExtendSaramaConfigWithOptions(saramaConfig)
 	if err != nil {
 		t.Errorf("ExtendSaramaConfigWithOptions failed: %v", err)

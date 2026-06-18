@@ -2,7 +2,7 @@ package agsarama
 
 import (
 	"fmt"
-	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -261,21 +261,27 @@ func (i IsolationLevel) ToSarama() (sarama.IsolationLevel, error) {
 type PartitionerType string
 
 const (
-	PartitionerTypeHash   PartitionerType = "hash"
-	PartitionerTypeManual PartitionerType = "Manual"
+	PartitionerTypeHash         PartitionerType = "hash"
+	PartitionerTypeManual       PartitionerType = "manual"
+	PartitionerTypeRandom       PartitionerType = "random"
+	PartitionerTypeRoundRobin   PartitionerType = "roundrobin"
 )
 
+// ToSarama converts the PartitionerType to a sarama.PartitionerConstructor.
+// The matching is case-insensitive (via strings.ToLower), so "Manual", "manual",
+// "MANUAL" etc. all resolve to the same partitioner.
 func (p PartitionerType) ToSarama() (sarama.PartitionerConstructor, error) {
-	switch p {
-	case PartitionerTypeHash:
+	switch strings.ToLower(string(p)) {
+	case "hash":
 		return sarama.NewHashPartitioner, nil
-	case PartitionerTypeManual:
+	case "manual":
 		return sarama.NewManualPartitioner, nil
+	case "random":
+		return sarama.NewRandomPartitioner, nil
+	case "roundrobin":
+		return sarama.NewRoundRobinPartitioner, nil
 	default:
-		// return sarama.NewHashPartitioner, fmt.Errorf("invalid partitioner type: %s", p)
-		// return sarama.NewHashPartitioner, nil
-		slog.Warn(fmt.Sprintf("invalid partitioner type: %s, will ignore and use default by sarama", p))
-		return nil, nil
+		return nil, fmt.Errorf("agsarama: invalid partitioner type: %q (valid: hash, manual, random, roundrobin)", p)
 	}
 }
 
@@ -326,6 +332,7 @@ func NewDefaultConfig() *Config {
 	c.Producer.Retry.Backoff = 100 // 100ms
 	c.Producer.Retry.MaxBufferLength = 0
 	c.Producer.Retry.MaxBufferBytes = 0
+	c.Producer.Partitioner = PartitionerTypeHash
 
 	// Consumer 默认值
 	c.Consumer.Group.Session.Timeout = 10000   // 10s

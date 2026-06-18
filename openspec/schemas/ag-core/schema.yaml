@@ -257,15 +257,19 @@ apply:
     - tasks
   tracks: tasks.md
   instruction: |
-    Start by reading tasks.md and create a matching todowrite list so the user can track progress in the OpenCode UI.
+    Start by reading tasks.md and creating a todowrite list with EVERY pending
+    checkbox as a separate item. Never batch — each `- [ ]` gets its own line.
 
-    Then work through pending tasks sequentially. For each task:
-    1. Read design.md and specs/ for context if needed
-    2. Execute the task
-    3. Edit tasks.md: change `- [ ]` to `- [x]` for the completed task
-    4. Update todowrite: mark the corresponding item as completed
-    5. Move to the next pending task
+    Work through checkboxes ONE AT A TIME in order:
+    1. Mark ONLY the current task as in_progress in todowrite
+    2. Read design.md and specs/ for context if needed
+    3. Execute the task
+    4. Edit tasks.md: change ONLY that checkbox from `- [ ]` to `- [x]`
+    5. Update todowrite: mark ONLY that item as completed
+    6. Move to the next checkbox — do NOT batch consecutive checkboxes together
 
-    Keep tasks.md and todowrite in sync at all times — the user sees todowrite in the CLI UI and tasks.md in the repo.
+    The user sees every checkbox move in real time. If a RED task ran alone,
+    update todowrite. When its GREEN task completes, update again. Never wait
+    for a pair to finish before updating.
 
     Pause if you hit blockers or need clarification.
