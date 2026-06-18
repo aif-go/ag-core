@@ -4,5 +4,5 @@ const (
 	pluginName     = "protoc-gen-go-agserver"
 	pluginSortName = "agserver"
 	// release is the current version.
-	release = "v0.0.1-alpha.1"
+	release = "v0.0.1-alpha.2"
 )
