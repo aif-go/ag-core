@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 
 func cleanData(t *testing.T) {
 	t.Helper()
-	err := tmRepository.DB(tmCtx).Exec("DELETE FROM tm_teacher WHERE name LIKE 'test%'").Error
+	err := tmRepository.DB(tmCtx).Exec("DELETE FROM tm_teacher WHERE name LIKE 'UT_%'").Error
 	if err != nil {
 		t.Logf("cleanData warning: %v", err)
 	}
@@ -60,11 +60,11 @@ func cleanData(t *testing.T) {
 func insertOne(t *testing.T) *model.TmTeacher {
 	t.Helper()
 	entity := &model.TmTeacher{
-		Name:    "test1",
-		Address: "上海市浦东新区",
-		Phone:   "13800000000",
-		ClassId: "1",
-		CardNo:  "沪A123M1",
+		Name:    "UT_Alice",
+		Address: "北京中关村",
+		Phone:   "13912345678",
+		ClassId: "A1",
+		CardNo:  "CC_10001",
 	}
 	_, err := tmDao.InsertOne(tmCtx, entity)
 	if err != nil {
@@ -73,15 +73,14 @@ func insertOne(t *testing.T) *model.TmTeacher {
 	return entity
 }
 
-// InsertOne 插入完整数据
 func TestTmTeacher_Insert(t *testing.T) {
 	cleanData(t)
 	entity := &model.TmTeacher{
-		Name:    "test1",
-		Address: "上海市浦东新区",
-		Phone:   "13800000000",
-		ClassId: "1",
-		CardNo:  "沪A123M1",
+		Name:    "UT_Bob",
+		Address: "上海张江",
+		Phone:   "15987654321",
+		ClassId: "B2",
+		CardNo:  "CC_20001",
 	}
 	rows, err := tmDao.InsertOne(tmCtx, entity)
 	if err != nil {
@@ -95,13 +94,12 @@ func TestTmTeacher_Insert(t *testing.T) {
 	}
 }
 
-// InsertOneIgnoreZeroValCols 插入跳过零值列
 func TestTmTeacher_InsertSkipZero(t *testing.T) {
 	cleanData(t)
 	entity := &model.TmTeacher{
-		Name:    "test2",
-		Address: "上海市徐汇区",
-		Phone:   "13800000001",
+		Name:    "UT_Carol",
+		Address: "深圳南山",
+		Phone:   "17712345678",
 	}
 	rows, err := tmDao.InsertOneIgnoreZeroValCols(tmCtx, entity)
 	if err != nil {
@@ -115,7 +113,6 @@ func TestTmTeacher_InsertSkipZero(t *testing.T) {
 	}
 }
 
-// FindByPrimaryKey 存在记录时返回实体
 func TestTmTeacher_Get(t *testing.T) {
 	cleanData(t)
 	inserted := insertOne(t)
@@ -127,24 +124,23 @@ func TestTmTeacher_Get(t *testing.T) {
 	if entity == nil {
 		t.Fatal("expected non-nil entity")
 	}
-	if entity.Name != "test1" {
-		t.Errorf("expected name=test1, got %s", entity.Name)
+	if entity.Name != "UT_Alice" {
+		t.Errorf("expected name=UT_Alice, got %s", entity.Name)
 	}
-	if entity.Address != "上海市浦东新区" {
-		t.Errorf("expected address=上海市浦东新区, got %s", entity.Address)
+	if entity.Address != "北京中关村" {
+		t.Errorf("expected address=北京中关村, got %s", entity.Address)
 	}
-	if entity.Phone != "13800000000" {
-		t.Errorf("expected phone=13800000000, got %s", entity.Phone)
+	if entity.Phone != "13912345678" {
+		t.Errorf("expected phone=13912345678, got %s", entity.Phone)
 	}
-	if entity.ClassId != "1" {
-		t.Errorf("expected classId=1, got %s", entity.ClassId)
+	if entity.ClassId != "A1" {
+		t.Errorf("expected classId=A1, got %s", entity.ClassId)
 	}
-	if entity.CardNo != "沪A123M1" {
-		t.Errorf("expected cardNo=沪A123M1, got %s", entity.CardNo)
+	if entity.CardNo != "CC_10001" {
+		t.Errorf("expected cardNo=CC_10001, got %s", entity.CardNo)
 	}
 }
 
-// FindByPrimaryKey 不存在记录时返回 nil
 func TestTmTeacher_GetNotFound(t *testing.T) {
 	cleanData(t)
 
@@ -157,7 +153,6 @@ func TestTmTeacher_GetNotFound(t *testing.T) {
 	}
 }
 
-// FindByStruct 按主键 id 查询（走主键快速路径）
 func TestTmTeacher_List(t *testing.T) {
 	cleanData(t)
 	inserted := insertOne(t)
@@ -171,18 +166,17 @@ func TestTmTeacher_List(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
-	if list[0].Name != "test1" {
-		t.Errorf("expected name=test1, got %s", list[0].Name)
+	if list[0].Name != "UT_Alice" {
+		t.Errorf("expected name=UT_Alice, got %s", list[0].Name)
 	}
 }
 
-// FindByStruct 按索引列 phone 查询（走索引路径）
 func TestTmTeacher_ListByIndex(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	list, err := tmDao.FindByStruct(tmCtx, &model.TmTeacher{
-		Phone: "13800000000",
+		Phone: "13912345678",
 	})
 	if err != nil {
 		t.Fatalf("FindByStruct failed: %v", err)
@@ -192,13 +186,12 @@ func TestTmTeacher_ListByIndex(t *testing.T) {
 	}
 }
 
-// FindByStruct 按索引列 name 查询（走复合索引 tm_teacher_name_IDX）
 func TestTmTeacher_ListByName(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	list, err := tmDao.FindByStruct(tmCtx, &model.TmTeacher{
-		Name: "test1",
+		Name: "UT_Alice",
 	})
 	if err != nil {
 		t.Fatalf("FindByStruct failed: %v", err)
@@ -208,14 +201,13 @@ func TestTmTeacher_ListByName(t *testing.T) {
 	}
 }
 
-// FindByStruct 按索引列 name+address 组合查询（走复合索引全部列）
 func TestTmTeacher_ListByNameAndAddress(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	list, err := tmDao.FindByStruct(tmCtx, &model.TmTeacher{
-		Name:    "test1",
-		Address: "上海市浦东新区",
+		Name:    "UT_Alice",
+		Address: "北京中关村",
 	})
 	if err != nil {
 		t.Fatalf("FindByStruct failed: %v", err)
@@ -225,16 +217,15 @@ func TestTmTeacher_ListByNameAndAddress(t *testing.T) {
 	}
 }
 
-// UpdateByPrimaryKey 全字段更新后重新查询确认
 func TestTmTeacher_Update(t *testing.T) {
 	cleanData(t)
 	inserted := insertOne(t)
 
-	inserted.Name = "test1_updated"
-	inserted.Address = "北京市朝阳区"
-	inserted.Phone = "13900000000"
-	inserted.ClassId = "2"
-	inserted.CardNo = "沪B999M9"
+	inserted.Name = "UT_Alice_Updated"
+	inserted.Address = "杭州西湖"
+	inserted.Phone = "18812345678"
+	inserted.ClassId = "A9"
+	inserted.CardNo = "CC_99999"
 
 	rows, err := tmDao.UpdateByPrimaryKey(tmCtx, inserted)
 	if err != nil {
@@ -248,32 +239,31 @@ func TestTmTeacher_Update(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByPrimaryKey after update failed: %v", err)
 	}
-	if entity.Name != "test1_updated" {
-		t.Errorf("expected name=test1_updated, got %s", entity.Name)
+	if entity.Name != "UT_Alice_Updated" {
+		t.Errorf("expected name=UT_Alice_Updated, got %s", entity.Name)
 	}
-	if entity.Address != "北京市朝阳区" {
-		t.Errorf("expected address=北京市朝阳区, got %s", entity.Address)
+	if entity.Address != "杭州西湖" {
+		t.Errorf("expected address=杭州西湖, got %s", entity.Address)
 	}
-	if entity.Phone != "13900000000" {
-		t.Errorf("expected phone=13900000000, got %s", entity.Phone)
+	if entity.Phone != "18812345678" {
+		t.Errorf("expected phone=18812345678, got %s", entity.Phone)
 	}
-	if entity.ClassId != "2" {
-		t.Errorf("expected classId=2, got %s", entity.ClassId)
+	if entity.ClassId != "A9" {
+		t.Errorf("expected classId=A9, got %s", entity.ClassId)
 	}
-	if entity.CardNo != "沪B999M9" {
-		t.Errorf("expected cardNo=沪B999M9, got %s", entity.CardNo)
+	if entity.CardNo != "CC_99999" {
+		t.Errorf("expected cardNo=CC_99999, got %s", entity.CardNo)
 	}
 }
 
-// UpdateByPrimaryKeyIngoreZeroValCols 更新跳过零值列，未赋值字段保持不变
 func TestTmTeacher_UpdateSkipZero(t *testing.T) {
 	cleanData(t)
 	inserted := insertOne(t)
 
 	update := &model.TmTeacher{
 		Id:    inserted.Id,
-		Name:  "test2_updated",
-		Phone: "13800000001",
+		Name:  "UT_David",
+		Phone: "16612345678",
 	}
 	rows, err := tmDao.UpdateByPrimaryKeyIngoreZeroValCols(tmCtx, update)
 	if err != nil {
@@ -287,24 +277,23 @@ func TestTmTeacher_UpdateSkipZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByPrimaryKey after update failed: %v", err)
 	}
-	if entity.Name != "test2_updated" {
-		t.Errorf("expected name=test2_updated, got %s", entity.Name)
+	if entity.Name != "UT_David" {
+		t.Errorf("expected name=UT_David, got %s", entity.Name)
 	}
-	if entity.Phone != "13800000001" {
-		t.Errorf("expected phone=13800000001, got %s", entity.Phone)
+	if entity.Phone != "16612345678" {
+		t.Errorf("expected phone=16612345678, got %s", entity.Phone)
 	}
-	if entity.Address != "上海市浦东新区" {
-		t.Errorf("expected address unchanged=上海市浦东新区, got %s", entity.Address)
+	if entity.Address != "北京中关村" {
+		t.Errorf("expected address unchanged=北京中关村, got %s", entity.Address)
 	}
 }
 
-// FindByCondition 带排序的条件查询
 func TestTmTeacher_ListWithCondition(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	cond := conditonwhere.NewWhereClauseBuilder().
-		Eq("name", "test1")
+		Eq("name", "UT_Alice")
 	order := gormdb.NewOrderBuilder().
 		Asc("id")
 
@@ -316,22 +305,21 @@ func TestTmTeacher_ListWithCondition(t *testing.T) {
 		t.Fatal("expected non-empty result list")
 	}
 	for _, entity := range list {
-		if entity.Name != "test1" {
-			t.Errorf("expected name=test1, got %s", entity.Name)
+		if entity.Name != "UT_Alice" {
+			t.Errorf("expected name=UT_Alice, got %s", entity.Name)
 		}
 	}
 }
 
-// FindByCondition 带分页的条件查询
 func TestTmTeacher_ListWithConditionAndPage(t *testing.T) {
 	cleanData(t)
 	for i := 0; i < 5; i++ {
 		entity := &model.TmTeacher{
-			Name:    "test_page",
-			Address: "地址",
-			Phone:   "13800000000",
-			ClassId: "1",
-			CardNo:  "card",
+			Name:    "UT_PageUser",
+			Address: "测试地址",
+			Phone:   "10000000000",
+			ClassId: "P1",
+			CardNo:  "PAGE_CARD",
 		}
 		_, err := tmDao.InsertOne(tmCtx, entity)
 		if err != nil {
@@ -340,7 +328,7 @@ func TestTmTeacher_ListWithConditionAndPage(t *testing.T) {
 	}
 
 	cond := conditonwhere.NewWhereClauseBuilder().
-		Eq("name", "test_page")
+		Eq("name", "UT_PageUser")
 	page := &gormdb.Page{
 		PageNum:  1,
 		PageSize: 2,
@@ -367,13 +355,12 @@ func TestTmTeacher_ListWithConditionAndPage(t *testing.T) {
 	}
 }
 
-// FindFirstOneByCondition 条件查询返回单条记录
 func TestTmTeacher_GetFirst(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	cond := conditonwhere.NewWhereClauseBuilder().
-		Eq("name", "test1")
+		Eq("name", "UT_Alice")
 
 	entity, err := tmDao.FindFirstOneByCondition(tmCtx, cond, nil)
 	if err != nil {
@@ -382,12 +369,11 @@ func TestTmTeacher_GetFirst(t *testing.T) {
 	if entity == nil {
 		t.Fatal("expected non-nil entity")
 	}
-	if entity.Name != "test1" {
-		t.Errorf("expected name=test1, got %s", entity.Name)
+	if entity.Name != "UT_Alice" {
+		t.Errorf("expected name=UT_Alice, got %s", entity.Name)
 	}
 }
 
-// FindByCustomerRule 非分页命名查询（FindByNameNadAddress）
 func TestTmTeacher_CustomRule(t *testing.T) {
 	cleanData(t)
 	inserted := insertOne(t)
@@ -413,14 +399,13 @@ func TestTmTeacher_CustomRule(t *testing.T) {
 	}
 }
 
-// FindByCustomerRule 分页命名查询（FindByPhone）
 func TestTmTeacher_CustomRuleWithPage(t *testing.T) {
 	cleanData(t)
 	insertOne(t)
 
 	args := &model.TmTeacherFindByPhoneArg{
 		FieldMask: conditonwhere.NewFieldMask(),
-		Phone:     "13800000000",
+		Phone:     "13912345678",
 		Page: gormdb.Page{
 			PageNum:  1,
 			PageSize: 10,
@@ -444,20 +429,18 @@ func TestTmTeacher_CustomRuleWithPage(t *testing.T) {
 	}
 }
 
-// Transaction 事务提交后数据持久化
-// Transaction 事务回滚：fn 返回 error 时插入不持久化
 func TestTmTeacher_TransactionRollback(t *testing.T) {
 	cleanData(t)
 
-	rollbackName := "test_rollback"
+	rollbackName := "UT_Rollback"
 	sentinelErr := os.ErrInvalid
 	err := tmRepository.Transaction(tmCtx, func(ctx context.Context) error {
 		_, err := tmDao.InsertOne(ctx, &model.TmTeacher{
 			Name:    rollbackName,
-			Address: "rollback_addr",
-			Phone:   "13800000998",
-			ClassId: "9",
-			CardNo:  "rollback_card",
+			Address: "回滚地址",
+			Phone:   "10000000001",
+			ClassId: "R1",
+			CardNo:  "ROLLBACK",
 		})
 		if err != nil {
 			return err
@@ -479,18 +462,17 @@ func TestTmTeacher_TransactionRollback(t *testing.T) {
 	}
 }
 
-// Transaction 事务提交：fn 返回 nil 时插入持久化
 func TestTmTeacher_TransactionCommit(t *testing.T) {
 	cleanData(t)
 
-	commitName := "test_commit"
+	commitName := "UT_Commit"
 	err := tmRepository.Transaction(tmCtx, func(ctx context.Context) error {
 		_, err := tmDao.InsertOne(ctx, &model.TmTeacher{
 			Name:    commitName,
-			Address: "commit_addr",
-			Phone:   "13800000997",
-			ClassId: "9",
-			CardNo:  "commit_card",
+			Address: "提交地址",
+			Phone:   "10000000002",
+			ClassId: "C1",
+			CardNo:  "COMMIT_CARD",
 		})
 		return err
 	})
