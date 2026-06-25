@@ -57,10 +57,13 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					col.Type = colType
 					col.GoType = getGoType(colType)
 
-					// 检查是否需要导入额外的包
-					if col.GoType == "time.Time" {
-						importPackages = append(importPackages, "time")
-					}
+				// 检查是否需要导入额外的包
+				if col.GoType == "time.Time" {
+					importPackages = append(importPackages, "time")
+				}
+				if col.GoType == "decimal.Decimal" {
+					importPackages = append(importPackages, "github.com/shopspring/decimal")
+				}
 				}
 
 				// 处理标签
@@ -299,15 +302,21 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 // 辅助函数：获取Go类型
 func getGoType(sqlType string) string {
-	switch sqlType {
+	baseType := strings.Split(sqlType, "(")[0]
+	baseType = strings.ToLower(baseType)
+
+	switch baseType {
 	// 整数类型
 	case "int", "int32", "tinyint", "smallint":
 		return "int"
 	case "int64", "bigint":
 		return "int64"
 	// 浮点类型
-	case "float", "float32", "double", "float64", "decimal":
+	case "float", "float32", "double", "float64":
 		return "float64"
+	// 高精度小数
+	case "decimal":
+		return "decimal.Decimal"
 	// 字符串类型
 	case "string", "varchar", "char", "text":
 		return "string"

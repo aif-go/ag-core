@@ -22,7 +22,7 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 		switch col.GoType {
 		case "string":
 			checkCode += "entity." + col.JsonTag + " == \"\""
-		case "time.Time":
+		case "time.Time", "decimal.Decimal":
 			checkCode += "entity." + col.JsonTag + ".IsZero()"
 		default:
 			// 数值类型
@@ -164,7 +164,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 			switch firstPkCol.GoType {
 			case "string":
 				nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
-			case "time.Time":
+			case "time.Time", "decimal.Decimal":
 				nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
 			default:
 				// 数值类型
@@ -187,7 +187,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					switch pkCol.GoType {
 					case "string":
 						secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
-					case "time.Time":
+					case "time.Time", "decimal.Decimal":
 						secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
 					default:
 						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
@@ -234,7 +234,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					switch col.GoType {
 					case "string":
 						nullCheck = "entity." + col.JsonTag + " != \"\""
-					case "time.Time":
+					case "time.Time", "decimal.Decimal":
 						nullCheck = "!entity." + col.JsonTag + ".IsZero()"
 					default:
 						// 数值类型
@@ -255,7 +255,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 								switch secondaryCol.GoType {
 								case "string":
 									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
-								case "time.Time":
+								case "time.Time", "decimal.Decimal":
 									secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
 								default:
 									// 数值类型
