@@ -22,6 +22,7 @@ var FxAgServiceMode = fx.Module("ag_service.agservice",
 	fx.Provide(
 		// NewAgServiceBuilder,
 		FxNewAgServiceBuilder,
+		NewFxAgGlobalMiddleware(recoveryMiddleware),
 	),
 )
 
