@@ -145,7 +145,7 @@ func New{{$LServiceProxyName}}(
 
     for _, cif := range p.CallInfos {
     	if cif.IsClientStreaming() || cif.IsServerStreaming() {
-			slog.Warn("agServiceProxy buildskip streaming method", "call_name", cif.CallName)
+			slog.Warn("agServiceProxy buildskip streaming method", "call_name", cif.CallName())
 			continue
 		}
 
@@ -234,7 +234,7 @@ func (p *{{$LServiceProxyName}}) getOriginalHandler(cif *ag_service.CallInfo) (a
 	    {{- end}}
     {{- end}}
     default:
-		return nil, fmt.Errorf("handler for method %s not implemented", cif.CallName)
+		return nil, fmt.Errorf("handler for method %s not implemented", cif.CallName())
 	}
 }
 
