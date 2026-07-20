@@ -1,10 +1,11 @@
 package test
 
 import (
-	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 )
 
 

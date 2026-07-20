@@ -198,17 +198,17 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 	var fieldChecks []string
 	generalColZeroValVarDefine := fmt.Sprintf(` // generalColZeroVal 用于普通列的零值检查，避免重复代码
 	%s
-	`,"var generalColZeroVal bool = false")
+	`, "var generalColZeroVal bool = false")
 	fieldChecks = append(fieldChecks, generalColZeroValVarDefine)
 	for _, col := range tableData.Columns {
 		isPrimary := containsPk(tableData.PrimaryKeys, col.Name)
 		isIndex := isIndexColumn(tableData, col.Name)
 		isSpecial := isSpecialColumn(col.Name)
 		zeroCheck := getZeroCheck(lowerStructName, col)
-		
+
 		// 生成字段检查代码
 		var fieldCheck string
-		
+
 		// 主键列
 		if isPrimary {
 			fieldCheck = fmt.Sprintf(`	// %s - 主键，索引列
@@ -221,7 +221,7 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 		}
 	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
 		} else if isIndex {
-		// 索引列（非主键）
+			// 索引列（非主键）
 			fieldCheck = fmt.Sprintf(`	// %s - 索引列
 	if !filterIndex {
 		isZero := %s
@@ -231,16 +231,16 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 		}
 	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
 		} else if isSpecial {
-		// 特殊列
-		specialDesc := "特殊用途"
-		if strings.Contains(strings.ToLower(col.Name), "version") {
-			specialDesc = "乐观锁"
-		} else if strings.Contains(strings.ToLower(col.Name), "create") {
-			specialDesc = "自动创建时间"
-		} else if strings.Contains(strings.ToLower(col.Name), "update") {
-			specialDesc = "自动更新时间"
-		}
-		fieldCheck = fmt.Sprintf(`	// %s - 特殊列，用于%s
+			// 特殊列
+			specialDesc := "特殊用途"
+			if strings.Contains(strings.ToLower(col.Name), "version") {
+				specialDesc = "乐观锁"
+			} else if strings.Contains(strings.ToLower(col.Name), "create") {
+				specialDesc = "自动创建时间"
+			} else if strings.Contains(strings.ToLower(col.Name), "update") {
+				specialDesc = "自动更新时间"
+			}
+			fieldCheck = fmt.Sprintf(`	// %s - 特殊列，用于%s
 	if !filterSpecial {
 		isZero := %s
 		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
@@ -249,16 +249,20 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 		}
 	}`, col.JsonTag, specialDesc, zeroCheck, col.Name, lowerStructName, col.JsonTag)
 		} else {
-		// 普通列
-		fieldCheck = fmt.Sprintf(`	// %s - 普通列
+			// 普通列
+			fieldCheck = fmt.Sprintf(`	// %s - 普通列
 	generalColZeroVal = %s
 	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
 		cols = append(cols, "%s")
 		vals = append(vals, %s.%s)
 	}`, col.JsonTag, zeroCheck, col.Name, lowerStructName, col.JsonTag)
-	}
-		
+		}
+
 		fieldChecks = append(fieldChecks, fieldCheck)
+	}
+	// 特殊情况处理,对于如果表中的所有列都非普通列,则不适用fieldChecks的拼接,则fieldChecks置空
+	if len(fieldChecks) == 1 {
+		fieldChecks = nil
 	}
 
 	return fmt.Sprintf(`// ListZeroValueCols 列出零值列或非零值列
@@ -314,12 +318,12 @@ var %sAllowUpdateCols = []string{%s}`, structName, structName, strings.Join(cols
 // generateIndexLeadingCols 生成IndexLeadingCols变量
 func generateIndexLeadingCols(tableData *table.TableData) string {
 	structName := tableData.StructName
-	
+
 	var cols []string
 	// 优先使用主键的第一列
 	if len(tableData.PrimaryKeys) > 0 {
 		cols = append(cols, fmt.Sprintf("\"%s\"", tableData.PrimaryKeys[0]))
-	} 
+	}
 	// 处理索引的引导列
 	for _, index := range tableData.Indexes {
 		if len(index.Columns) > 0 {
@@ -329,7 +333,7 @@ func generateIndexLeadingCols(tableData *table.TableData) string {
 	if len(cols) == 0 {
 		return ""
 	}
-	
+
 	return fmt.Sprintf(`// %sIndexLeadingCols 索引前导列，用于检查是否走了索引，避免全表扫描
 // 列名必须和数据库表列名一致，区分大小写
 var %sIndexLeadingCols = []string{%s}`, structName, structName, strings.Join(cols, ", "))
@@ -366,7 +370,7 @@ func generateQueryArgStruct(tableData *table.TableData, query table.QueryData) s
 
 	for _, wc := range query.WhereColFields {
 		// 如果前期已经指定了参数类型，则按照指定的处理
-		if wc.GoType !=""{
+		if wc.GoType != "" {
 			if wc.IsSlice {
 				fields = append(fields, fmt.Sprintf("\t%s []%s", wc.FieldName, wc.GoType))
 			} else {
@@ -402,14 +406,14 @@ func generateWithMethods(tableData *table.TableData, query table.QueryData) stri
 
 	for _, wc := range query.WhereColFields {
 		// 对于用户指定的go类型，此处只需按照指定的类型处理
-		if wc.GoType!=""{
-				methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{
+		if wc.GoType != "" {
+			methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{
 	%s%sArg.%s = %s
 	%s%sArg.FieldMask.Set("%s")
 	return %s%sArg
-} `, lowerStructName, queryName, structName, queryName, wc.FieldName, wc.FieldName, wc.GoType,structName,queryName,
-					lowerStructName, queryName, wc.FieldName, wc.FieldName, lowerStructName, queryName,wc.FieldName,lowerStructName, queryName))
-				continue			
+} `, lowerStructName, queryName, structName, queryName, wc.FieldName, wc.FieldName, wc.GoType, structName, queryName,
+				lowerStructName, queryName, wc.FieldName, wc.FieldName, lowerStructName, queryName, wc.FieldName, lowerStructName, queryName))
+			continue
 		}
 		for _, col := range tableData.Columns {
 			if col.Name == wc.ColName {
@@ -417,8 +421,8 @@ func generateWithMethods(tableData *table.TableData, query table.QueryData) stri
 	%s%sArg.%s = %s
 	%s%sArg.FieldMask.Set("%s")
 	return %s%sArg
-} `, lowerStructName, queryName, structName, queryName, wc.FieldName, wc.FieldName, col.GoType,structName,queryName,
-					lowerStructName, queryName, wc.FieldName, wc.FieldName, lowerStructName, queryName,wc.FieldName,lowerStructName, queryName))
+} `, lowerStructName, queryName, structName, queryName, wc.FieldName, wc.FieldName, col.GoType, structName, queryName,
+					lowerStructName, queryName, wc.FieldName, wc.FieldName, lowerStructName, queryName, wc.FieldName, lowerStructName, queryName))
 				break
 			}
 		}
@@ -436,7 +440,7 @@ func generateConvertToMapMethod(tableData *table.TableData, query table.QueryDat
 	var fields []string
 
 	if query.HasPage {
-		fields = append(fields, "\t\t\"Page\": " + lowerStructName + queryName + "Arg.Page,")
+		fields = append(fields, "\t\t\"Page\": "+lowerStructName+queryName+"Arg.Page,")
 	}
 
 	for _, wc := range query.WhereColFields {
@@ -577,14 +581,14 @@ func generateInitFunction(tableData *table.TableData) string {
 	}
 
 	return `
-var `+tableData.StructName+`ConditionMap = map[string]*conditonwhere.MaskWhereCondition{}
+var ` + tableData.StructName + `ConditionMap = map[string]*conditonwhere.MaskWhereCondition{}
 
 // 初始注册自定义函数的condition
 func init() {
-	for key, whereDataYaml := range `+tableData.StructName+`WhereDataToYAMLCache {
+	for key, whereDataYaml := range ` + tableData.StructName + `WhereDataToYAMLCache {
 		var newData map[interface{}]interface{}
 		yaml.Unmarshal([]byte(whereDataYaml), &newData)
-		 `+tableData.StructName+`ConditionMap[key] = conditonwhere.ParseWhereCondition(newData)
+		 ` + tableData.StructName + `ConditionMap[key] = conditonwhere.ParseWhereCondition(newData)
 	}
 }
 `

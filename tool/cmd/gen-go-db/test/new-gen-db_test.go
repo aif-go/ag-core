@@ -1,9 +1,10 @@
-package main
+package test
 
 import (
-	"github.com/aif-go/ag-core/contribute/agdb/agdao"
 	"context"
 	"testing"
+
+	"github.com/aif-go/ag-core/contribute/agdb/agdao"
 )
 
 // func TestInsertOne(t *testing.T) {

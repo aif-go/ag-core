@@ -1,7 +1,8 @@
-package main
+package test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"github.com/shopspring/decimal"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -37,6 +39,12 @@ func TestMain(m *testing.M) {
 	sqlDB.SetMaxOpenConns(10)
 
 	tmRepository = gormdb.NewRepository(db)
+
+	// 初始清理：确保无残留数据
+	if err := tmRepository.DB(tmCtx).Exec("DELETE FROM tm_teacher WHERE name LIKE 'UT_%'").Error; err != nil {
+		panic("initial cleanup failed: " + err.Error())
+	}
+
 	tmDao = dao.NewTmTeacherDao(tmRepository, &TestBaseDao{
 		tbInfoOpts: []agdao.TbInfoOpt{
 			agdao.WithTbNameStrategy(func(ctx context.Context, info *agdao.TableInfo) string {
@@ -65,6 +73,7 @@ func insertOne(t *testing.T) *model.TmTeacher {
 		Phone:   "13912345678",
 		ClassId: "A1",
 		CardNo:  "CC_10001",
+		Salary:  decimal.NewFromFloat(10000.51),
 	}
 	_, err := tmDao.InsertOne(tmCtx, entity)
 	if err != nil {
@@ -81,6 +90,7 @@ func TestTmTeacher_Insert(t *testing.T) {
 		Phone:   "15987654321",
 		ClassId: "B2",
 		CardNo:  "CC_20001",
+		Salary:  decimal.NewFromFloat(20000.75),
 	}
 	rows, err := tmDao.InsertOne(tmCtx, entity)
 	if err != nil {
@@ -100,6 +110,7 @@ func TestTmTeacher_InsertSkipZero(t *testing.T) {
 		Name:    "UT_Carol",
 		Address: "深圳南山",
 		Phone:   "17712345678",
+		Salary:  decimal.NewFromFloat(30000.25),
 	}
 	rows, err := tmDao.InsertOneIgnoreZeroValCols(tmCtx, entity)
 	if err != nil {
@@ -124,6 +135,7 @@ func TestTmTeacher_Get(t *testing.T) {
 	if entity == nil {
 		t.Fatal("expected non-nil entity")
 	}
+	t.Logf("FindByPrimaryKey result: %+v", entity)
 	if entity.Name != "UT_Alice" {
 		t.Errorf("expected name=UT_Alice, got %s", entity.Name)
 	}
@@ -166,6 +178,9 @@ func TestTmTeacher_List(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
+	for i, item := range list {
+		t.Logf("FindByStruct result[%d]: %+v", i, item)
+	}
 	if list[0].Name != "UT_Alice" {
 		t.Errorf("expected name=UT_Alice, got %s", list[0].Name)
 	}
@@ -184,6 +199,9 @@ func TestTmTeacher_ListByIndex(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
+	for i, item := range list {
+		t.Logf("FindByStruct by index result[%d]: %+v", i, item)
+	}
 }
 
 func TestTmTeacher_ListByName(t *testing.T) {
@@ -198,6 +216,9 @@ func TestTmTeacher_ListByName(t *testing.T) {
 	}
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
+	}
+	for i, item := range list {
+		t.Logf("FindByStruct by name result[%d]: %+v", i, item)
 	}
 }
 
@@ -214,6 +235,9 @@ func TestTmTeacher_ListByNameAndAddress(t *testing.T) {
 	}
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
+	}
+	for i, item := range list {
+		t.Logf("FindByStruct by name+address result[%d]: %+v", i, item)
 	}
 }
 
@@ -239,6 +263,7 @@ func TestTmTeacher_Update(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByPrimaryKey after update failed: %v", err)
 	}
+	t.Logf("FindByPrimaryKey after update result: %+v", entity)
 	if entity.Name != "UT_Alice_Updated" {
 		t.Errorf("expected name=UT_Alice_Updated, got %s", entity.Name)
 	}
@@ -277,6 +302,8 @@ func TestTmTeacher_UpdateSkipZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByPrimaryKey after update failed: %v", err)
 	}
+
+	t.Logf("FindByPrimaryKey after skip-zero update result: %+v", entity)
 	if entity.Name != "UT_David" {
 		t.Errorf("expected name=UT_David, got %s", entity.Name)
 	}
@@ -304,6 +331,9 @@ func TestTmTeacher_ListWithCondition(t *testing.T) {
 	if len(list) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
+	for i, item := range list {
+		t.Logf("FindByCondition result[%d]: %+v", i, item)
+	}
 	for _, entity := range list {
 		if entity.Name != "UT_Alice" {
 			t.Errorf("expected name=UT_Alice, got %s", entity.Name)
@@ -317,9 +347,10 @@ func TestTmTeacher_ListWithConditionAndPage(t *testing.T) {
 		entity := &model.TmTeacher{
 			Name:    "UT_PageUser",
 			Address: "测试地址",
-			Phone:   "10000000000",
+			Phone:   fmt.Sprintf("1000000000%d", i),
 			ClassId: "P1",
-			CardNo:  "PAGE_CARD",
+			CardNo:  fmt.Sprintf("PAGE_CARD_%d", i),
+			Salary:  decimal.NewFromFloat(40000.00),
 		}
 		_, err := tmDao.InsertOne(tmCtx, entity)
 		if err != nil {
@@ -338,6 +369,10 @@ func TestTmTeacher_ListWithConditionAndPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByCondition with page failed: %v", err)
 	}
+	for i, item := range list {
+		t.Logf("result[%d]: %+v", i, item)
+	}
+	t.Logf("pageRes: %+v", pageRes)
 	if len(list) != 2 {
 		t.Errorf("expected 2 records per page, got %d", len(list))
 	}
@@ -369,6 +404,7 @@ func TestTmTeacher_GetFirst(t *testing.T) {
 	if entity == nil {
 		t.Fatal("expected non-nil entity")
 	}
+	t.Logf("FindFirstOneByCondition result: %+v", entity)
 	if entity.Name != "UT_Alice" {
 		t.Errorf("expected name=UT_Alice, got %s", entity.Name)
 	}
@@ -397,6 +433,9 @@ func TestTmTeacher_CustomRule(t *testing.T) {
 	if len(resList) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
+	for i, item := range resList {
+		t.Logf("CustomRule result[%d]: %+v", i, item)
+	}
 }
 
 func TestTmTeacher_CustomRuleWithPage(t *testing.T) {
@@ -424,6 +463,10 @@ func TestTmTeacher_CustomRuleWithPage(t *testing.T) {
 	if len(pageRes.ResultList) == 0 {
 		t.Fatal("expected non-empty result list")
 	}
+	for i, item := range pageRes.ResultList {
+		t.Logf("CustomRuleWithPage result[%d]: %+v", i, item)
+	}
+	t.Logf("CustomRuleWithPage pageRes: %+v", pageRes)
 	if pageRes.TotalCount <= 0 {
 		t.Errorf("expected total count > 0, got %d", pageRes.TotalCount)
 	}
@@ -441,6 +484,7 @@ func TestTmTeacher_TransactionRollback(t *testing.T) {
 			Phone:   "10000000001",
 			ClassId: "R1",
 			CardNo:  "ROLLBACK",
+			Salary:  decimal.NewFromFloat(50000.99),
 		})
 		if err != nil {
 			return err
@@ -456,6 +500,9 @@ func TestTmTeacher_TransactionRollback(t *testing.T) {
 	list, _, err := tmDao.FindByCondition(tmCtx, cond, nil, nil)
 	if err != nil {
 		t.Fatalf("FindByCondition failed: %v", err)
+	}
+	for i, item := range list {
+		t.Logf("FindByCondition after rollback result[%d]: %+v", i, item)
 	}
 	if len(list) != 0 {
 		t.Errorf("expected 0 records after rollback, got %d", len(list))
@@ -473,6 +520,7 @@ func TestTmTeacher_TransactionCommit(t *testing.T) {
 			Phone:   "10000000002",
 			ClassId: "C1",
 			CardNo:  "COMMIT_CARD",
+			Salary:  decimal.NewFromFloat(60000.10),
 		})
 		return err
 	})
@@ -485,6 +533,9 @@ func TestTmTeacher_TransactionCommit(t *testing.T) {
 	list, _, err := tmDao.FindByCondition(tmCtx, cond, nil, nil)
 	if err != nil {
 		t.Fatalf("FindByCondition failed: %v", err)
+	}
+	for i, item := range list {
+		t.Logf("FindByCondition after commit result[%d]: %+v", i, item)
 	}
 	if len(list) != 1 {
 		t.Errorf("expected 1 committed record, got %d", len(list))

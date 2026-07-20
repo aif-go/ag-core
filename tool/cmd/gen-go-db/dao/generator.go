@@ -105,7 +105,7 @@ func getModuleName() string {
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "module ") {
-			return strings.TrimPrefix(line, "module ")
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
 
@@ -186,7 +186,7 @@ func generateNamingSqlFile(tableData *table.TableData, outputPath string, dbType
 // generateDBTypeNamingSqlFile 生成dbtype_tablename_namingsql.go文件
 func generateDBTypeNamingSqlFile(tableData *table.TableData, outputPath string, dbType string) error {
 	// 获取数据库类型命名SQL模板代码
-	code,err := GetDBTypeNamingSqlTemplate(tableData, dbType)
+	code, err := GetDBTypeNamingSqlTemplate(tableData, dbType)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func generateDBTypeNamingSqlFile(tableData *table.TableData, outputPath string, 
 func generateConstantFile(tableData *table.TableData, outputPath string) error {
 	// 获取常量模板代码
 	code := GetConstantTemplate(tableData)
-	
+
 	// 总是写入文件，因为需要包含命名SQL映射和排除空值字段映射
 	return os.WriteFile(outputPath, []byte(code), 0644)
 }

@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/excel"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func ParseWhereTest(test *testing.T) {
+func TestParserFix(t *testing.T) {
 	// 测试用例1: 用户提到的问题
 	whereExpr := "ORDER_ID = @OrderId AND MERCHANT_ID = @MerchantId AND TRANSACTION_TYPE = @TransactionType AND RESPONSE_CODE = '00'"
 	fmt.Printf("测试用例1: %s\n", whereExpr)
