@@ -390,7 +390,7 @@ func parseWhereExpr(expr string) table.WhereColField {
 	colField := table.WhereColField{}
 
 	// 支持的操作符，按长度降序排列，确保长操作符优先匹配
-	operators := []string{"!=", "not in", "in", "=", ">", "<", ">=", "<=", "between"}
+	operators := []string{"!=", "not in", "not like", "like", "in", "=", ">", "<", ">=", "<=", "between"}
 
 	for _, op := range operators {
 		if idx := strings.Index(strings.ToLower(expr), strings.ToLower(op)); idx != -1 {
@@ -402,9 +402,11 @@ func parseWhereExpr(expr string) table.WhereColField {
 			fieldName := ""
 			isSlice := false
 
-			// 处理@Field格式
+			// 处理@Field格式（先剥掉前导通配符 %_）
+			fieldPart = strings.TrimLeft(fieldPart, "%_")
 			if strings.HasPrefix(fieldPart, "@") {
 				fieldName = strings.TrimSpace(fieldPart[1:])
+				fieldName = strings.TrimRight(fieldName, "%_")
 			}
 
 			// 判断是否为切片类型
