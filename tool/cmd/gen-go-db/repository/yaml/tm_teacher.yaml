@@ -1,0 +1,98 @@
+table_name: tm_teacher
+columns:
+- name: id
+  type: int64
+  not_null: true
+  auto_increment: true
+  support_update: false
+- name: name
+  type: string
+  length: "20"
+  not_null: true
+  auto_increment: false
+  support_update: false
+- name: address
+  type: string
+  length: "100"
+  not_null: true
+  auto_increment: false
+  support_update: false
+- name: phone
+  type: string
+  length: "11"
+  not_null: true
+  auto_increment: false
+  support_update: false
+- name: class_id
+  type: string
+  length: "2"
+  not_null: true
+  auto_increment: false
+  support_update: true
+- name: card_no
+  type: string
+  length: "20"
+  not_null: false
+  auto_increment: false
+  support_update: true
+- name: salary
+  type: decimal
+  length: 10,2
+  not_null: false
+  auto_increment: false
+  support_update: false
+- name: jpa_version
+  type: int64
+  not_null: false
+  auto_increment: false
+  support_update: false
+  tag: ///@javaVersion
+- name: create_time
+  type: time
+  not_null: false
+  auto_increment: false
+  support_update: false
+  tag: ///@create
+- name: last_update_time
+  type: time
+  not_null: false
+  auto_increment: false
+  support_update: false
+  tag: ///@update
+primary_key:
+- id
+constraints:
+- name: tm_teacher_name_IDX
+  columns:
+  - card_no
+- name: tm_teacher_phone_IDX
+  columns:
+  - phone
+indexes:
+- name: tm_teacher_classid_IDX
+  columns:
+  - class_id
+- name: tm_teacher_Name_IDX
+  columns:
+  - name
+  - address
+self_query_rules:
+  FindByNameNadAddress:
+    select_fields: name,address,phone,class_id
+    page: false
+    dynamic_sql: false
+    sql_template: ""
+    where:
+      operator: AND
+      conditions:
+      - expr: name like %@Name
+      - expr: address like %@Address%
+  FindByPhone:
+    select_fields: '*'
+    page: true
+    dynamic_sql: false
+    sql_template: ""
+    where:
+      operator: AND
+      conditions:
+      - expr: phone = @Phone

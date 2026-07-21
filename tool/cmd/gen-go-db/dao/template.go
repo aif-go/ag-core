@@ -783,7 +783,6 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	if execSql == "" {
 		return nil, errors.New("not found naming sql")
 	}
-	oldwhere,_:=conditonwhere.ExtractWhereClauseByCut(execSql)
 	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("`+query.Name+`",model.`+structName+`ConditionMap)
 	if err != nil {
 		return nil, err
@@ -793,10 +792,8 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	if !check {
 		return nil, errors.New("query not use any index")
 	}
-	// 替换where条件
-	execSql = strings.Replace(execSql, "WHERE ("+oldwhere+")", newwhere, 1)
+
 	execCountSql := ` + structName + `NamingSqlMap[sqlName+"_Count"]
-	execCountSql = strings.Replace(execCountSql, "WHERE ("+oldwhere+")", newwhere, 1)
 	if execCountSql == "" {
 		return nil, errors.New("not found naming sql count")
 	}
@@ -864,7 +861,6 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 		return nil, errors.New("not found naming sql")
 	}
 
-	oldwhere,_:=conditonwhere.ExtractWhereClauseByCut(execSql)
 	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("`+query.Name+`",model.`+structName+`ConditionMap)
 	if err != nil {
 		return nil, err
@@ -874,8 +870,6 @@ func (dao *` + structName + `Dao) do` + query.Name + `(ctx context.Context, nami
 	if !check {
 		return nil, errors.New("query not use any index")
 	}
-	// 替换where条件
-	execSql = strings.Replace(execSql, "WHERE ("+oldwhere+")", newwhere, 1)
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {

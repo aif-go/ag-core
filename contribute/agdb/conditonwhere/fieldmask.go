@@ -18,7 +18,7 @@ type MaskWhereCondition struct {
 // GenerateWhereSQL 生成where条件SQL语句
 func GenerateWhereSQL(condition *MaskWhereCondition) (string, error) {
 	if condition.Expr != "" {
-		return condition.Expr, nil
+		return convertLikeWildcards(condition.Expr), nil
 	}
 
 	if len(condition.Conditions) == 0 {
@@ -159,7 +159,7 @@ func extractParamName(expr string) string {
 	paramName := expr[idx+1:]
 	// 如果参数名后面还有其他字符（如空格或右括号），截断
 	for i, c := range paramName {
-		if c == ' ' || c == ')' {
+		if c == ' ' || c == ')' || c == '%' || c == '_' {
 			return paramName[:i]
 		}
 	}
@@ -308,4 +308,78 @@ func ValidateLeadingCol(sql string, leadingCols []string) bool {
 		}
 	}
 	return false
+}
+
+// convertLikeWildcards 将表达式中 @Param%_ / %_@Param / %_@Param%_ 转为 CONCAT 格式
+func convertLikeWildcards(expr string) string {
+	var buf strings.Builder
+	lastEnd := 0
+	for {
+		atIdx := strings.Index(expr[lastEnd:], "@")
+		if atIdx == -1 {
+			break
+		}
+		atIdx += lastEnd
+
+		preStart := atIdx
+		for preStart > 0 && (expr[preStart-1] == '%' || expr[preStart-1] == '_') {
+			preStart--
+		}
+		prefixWild := expr[preStart:atIdx]
+
+		rest := expr[atIdx+1:]
+		nameEnd := 0
+		for nameEnd < len(rest) {
+			c := rest[nameEnd]
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+				(c >= '0' && c <= '9') || c == '_') {
+				break
+			}
+			nameEnd++
+		}
+		if nameEnd == 0 {
+			buf.WriteString(expr[lastEnd : atIdx+1])
+			lastEnd = atIdx + 1
+			continue
+		}
+
+		paramName := rest[:nameEnd]
+		wcEnd := nameEnd
+		for wcEnd < len(rest) && (rest[wcEnd] == '%' || rest[wcEnd] == '_') {
+			wcEnd++
+		}
+		suffixWild := rest[nameEnd:wcEnd]
+
+		if prefixWild == "" && suffixWild == "" {
+			buf.WriteString(expr[lastEnd : atIdx+1])
+			lastEnd = atIdx + 1
+			continue
+		}
+
+		buf.WriteString(expr[lastEnd:preStart])
+		buf.WriteString("CONCAT(")
+
+		if prefixWild != "" {
+			buf.WriteByte('\'')
+			buf.WriteString(prefixWild)
+			buf.WriteString("', ")
+		}
+
+		buf.WriteByte('@')
+		buf.WriteString(paramName)
+
+		if suffixWild != "" {
+			buf.WriteString(", '")
+			buf.WriteString(suffixWild)
+			buf.WriteByte('\'')
+		}
+
+		buf.WriteByte(')')
+		lastEnd = atIdx + 1 + len(paramName) + len(suffixWild)
+	}
+	if lastEnd == 0 {
+		return expr
+	}
+	buf.WriteString(expr[lastEnd:])
+	return buf.String()
 }
