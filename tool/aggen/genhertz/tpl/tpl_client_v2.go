@@ -35,8 +35,8 @@ var ClientImportsSetterV2 = func(geni *types.GennerInfo) error {
 	}
 
 	geni.AddImports("context")
-	geni.AddImports("github.com/cloudwego/hertz/pkg/app/client")
-	geni.AddImport("config", "github.com/cloudwego/hertz/pkg/common/config")
+	geni.AddImport("hzclient", "github.com/cloudwego/hertz/pkg/app/client")
+	geni.AddImport("hzconfig", "github.com/cloudwego/hertz/pkg/common/config")
 	geni.AddImport("agclient", "github.com/aif-go/ag-core/contribute/aghertz/aghertzclient")
 
 	return nil
@@ -73,7 +73,7 @@ type {{$LClientName}} interface {
 		{{- if not $LMethod.IsStreaming }} {{/* 非流方法才可以构建http服务 */}}
 			{{- if gt (len $LMethod.HttpDescs) 0}} {{/* 判断是否有http规则 */}}
 				// {{$LMethod.Name}}
-				{{$LMethod.Name}}(ctx context.Context, req {{$LArgs.Type}}, opts ...config.RequestOption) (resp *{{$LMethod.Resp.UnptrType}}, err error)
+				{{$LMethod.Name}}(ctx context.Context, req {{$LArgs.Type}}, opts ...hzconfig.RequestOption) (resp *{{$LMethod.Resp.UnptrType}}, err error)
 			{{- else}}
 				// {{$LMethod.Name}} no http rule
 			{{- end}}
@@ -84,7 +84,7 @@ type {{$LClientName}} interface {
 }
 
 // New{{$LClientName}} is the constructor for {{$LClientName}}.
-func New{{$LClientName}}(hc *client.Client, opts ...agclient.AgHertzClientOption) {{$LClientName}} {
+func New{{$LClientName}}(hc *hzclient.Client, opts ...agclient.AgHertzClientOption) {{$LClientName}} {
 	client := &{{$LClientName}}Impl{
 		HertzBaseClient: agclient.NewHertzBaseClient(hc, opts...),
 	}
@@ -105,7 +105,7 @@ type {{$LClientName}}Impl struct {
 			{{- with index $LMethod.HttpDescs 0}} {{/* FIXME 目前只对主规则生成client调用*/}}
 			    {{- $LHttpDesc := .}}
 				// {{$LMethod.Name}} client impl {{$LMethod.Name}}
-				func (c *{{$LClientName}}Impl) {{$LMethod.Name}}(ctx context.Context, req {{$LArgs.Type}}, opts ...config.RequestOption) (*{{$LMethod.Resp.UnptrType}}, error){
+				func (c *{{$LClientName}}Impl) {{$LMethod.Name}}(ctx context.Context, req {{$LArgs.Type}}, opts ...hzconfig.RequestOption) (*{{$LMethod.Resp.UnptrType}}, error){
 				    var resp {{$LMethod.Resp.UnptrType}}
 
 					// 构建请求配置
