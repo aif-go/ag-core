@@ -17,7 +17,7 @@ var FxImportsSetter = func(geni *types.GennerInfo) error {
 	// geni.AddImport("api", fmt.Sprintf("%s/%s", _module.PwdGoMod, "api"))
 
 	geni.AddImport("fx", "go.uber.org/fx")
-	geni.AddImport("hserver", "github.com/aif-go/ag-core/contribute/aghertz/server")
+	geni.AddImport("hzserver", "github.com/aif-go/ag-core/contribute/aghertz/server")
 	return nil
 }
 
@@ -61,7 +61,7 @@ var Fx{{$LServiceName}}HertzModule = fx.Module("fx_{{$LServiceName}}_hertz",
 			var Fx{{$LServiceName}}_{{$LMethod.Name}}_hertz_RegProvider =fx.Provide(
 			{{- range $LMethod.HttpDescs}} 
 			    {{- $LHttpDesc := .}}
-					hserver.NewFxServerRouteProvider(
+					hzserver.NewFxServerRouteProvider(
 						Router_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz,
 					),
 					{{/*

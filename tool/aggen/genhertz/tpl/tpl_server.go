@@ -38,10 +38,10 @@ var ServerImportsSetter = func(geni *types.GennerInfo) error {
 	}
 
 	geni.AddImports("context")
-	geni.AddImport("app", "github.com/cloudwego/hertz/pkg/app")
-	geni.AddImport("consts", "github.com/cloudwego/hertz/pkg/protocol/consts")
+	geni.AddImport("hzapp", "github.com/cloudwego/hertz/pkg/app")
+	geni.AddImport("hzconsts", "github.com/cloudwego/hertz/pkg/protocol/consts")
 	// geni.AddImport("server", "github.com/aif-go/ag-core/ag/ag_hertz/server")
-	geni.AddImport("hserver", "github.com/aif-go/ag-core/contribute/aghertz/server")
+	geni.AddImport("hzserver", "github.com/aif-go/ag-core/contribute/aghertz/server")
 
 	return nil
 }
@@ -83,7 +83,7 @@ var serverTpl string = `
 				return server.WithRoute(&server.Route{
 					HttpMethod:   "{{.Method}}",
 					RelativePath: "{{.Path}}",
-					Handlers:     append(make([]app.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
+					Handlers:     append(make([]hzapp.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
 				})
 			}
 			*/}}
@@ -91,36 +91,36 @@ var serverTpl string = `
 			// @Name: {{$LMethod.Name}}
 			// @Method: {{.Method}}
 			// @Path: {{.Path}}
-			func Router_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz(s {{$LServiceTypeName}}) *hserver.Route {
-				return &hserver.Route{
+			func Router_{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_{{.Method}}_Hertz(s {{$LServiceTypeName}}) *hzserver.Route {
+				return &hzserver.Route{
 					HttpMethod:   "{{.Method}}",
 					RelativePath: "{{.Path}}",
-					Handlers:     append(make([]app.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
+					Handlers:     append(make([]hzapp.HandlerFunc, 0), _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s)),
 				}
 			}
 
-			func _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s {{$LServiceTypeName}}) func(ctx context.Context, c *app.RequestContext) {
-				return func(ctx context.Context, c *app.RequestContext) {
+			func _{{$LServiceName}}_{{$LMethod.Name}}_{{.Num}}_HTTP_Handler(s {{$LServiceTypeName}}) func(ctx context.Context, c *hzapp.RequestContext) {
+				return func(ctx context.Context, c *hzapp.RequestContext) {
 					//var in = new({{$LArgs.UnptrType}})
 					var in {{$LArgs.UnptrType}}
 
 					{{- if $LHttpDesc.HasBody}}
 						// BindByContentType 当Method为GET时，会自动调用BindQuery，其他方法会调用对应Bind
 						if err := c.BindByContentType(&in{{$LHttpDesc.Body}}); err != nil {
-						   c.String(consts.StatusBadRequest, err.Error())
+						   c.String(hzconsts.StatusBadRequest, err.Error())
 							return
 						}
 					{{- else}}
 						// 无Body定义的方法，BindQuery，否则使用BindByContentType
 						if err := c.BindQuery(&in); err != nil {
-						    c.String(consts.StatusBadRequest, err.Error())
+						    c.String(hzconsts.StatusBadRequest, err.Error())
 							return
 						}
 					{{- end}}
 
 					{{- if $LHttpDesc.HasVars}}
 						if err := c.BindPath(&in); err != nil {
-						    c.String(consts.StatusBadRequest, err.Error())
+						    c.String(hzconsts.StatusBadRequest, err.Error())
 							return
 						}
 					{{- end}}
@@ -128,12 +128,12 @@ var serverTpl string = `
 					resp, err := s.{{$LMethod.Name}}(ctx, &in)
 					if err != nil {
 						// TODO 增强异常处理
-						c.String(consts.StatusInternalServerError, err.Error())
+						c.String(hzconsts.StatusInternalServerError, err.Error())
 						return
 					}
 
 					// c.JSON 会自动将 Content-Type 设置为 application/json,
-					c.JSON(consts.StatusOK, resp{{.ResponseBody}})
+					c.JSON(hzconsts.StatusOK, resp{{.ResponseBody}})
 				}
 			}
 
