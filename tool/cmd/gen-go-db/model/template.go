@@ -173,6 +173,8 @@ func getZeroCheck(lowerStructName string, col table.ColumnData) string {
 		return fmt.Sprintf("%s.%s == \"\"", lowerStructName, col.JsonTag)
 	case "time.Time":
 		return fmt.Sprintf("%s.%s.IsZero()", lowerStructName, col.JsonTag)
+	case "bool":
+		return fmt.Sprintf("!%s.%s", lowerStructName, col.JsonTag)
 	default:
 		// 数值类型（int, int64, float64等）
 		return fmt.Sprintf("%s.%s == 0", lowerStructName, col.JsonTag)
@@ -196,10 +198,22 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 
 	// 生成字段检查代码（使用if逐个判断，禁止反射）
 	var fieldChecks []string
-	generalColZeroValVarDefine := fmt.Sprintf(` // generalColZeroVal 用于普通列的零值检查，避免重复代码
+
+	// 先遍历判断是否存在普通列，有才声明 generalColZeroVal
+	hasGeneralCol := false
+	for _, col := range tableData.Columns {
+		if !containsPk(tableData.PrimaryKeys, col.Name) && !isIndexColumn(tableData, col.Name) && !isSpecialColumn(col.Name) {
+			hasGeneralCol = true
+			break
+		}
+	}
+	if hasGeneralCol {
+		generalColZeroValVarDefine := fmt.Sprintf(` // generalColZeroVal 用于普通列的零值检查，避免重复代码
 	%s
-	`,"var generalColZeroVal bool = false")
-	fieldChecks = append(fieldChecks, generalColZeroValVarDefine)
+	`, "var generalColZeroVal bool = false")
+		fieldChecks = append(fieldChecks, generalColZeroValVarDefine)
+	}
+
 	for _, col := range tableData.Columns {
 		isPrimary := containsPk(tableData.PrimaryKeys, col.Name)
 		isIndex := isIndexColumn(tableData, col.Name)
