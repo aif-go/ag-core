@@ -156,13 +156,16 @@ func isIndexColumn(tableData *table.TableData, colName string) bool {
 }
 
 // isSpecialColumn 检查列是否为特殊列（jpaVersion, create_time, last_update_time）
-func isSpecialColumn(colName string) bool {
-	specialCols := []string{"jpa_version", "create_time", "last_update_time", "jpaVersion", "createTime", "lastUpdateTime"}
-	for _, sc := range specialCols {
-		if strings.EqualFold(sc, colName) {
-			return true
-		}
+func isSpecialColumn(colData table.ColumnData) bool {
+	if colData.IsAutoCreate || colData.IsAutoUpdate || colData.IsJavaVersion {
+		return true
 	}
+	// specialCols := []string{"jpa_version", "create_time", "last_update_time", "jpaVersion", "createTime", "lastUpdateTime"}
+	// for _, sc := range specialCols {
+	// 	if strings.EqualFold(sc, colName) {
+	// 		return true
+	// 	}
+	// }
 	return false
 }
 
@@ -202,7 +205,7 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 	// 先遍历判断是否存在普通列，有才声明 generalColZeroVal
 	hasGeneralCol := false
 	for _, col := range tableData.Columns {
-		if !containsPk(tableData.PrimaryKeys, col.Name) && !isIndexColumn(tableData, col.Name) && !isSpecialColumn(col.Name) {
+		if !containsPk(tableData.PrimaryKeys, col.Name) && !isIndexColumn(tableData, col.Name) && !isSpecialColumn(col) {
 			hasGeneralCol = true
 			break
 		}
@@ -217,7 +220,7 @@ func generateListZeroValueColsMethod(tableData *table.TableData) string {
 	for _, col := range tableData.Columns {
 		isPrimary := containsPk(tableData.PrimaryKeys, col.Name)
 		isIndex := isIndexColumn(tableData, col.Name)
-		isSpecial := isSpecialColumn(col.Name)
+		isSpecial := isSpecialColumn(col)
 		zeroCheck := getZeroCheck(lowerStructName, col)
 		
 		// 生成字段检查代码
