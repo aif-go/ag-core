@@ -105,7 +105,7 @@ func getModuleName() string {
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "module ") {
-			return strings.TrimPrefix(line, "module ")
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
 		}
 	}
 

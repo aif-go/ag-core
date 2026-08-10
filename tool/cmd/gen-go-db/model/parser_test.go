@@ -3,6 +3,7 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
@@ -125,6 +126,68 @@ columns:
 			t.Errorf("ImportPackages = %v; 不应包含 %q", imports, "time")
 		}
 	})
+}
+
+// TestParseYAML_SelfQueriesOrder 验证 self_query_rules 解析后按 Name 字母序排列，保证生成产物顺序固定。
+func TestParseYAML_SelfQueriesOrder(t *testing.T) {
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "self_query_order.yaml")
+
+	yamlContent := `table_name: tm_order
+columns:
+- name: id
+  type: int64
+self_query_rules:
+  Zebra:
+    select_fields: '*'
+    page: false
+  Apple:
+    select_fields: '*'
+    page: false
+`
+	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+
+	data, err := ParseYAML(yamlPath, "test-module")
+	if err != nil {
+		t.Fatalf("ParseYAML 返回错误: %v", err)
+	}
+
+	if len(data.SelfQueries) != 2 {
+		t.Fatalf("SelfQueries 数量 = %d; want 2", len(data.SelfQueries))
+	}
+	got := []string{data.SelfQueries[0].Name, data.SelfQueries[1].Name}
+	want := []string{"Apple", "Zebra"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("SelfQueries[%d].Name = %q; want %q (应按字母序, got=%v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+// TestGenerateGormTag_IndexPriority 验证一列挂多索引时 gorm tag 按索引名排序，保证生成顺序固定。
+func TestGenerateGormTag_IndexPriority(t *testing.T) {
+	col := table.ColumnData{
+		Name: "card_no",
+		IndexPriorities: map[string]int{
+			"idx_z": 2,
+			"idx_a": 1,
+		},
+	}
+	tag := generateGormTag(&col, nil)
+
+	idxAPos := strings.Index(tag, "index:idx_a,priority:1")
+	idxZPos := strings.Index(tag, "index:idx_z,priority:2")
+	if idxAPos == -1 {
+		t.Errorf("tag 应包含 %q, got: %s", "index:idx_a,priority:1", tag)
+	}
+	if idxZPos == -1 {
+		t.Errorf("tag 应包含 %q, got: %s", "index:idx_z,priority:2", tag)
+	}
+	if idxAPos > idxZPos {
+		t.Errorf("tag 中 idx_a 应在 idx_z 之前(按索引名排序), got: %s", tag)
+	}
 }
 
 // TestGetZeroCheck 验证指针类型列生成 == nil 零值判断，非指针列保持原有判断形式。

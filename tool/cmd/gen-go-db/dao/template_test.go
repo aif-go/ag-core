@@ -92,6 +92,44 @@ func TestDAO_PointerDispatch(t *testing.T) {
 		}
 	})
 
+	t.Run("generateZeroValueCheck bool 主键生成 !entity 判断", func(t *testing.T) {
+		columns := []table.ColumnData{{GoType: "bool", JsonTag: "active"}}
+		code := generateZeroValueCheck(columns)
+		if !strings.Contains(code, "!entity.active") {
+			t.Errorf("generateZeroValueCheck 应生成 !entity.active 判断, got: %s", code)
+		}
+		if strings.Contains(code, "entity.active == 0") {
+			t.Errorf("generateZeroValueCheck bool 不应生成 == 0, got: %s", code)
+		}
+	})
+
+	t.Run("GetDaoTemplate bool 主键与索引列生成非空判断", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:   "tm_bool",
+			StructName:  "TmBool",
+			PrimaryKeys: []string{"active"},
+			Columns: []table.ColumnData{
+				{Name: "active", GoType: "bool", JsonTag: "active", IsPrimaryKey: true},
+			},
+			Indexes: []table.IndexData{
+				{Name: "idx_bool", Columns: []string{"active"}},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		if !strings.Contains(code, "if entity.active {") {
+			t.Errorf("GetDaoTemplate bool 主键应生成 entity.active 非空判断, got:\n%s", code)
+		}
+		for _, notWant := range []string{
+			"entity.active != 0",
+			"entity.active == 0",
+		} {
+			if strings.Contains(code, notWant) {
+				t.Errorf("GetDaoTemplate bool 列不应生成 %q, got:\n%s", notWant, code)
+			}
+		}
+	})
+
 	t.Run("GetDaoTemplate 非指针主键回归生成 IsZero", func(t *testing.T) {
 		tableData := &table.TableData{
 			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",

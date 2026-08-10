@@ -32,6 +32,8 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 				checkCode += "entity." + col.JsonTag + " == \"\""
 			case "time.Time":
 				checkCode += "entity." + col.JsonTag + ".IsZero()"
+			case "bool":
+				checkCode += "!entity." + col.JsonTag
 			default:
 				// 数值类型
 				checkCode += "entity." + col.JsonTag + " == 0"
@@ -178,6 +180,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
 				case "time.Time":
 					nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
+				case "bool":
+					nullCheck = "entity." + firstPkCol.JsonTag
 				default:
 					// 数值类型
 					nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
@@ -205,6 +209,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 							secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
 						case "time.Time":
 							secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
+						case "bool":
+							secondaryNullCheck = "entity." + pkCol.JsonTag
 						default:
 							secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
 						}
@@ -256,6 +262,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 							nullCheck = "entity." + col.JsonTag + " != \"\""
 						case "time.Time":
 							nullCheck = "!entity." + col.JsonTag + ".IsZero()"
+						case "bool":
+							nullCheck = "entity." + col.JsonTag
 						default:
 							// 数值类型
 							nullCheck = "entity." + col.JsonTag + " != 0"
@@ -281,6 +289,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
 									case "time.Time":
 										secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
+									case "bool":
+										secondaryNullCheck = "entity." + secondaryCol.JsonTag
 									default:
 										// 数值类型
 										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"

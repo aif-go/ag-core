@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,7 +11,9 @@ import (
 	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
-	"gorm.io/driver/mysql"
+
+	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
+	_ "github.com/ibmdb/go_ibm_db"
 	"gorm.io/gorm"
 )
 
@@ -30,12 +33,12 @@ func TestInsertOne(t *testing.T) {
 func TestInsertOneIgnoreZeroVal(t *testing.T) {
 	ctx := context.Background()
 	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.InsertOne(ctx, &model.TmTeacher{
-		Name:    "test2",
+	res, err := tmTeacherDao.InsertOneIgnoreZeroValCols(ctx, &model.TmTeacher{
+		Name:    "aaa3",
 		Address: "上海市徐汇区",
-		Phone:   "13800000001",
+		Phone:   "10000000003",
 		ClassId: "",
-		CardNo:  "",
+		CardNo:  "xxxx",
 	})
 	printEntity("InsertOneIgnoreZeroVal", res, err, t)
 }
@@ -74,8 +77,8 @@ func TestFindByStruct(t *testing.T) {
 	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.FindByStruct(ctx, &model.TmTeacher{
 		// Id: 2,
-		// Name:    "test1",
-		Address: "上海市浦东新区",
+		Name:    "aaa3",
+		Address: "上海市徐汇区",
 	})
 	printList("FindByStruct", res, err, t)
 }
@@ -131,17 +134,19 @@ func TestFindByCustomRuleByPageMysql(t *testing.T) {
 // }
 
 func GetRepository() dao.ITmTeacherDao {
+	dbType := "ibmdb" // 切换数据库类型：mysql / ibmdb
 
-	dsn := "root:root@tcp(localhost:3306)/process?parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	opener := gormdb.GetDBOpener(dbType)
+	if opener == nil {
+		panic(fmt.Sprintf("不支持的数据库驱动: %s", dbType))
+	}
+
+	db, err := gorm.Open(opener(GetDSN(dbType)), &gorm.Config{
+		SkipDefaultTransaction: true,
+	})
 	if err != nil {
 		panic(err.Error())
 	}
-
-	// 	// 此处测试ok
-	// 	// res:=db.Raw("select * from tm_media_act where app_id in ?",[]string{"1" , "2"}).Find(&[]*model.TmMediaAct{})
-
-	// 	// fmt.Println(res.RowsAffected)
 
 	sqldb, err := db.DB()
 	if err != nil {
@@ -153,10 +158,6 @@ func GetRepository() dao.ITmTeacherDao {
 	sqldb.SetConnMaxLifetime(time.Second)
 	sqldb.SetConnMaxIdleTime(time.Second)
 
-	// 	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-	// 		Level: slog.LevelDebug, // 输出级别：Debug及以上
-	// 	})
-	// 	logger := slog.New(jsonHandler)
 	repository := gormdb.NewRepository(db)
 
 	return dao.NewTmTeacherDao(repository, &TestBaseDao{
@@ -166,6 +167,18 @@ func GetRepository() dao.ITmTeacherDao {
 			}),
 		},
 	})
+}
+
+// GetDSN 根据数据库类型返回对应的连接字符串
+func GetDSN(dbType string) string {
+	switch dbType {
+	case "mysql":
+		return "root:root@tcp(localhost:3306)/process?parseTime=True&loc=Local"
+	case "ibmdb":
+		return "HOSTNAME=192.168.105.63;DATABASE=testdb;PORT=50003;UID=db2inst1;PWD=db2inst1;AUTHENTICATION=SERVER;CurrentSchema=db2inst1"
+	default:
+		panic(fmt.Sprintf("不支持的数据库类型: %s", dbType))
+	}
 }
 
 type TestBaseDao struct {

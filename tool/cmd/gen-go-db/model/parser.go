@@ -6,6 +6,7 @@ import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -262,6 +263,11 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		}
 	}
 
+	// 按查询名排序，保证生成产物顺序固定（map 遍历顺序随机）
+	sort.Slice(selfQueries, func(i, j int) bool {
+		return selfQueries[i].Name < selfQueries[j].Name
+	})
+
 	// 去重导入包
 	importPackages = unique(importPackages)
 
@@ -457,9 +463,14 @@ func generateGormTag(col *table.ColumnData, indexes []table.IndexData) string {
 		tags = append(tags, "AUTOUPDATETIME")
 	}
 
-	// 索引
-	for indexName, priority := range col.IndexPriorities {
-		tags = append(tags, fmt.Sprintf("index:%s,priority:%d", indexName, priority))
+	// 索引，按索引名排序，保证生成产物顺序固定（map 遍历顺序随机）
+	indexNames := make([]string, 0, len(col.IndexPriorities))
+	for indexName := range col.IndexPriorities {
+		indexNames = append(indexNames, indexName)
+	}
+	sort.Strings(indexNames)
+	for _, indexName := range indexNames {
+		tags = append(tags, fmt.Sprintf("index:%s,priority:%d", indexName, col.IndexPriorities[indexName]))
 	}
 
 	return strings.Join(tags, ";")
