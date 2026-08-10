@@ -55,10 +55,16 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 				if colType, ok := colMap["type"].(string); ok {
 					col.Type = colType
-					col.GoType = getGoType(colType)
+
+					// 以 * 前缀开头的类型原样透传为 GoType，不做固化映射
+					if strings.HasPrefix(colType, "*") {
+						col.GoType = colType
+					} else {
+						col.GoType = getGoType(colType)
+					}
 
 					// 检查是否需要导入额外的包
-					if col.GoType == "time.Time" {
+					if col.GoType == "time.Time" || col.GoType == "*time.Time" {
 						importPackages = append(importPackages, "time")
 					}
 				}

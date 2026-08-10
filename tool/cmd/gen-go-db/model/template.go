@@ -171,6 +171,10 @@ func isSpecialColumn(colData table.ColumnData) bool {
 
 // getZeroCheck 获取零值检查表达式（参考dao模板的简洁实现）
 func getZeroCheck(lowerStructName string, col table.ColumnData) string {
+	// 指针类型列使用 nil 判断
+	if strings.HasPrefix(col.GoType, "*") {
+		return fmt.Sprintf("%s.%s == nil", lowerStructName, col.JsonTag)
+	}
 	switch col.GoType {
 	case "string":
 		return fmt.Sprintf("%s.%s == \"\"", lowerStructName, col.JsonTag)

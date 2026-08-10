@@ -3,6 +3,10 @@ github.com/360EntSecGroup-Skylar/excelize v1.4.1/go.mod h1:vnax29X2usfl7HHkBrX5E
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/ibmdb/go_ibm_db v0.5.4 h1:cveEOt1J2PoQivQdxIQB0f8ugDJYKaSmh7RUKAaJyAE=
+github.com/ibmdb/go_ibm_db v0.5.4/go.mod h1:BA12Alfe+h5BMGZGE+b0pqP4leILZkpoxe5qr/iMoHw=
+github.com/ibmruntimes/go-recordio/v2 v2.0.0-20240416213906-ae0ad556db70 h1:muF5XqVkHnMdbMDXusPdKtuT8qWzefBgSuLH1JVHcC4=
+github.com/ibmruntimes/go-recordio/v2 v2.0.0-20240416213906-ae0ad556db70/go.mod h1:NSpUK0x9IyEoM1EjTp2/S8ErxZfRHoA2DfwiYobFSkc=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 h1:RWengNIwukTxcDr9M+97sNutRR1RKhG96O6jWumTTnw=
