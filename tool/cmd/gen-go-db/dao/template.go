@@ -8,6 +8,11 @@ import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 
+// isPointerGoType 判断 Go 类型是否为指针类型（如 *time.Time）。
+func isPointerGoType(goType string) bool {
+	return strings.HasPrefix(goType, "*")
+}
+
 // generateZeroValueCheck 生成零值判断代码
 func generateZeroValueCheck(columns []table.ColumnData) string {
 	var checkCode string
@@ -19,14 +24,20 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 			checkCode += "("
 		}
 		// 根据字段类型生成不同的零值判断条件
-		switch col.GoType {
-		case "string":
-			checkCode += "entity." + col.JsonTag + " == \"\""
-		case "time.Time":
-			checkCode += "entity." + col.JsonTag + ".IsZero()"
-		default:
-			// 数值类型
-			checkCode += "entity." + col.JsonTag + " == 0"
+		if isPointerGoType(col.GoType) {
+			checkCode += "entity." + col.JsonTag + " == nil"
+		} else {
+			switch col.GoType {
+			case "string":
+				checkCode += "entity." + col.JsonTag + " == \"\""
+			case "time.Time":
+				checkCode += "entity." + col.JsonTag + ".IsZero()"
+			case "bool":
+				checkCode += "!entity." + col.JsonTag
+			default:
+				// 数值类型
+				checkCode += "entity." + col.JsonTag + " == 0"
+			}
 		}
 		checkCode += ")"
 	}
@@ -161,14 +172,20 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		if firstPkCol != nil {
 			// 根据字段类型生成不同的空值判断条件
 			var nullCheck string
-			switch firstPkCol.GoType {
-			case "string":
-				nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
-			case "time.Time":
-				nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
-			default:
-				// 数值类型
-				nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
+			if isPointerGoType(firstPkCol.GoType) {
+				nullCheck = "entity." + firstPkCol.JsonTag + " != nil"
+			} else {
+				switch firstPkCol.GoType {
+				case "string":
+					nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
+				case "time.Time":
+					nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
+				case "bool":
+					nullCheck = "entity." + firstPkCol.JsonTag
+				default:
+					// 数值类型
+					nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
+				}
 			}
 			primaryKeyCheck += "\tif " + nullCheck + " {\n"
 			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.Name + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
@@ -184,13 +201,19 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				}
 				if pkCol != nil {
 					var secondaryNullCheck string
-					switch pkCol.GoType {
-					case "string":
-						secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
-					case "time.Time":
-						secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
-					default:
-						secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
+					if isPointerGoType(pkCol.GoType) {
+						secondaryNullCheck = "entity." + pkCol.JsonTag + " != nil"
+					} else {
+						switch pkCol.GoType {
+						case "string":
+							secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
+						case "time.Time":
+							secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
+						case "bool":
+							secondaryNullCheck = "entity." + pkCol.JsonTag
+						default:
+							secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
+						}
 					}
 					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
 					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
@@ -231,14 +254,20 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				if col.Name == colName {
 					// 根据字段类型生成不同的空值判断条件
 					var nullCheck string
-					switch col.GoType {
-					case "string":
-						nullCheck = "entity." + col.JsonTag + " != \"\""
-					case "time.Time":
-						nullCheck = "!entity." + col.JsonTag + ".IsZero()"
-					default:
-						// 数值类型
-						nullCheck = "entity." + col.JsonTag + " != 0"
+					if isPointerGoType(col.GoType) {
+						nullCheck = "entity." + col.JsonTag + " != nil"
+					} else {
+						switch col.GoType {
+						case "string":
+							nullCheck = "entity." + col.JsonTag + " != \"\""
+						case "time.Time":
+							nullCheck = "!entity." + col.JsonTag + ".IsZero()"
+						case "bool":
+							nullCheck = "entity." + col.JsonTag
+						default:
+							// 数值类型
+							nullCheck = "entity." + col.JsonTag + " != 0"
+						}
 					}
 
 					// 每个索引都是独立的if检查
@@ -252,14 +281,20 @@ func GetDaoTemplate(tableData *table.TableData) string {
 							if secondaryCol.Name == secondaryColName {
 								// 根据字段类型生成不同的空值判断条件
 								var secondaryNullCheck string
-								switch secondaryCol.GoType {
-								case "string":
-									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
-								case "time.Time":
-									secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
-								default:
-									// 数值类型
-									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
+								if isPointerGoType(secondaryCol.GoType) {
+									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != nil"
+								} else {
+									switch secondaryCol.GoType {
+									case "string":
+										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
+									case "time.Time":
+										secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
+									case "bool":
+										secondaryNullCheck = "entity." + secondaryCol.JsonTag
+									default:
+										// 数值类型
+										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
+									}
 								}
 								indexCheck += "\t\tif " + secondaryNullCheck + " {\n"
 								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.Name + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
