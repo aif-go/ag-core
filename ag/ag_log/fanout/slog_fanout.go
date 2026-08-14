@@ -23,14 +23,17 @@ func BindAgSLogFanoutProperties(binder ag_conf.IBinder) (*AgSlogFanoutProperties
 	prop := &AgSlogFanoutProperties{}
 	err := binder.Bind(prop, AgSlogFanoutPropertiesKeyPrefix)
 	if err != nil {
-		fmt.Printf("BindSlogZapProperties err: %v", err)
-		return nil, nil
+		fmt.Printf("BindAgSLogFanoutProperties err: %v", err)
+		return prop, nil
 	}
 	return prop, nil
 }
 
 func NewFanoutHandlerFactorys(props *AgSlogFanoutProperties) ([]*agslog.HandlerFactory, error) {
 	factories := make([]*agslog.HandlerFactory, 0)
+	if props == nil || props.Logs == nil {
+		return factories, nil
+	}
 	for name, handlers := range props.Logs {
 		// 创建fanout handler工厂
 		// 创建局部变量副本

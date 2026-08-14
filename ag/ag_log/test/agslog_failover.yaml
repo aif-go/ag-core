@@ -1,0 +1,21 @@
+aglog:
+  IsDefault: false
+  topHandler:
+    - "zap1"
+
+  failover:
+    logs:
+      fo1: ["zap1", "zap2"]
+
+  zap:
+    logs:
+      zap1:
+        log_level: debug
+        encoding: console
+        console: true
+        stdout: true
+      zap2:
+        log_level: debug
+        encoding: json
+        console: false
+        stdout: true
