@@ -179,6 +179,62 @@ func TestStudentFindByStruct(t *testing.T) {
 			wantErr: false,
 			wantCnt: 1,
 		},
+
+		// ============ 零值不进 WHERE 场景 ============
+		{
+			name:    "场景25:string索引列零值-Name空不进WHERE",
+			entity:  &model.TmStudent{Name: "", ClassId: "C01"},
+			wantErr: false,
+			wantCnt: 2, // Name=""不进WHERE, 仅class_id=C01命中2条
+		},
+		{
+			name:    "场景26:string普通列零值-Address空不进WHERE",
+			entity:  &model.TmStudent{Name: "Alice", Address: ""},
+			wantErr: false,
+			wantCnt: 3, // Address=""不进WHERE, 仅name=Alice命中3条
+		},
+		{
+			name:    "场景27:bool零值-IsGraduate=false不进WHERE",
+			entity:  &model.TmStudent{Name: "TestBool", IsGraduate: false},
+			wantErr: false,
+			wantCnt: 2, // is_graduate=false零值不进WHERE, 仅name=TestBool命中2条(NO011,NO012)
+		},
+		{
+			name:    "场景28:指针零值-EnrollDate=nil不进WHERE",
+			entity:  &model.TmStudent{Name: "TestTime", EnrollDate: nil},
+			wantErr: false,
+			wantCnt: 2, // enroll_date=nil不进WHERE, name=TestTime命中2条
+		},
+		{
+			name:    "场景29:特殊列零值-JpaVersion=0不进WHERE",
+			entity:  &model.TmStudent{Name: "Alice", JpaVersion: 0},
+			wantErr: false,
+			wantCnt: 3, // jpa_version=0不进WHERE, 仅name=Alice命中3条
+		},
+		{
+			name:    "场景30:特殊列零值-CreateTime零值不进WHERE",
+			entity:  &model.TmStudent{Name: "Alice", CreateTime: time.Time{}},
+			wantErr: false,
+			wantCnt: 3, // create_time零值不进WHERE, 仅name=Alice命中3条
+		},
+		{
+			name:    "场景31:特殊列零值-LastUpdateTime零值不进WHERE",
+			entity:  &model.TmStudent{Name: "Alice", LastUpdateTime: time.Time{}},
+			wantErr: false,
+			wantCnt: 3, // last_update_time零值不进WHERE, 仅name=Alice命中3条
+		},
+		{
+			name:    "场景32:数值零值-Score=0不进WHERE",
+			entity:  &model.TmStudent{Name: "Alice", Score: 0},
+			wantErr: false,
+			wantCnt: 3, // score=0不进WHERE, 仅name=Alice命中3条
+		},
+		{
+			name:    "场景33:仅普通列有值-所有索引列/主键为零-预期错误",
+			entity:  &model.TmStudent{Score: 100},
+			wantErr: true,
+			wantCnt: 0,
+		},
 	}
 
 	for _, tc := range testCases {
