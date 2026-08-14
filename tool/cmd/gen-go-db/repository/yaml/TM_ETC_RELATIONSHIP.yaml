@@ -1,0 +1,62 @@
+table_name: tm_etc_relationship
+columns:
+  - name: ORG
+    type: string
+    length: "12"
+    not_null: true
+    description: 机构号
+  - name: ETC_CARD_NO
+    type: string
+    length: "28"
+    not_null: true
+    description: ETC卡号
+  - name: CARD_NO
+    type: string
+    length: "19"
+    not_null: true
+    description: 卡号
+  - name: CURR_CD
+    type: string
+    length: "3"
+    not_null: true
+    description: 币种
+  - name: ETC_RELATIONSHIP
+    type: string
+    length: "1"
+    not_null: true
+    description: 绑定关系 B-绑 U-解绑
+  - name: RELATIONSHIP_BULID_DATE
+    type: date
+    description: 绑定日期
+  - name: RELATIONSHIP_CANCEL_DATE
+    type: date
+    description: 解绑日期
+  - name: RESERVED_FIELD1
+    type: string
+    length: "100"
+    description: 预留字段1
+  - name: RESERVED_FIELD2
+    type: string
+    length: "100"
+    description: 预留字段2
+  - name: RESERVED_FIELD3
+    type: string
+    length: "100"
+    description: 预留字段3
+  - name: JPA_VERSION
+    type: int64
+    not_null: true
+    description: 乐观锁版本号
+  - name: CREATED_TIME
+    type: timestamp
+    support_update: false
+    description: 创建时间
+    tag: ///@create
+  - name: LAST_MODIFIED_TIME
+    type: timestamp
+    support_update: true
+    description: 最近一次维护操作时间
+    tag: ///@update
+primary_key:
+  - ORG
+  - ETC_CARD_NO

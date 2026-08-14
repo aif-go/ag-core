@@ -217,6 +217,79 @@ gendb yaml -i ./ddl_only.xlsx -o ./config/yaml
 gendb db -i ./config/yaml -o ./internal/database
 ```
 
+## 指针类型字段
+
+YAML 中 `type` 以 `*` 开头时，**原样透传为 Go 类型**（不做固化类型映射），用于可空字段。
+
+```yaml
+columns:
+  - name: time_pointer
+    type: "*time.Time"     # 生成 *time.Time
+  - name: count
+    type: "*int64"         # 生成 *int64
+```
+
+生成的 Model 结构体：
+
+```go
+TimePointer *time.Time `gorm:"column:time_pointer" json:"TimePointer"`
+Count       *int64      `gorm:"column:count" json:"Count"`
+```
+
+**行为说明**：
+
+- 指针类型字段在所有零值检查路径中自动生成 `== nil` / `!= nil` 判断，不会生成 `== 0` 或 `IsZero()`。
+- 查询、更新、DAO 方法中同样按指针语义生成判断。
+
+## 乐观锁字段
+
+YAML 中给列标记 `///@optimisticlock`，该列 Go 字段类型**固定**为 `optimisticlock.Version`（来自 `gorm.io/plugin/optimisticlock`），YAML 的 `type` 保留作为 DB 列类型。一个列可写多个 tag，以 `;` 分隔（如 `tag: "///@create;///@optimisticlock"`）。
+
+```yaml
+columns:
+  - name: id
+    type: int64
+  - name: jpa_version
+    type: int64
+    tag: "///@optimisticlock"
+```
+
+生成的 Model 结构体：
+
+```go
+JpaVersion optimisticlock.Version `gorm:"column:jpa_version" json:"JpaVersion"`
+```
+
+**特性**：
+
+- **无需注册插件**：`gorm.io/plugin/optimisticlock` v1.1.3 的 `Version` 类型通过实现 GORM clause 接口自动生效，没有 `db.Use` 注册 API。
+- **插入时自动初始化版本**：未显式指定版本则置为 1。
+- **更新时自动加乐观锁守卫**：`UPDATE ... WHERE version=<当前值> AND pk=?`，并 `SET version=version+1`。
+- **版本不匹配**：返回 `RowsAffected == 0`（**不是错误**），由调用方检查影响条数判定乐观锁冲突。
+- 乐观锁列自动纳入特殊列：插入忽略零值（`InsertOneIgnoreZeroValCols`）时排除。
+
+**使用示例**（先查后改，携带版本更新）：
+
+```go
+// 1. 查询出实体（Version 已从 DB 加载，Valid=true）
+tmTeacher, _ := tmTeacherDao.FindByPrimaryKey(ctx, 1)
+
+// 2. 修改业务字段
+tmTeacher.Name = "新名称"
+
+// 3. 更新（插件自动带上 WHERE version=<原版本>，并 version+1）
+rows, err := tmTeacherDao.UpdateByPrimaryKey(ctx, tmTeacher)
+if err != nil {
+    return err
+}
+if rows == 0 {
+    // 乐观锁冲突：版本已被他人修改，需要重新查询后再更新
+    return errors.New("版本冲突，请刷新后重试")
+}
+```
+
+> 说明：也可手动指定版本参与校验：`tmTeacher.JpaVersion = optimisticlock.Version{Valid: true, Int64: 1}`。
+
 ## 常见问题
 
 ### Q: 如何查看帮助信息？
@@ -264,6 +337,18 @@ Excel 文件需要按照特定的格式定义表结构，包括字段名、类�
 ### Q: sheet 命令的输出文件名如何生成？
 
 如果 `--output` 参数是目录或没有扩展名，则使用默认文件名：`原文件名_日期`（日期格式：20060102）。如果指定了完整文件路径，则使用指定的文件名。
+
+### Q: 如何让某一列成为乐观锁字段？
+
+在 YAML 的列上标记 `tag: "///@optimisticlock"`，生成时该列类型固定为 `optimisticlock.Version`。详见上文「乐观锁字段」一节。
+
+### Q: 乐观锁版本不匹配时为什么没有报错？
+
+`gorm.io/plugin/optimisticlock` v1.1.3 设计如此：版本不匹配时更新影响 0 行、不返回错误。请通过检查 `UpdateByPrimaryKey` 等更新方法返回的 `RowsAffected == 0` 来判定乐观锁冲突。
+
+### Q: 一个列可以同时有多个 tag 吗？
+
+可以。多个 tag 以 `;` 分隔写在同一个 `tag` 字段中，例如 `tag: "///@create;///@optimisticlock"`，各 tag 独立生效。
 
 ## 技术支持
 

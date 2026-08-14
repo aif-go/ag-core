@@ -1,0 +1,11 @@
+description: 测试简单的NOT EXISTS操作
+input: NOT EXISTS (SELECT 1 FROM orders WHERE user_id = id AND status = 'pending')
+name: NOTEXISTS_简单NOTEXISTS
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: NOT EXISTS
+          field: ""
+          values: []

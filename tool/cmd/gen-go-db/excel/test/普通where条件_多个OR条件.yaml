@@ -1,0 +1,21 @@
+description: 测试多个OR连接的where条件
+input: id = 1 OR id = 2 OR id = 3
+name: 普通where条件_多个OR条件
+output:
+    operator: OR
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id = 1
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: id = 2
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: id = 3
+          field: ""
+          values: []

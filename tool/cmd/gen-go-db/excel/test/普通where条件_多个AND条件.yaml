@@ -1,0 +1,21 @@
+description: 测试多个AND连接的where条件
+input: id = 1 AND name = 'test' AND age > 18
+name: 普通where条件_多个AND条件
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id = 1
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: name = 'test'
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: age > 18
+          field: ""
+          values: []

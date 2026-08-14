@@ -1,0 +1,11 @@
+description: 测试简单的IN操作
+input: id IN (1, 2, 3)
+name: IN操作_简单IN
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id IN (1, 2, 3)
+          field: ""
+          values: []

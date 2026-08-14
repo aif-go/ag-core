@@ -1,0 +1,16 @@
+description: 测试复杂的子查询
+input: id IN (SELECT id FROM orders WHERE amount > 1000 AND created_at > '2024-01-01')
+name: 子查询_复杂子查询
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id IN (SELECT id FROM orders WHERE amount > 1000
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: created_at > '2024-01-01'
+          field: ""
+          values: []

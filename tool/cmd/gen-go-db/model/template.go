@@ -157,7 +157,7 @@ func isIndexColumn(tableData *table.TableData, colName string) bool {
 
 // isSpecialColumn 检查列是否为特殊列（jpaVersion, create_time, last_update_time）
 func isSpecialColumn(colData table.ColumnData) bool {
-	if colData.IsAutoCreate || colData.IsAutoUpdate || colData.IsJavaVersion {
+	if colData.IsAutoCreate || colData.IsAutoUpdate || colData.IsJavaVersion || colData.IsOptimisticLock {
 		return true
 	}
 	// specialCols := []string{"jpa_version", "create_time", "last_update_time", "jpaVersion", "createTime", "lastUpdateTime"}
@@ -182,6 +182,9 @@ func getZeroCheck(lowerStructName string, col table.ColumnData) string {
 		return fmt.Sprintf("%s.%s.IsZero()", lowerStructName, col.JsonTag)
 	case "bool":
 		return fmt.Sprintf("!%s.%s", lowerStructName, col.JsonTag)
+	case "optimisticlock.Version":
+		// 乐观锁列是结构体，不能与 0 比较，用 Valid 判断
+		return fmt.Sprintf("!%s.%s.Valid", lowerStructName, col.JsonTag)
 	default:
 		// 数值类型（int, int64, float64等）
 		return fmt.Sprintf("%s.%s == 0", lowerStructName, col.JsonTag)
