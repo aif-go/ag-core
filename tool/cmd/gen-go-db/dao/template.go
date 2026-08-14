@@ -157,10 +157,11 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	// 	}
 	// }
 
-	// 构建主键查询代码（用于 FindByStruct）
+	// 构建主键查询代码（用于 FindByStruct 的索引守卫：主键已提供即视为使用索引）
 	var primaryKeyCheck string
-	if len(tableData.PrimaryKeys) > 0 {
-		primaryKeyCheck = "\t// 检查主键是否为空\n"
+	if len(tableData.PrimaryKeys) > 0 && len(tableData.Indexes) > 0 {
+		primaryKeyCheck = "\t// 检查主键是否已提供（主键索引可满足索引守卫，避免全表扫描）\n"
+		primaryKeyCheck += "\tpkUsed := false\n"
 		// 获取第一个主键的列数据
 		var firstPkCol *table.ColumnData
 		for _, col := range tableData.Columns {
@@ -188,43 +189,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				}
 			}
 			primaryKeyCheck += "\tif " + nullCheck + " {\n"
-			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.Name + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
-			
-			// 处理其他主键（嵌套在第一个主键的条件中）
-			for i := 1; i < len(tableData.PrimaryKeys); i++ {
-				var pkCol *table.ColumnData
-				for _, col := range tableData.Columns {
-					if col.Name == tableData.PrimaryKeys[i] {
-						pkCol = &col
-						break
-					}
-				}
-				if pkCol != nil {
-					var secondaryNullCheck string
-					if isPointerGoType(pkCol.GoType) {
-						secondaryNullCheck = "entity." + pkCol.JsonTag + " != nil"
-					} else {
-						switch pkCol.GoType {
-						case "string":
-							secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
-						case "time.Time":
-							secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
-						case "bool":
-							secondaryNullCheck = "entity." + pkCol.JsonTag
-						default:
-							secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
-						}
-					}
-					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
-					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
-					// primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
-					// primaryKeyCheck += "\t\t\treturn list, result.Error\n"
-					primaryKeyCheck += "\t\t}\n"
-				}
-			}
-			
-			primaryKeyCheck += "\t\tresult := db.Find(&list)\n"
-			primaryKeyCheck += "\t\treturn list, result.Error\n"
+			primaryKeyCheck += "\t\tpkUsed = true\n"
 			primaryKeyCheck += "\t}\n"
 		}
 	}
@@ -279,11 +244,15 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		}
 	}
 
-	// index 结果判断处理
+	// index 结果判断处理（主键与索引判断变量分离，两者都为 false 才报错）
 	var indexUsedCheck string
 	if len(tableData.Indexes) > 0 {
-	indexUsedCheck="\t// 检查索引列，确保使用了索引\n"
+	indexUsedCheck="\t// 检查是否使用了主键或索引，避免全表扫描\n"
+	if len(tableData.PrimaryKeys) > 0 {
+	indexUsedCheck+="\tif !pkUsed && !indexUsed {\n"
+	} else {
 	indexUsedCheck+="\tif !indexUsed {\n"
+	}
 	indexUsedCheck+="\t\treturn nil, errors.New(\"query not use any index\")\n"
 	indexUsedCheck+="\t}\n"
 	}
@@ -524,8 +493,8 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 ` + primaryKeyCheck + `
 ` + indexCheck + `
 ` + indexUsedCheck+`
-	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
+	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件；主键已由 pkUsed 承担索引守卫职责
+	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
 	if err != nil {
 		return nil, err
 	}

@@ -2,25 +2,22 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/aif-go/ag-core/contribute/agdb/agdao"
 	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
 	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/test"
 
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
 	_ "github.com/ibmdb/go_ibm_db"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 func TestInsertOne(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	res, err := tmTeacherDao.InsertOne(ctx, &model.TmTeacher{
 		Name:    "test1",
 		Address: "上海市浦东新区",
@@ -33,7 +30,7 @@ func TestInsertOne(t *testing.T) {
 
 func TestInsertOneIgnoreZeroVal(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	res, err := tmTeacherDao.InsertOneIgnoreZeroValCols(ctx, &model.TmTeacher{
 		Name:    "aaa3",
 		Address: "上海市徐汇区",
@@ -46,7 +43,7 @@ func TestInsertOneIgnoreZeroVal(t *testing.T) {
 
 func TestUpdateByPrimaryKey(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{
 		Id:      1,
 		Name:    "test1B",
@@ -60,7 +57,7 @@ func TestUpdateByPrimaryKey(t *testing.T) {
 
 func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
 		Id:      2,
 		Name:    "test2",
@@ -75,14 +72,14 @@ func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 
 func TestFindByStruct(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 
 	testCases := []struct {
 		name    string
 		entity  *model.TmTeacher
 		wantErr bool
 	}{
-		{name: "场景1:按主键查询(Id=401)", entity: &model.TmTeacher{Id: 401}, wantErr: false},
+		{name: "场景1:按主键查询(Id=242)", entity: &model.TmTeacher{Id: 242}, wantErr: false},
 		{name: "场景2:单索引列-Name", entity: &model.TmTeacher{Name: "test1"}, wantErr: false},
 		{name: "场景3:单索引列-ClassId", entity: &model.TmTeacher{ClassId: "1"}, wantErr: false},
 		{name: "场景4:单索引列-Phone", entity: &model.TmTeacher{Phone: "13800000000"}, wantErr: false},
@@ -120,7 +117,7 @@ func TestFindByStruct(t *testing.T) {
 
 func TestFindByCustomRule(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	args:=&model.TmTeacherFindByNameNadAddressArg{
 		FieldMask: conditonwhere.NewFieldMask(),
 	}
@@ -136,7 +133,7 @@ func TestFindByCustomRule(t *testing.T) {
 
 func TestFindByCustomRuleByPageMysql(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := GetRepository()
+	tmTeacherDao := test.GetRepository()
 	res, err := tmTeacherDao.FindByCustomerRule(ctx, dao.FindByPhoneNamingInfo, &model.TmTeacherFindByPhoneArg{
 		Phone: "13800000000",
 		Page: gormdb.Page{
@@ -167,69 +164,6 @@ func TestFindByCustomRuleByPageMysql(t *testing.T) {
 
 // 	printEntity("TestUpdateDynamic", res, err, t)
 // }
-
-func GetRepository() dao.ITmTeacherDao {
-	dbType := "ibmdb" // 切换数据库类型：mysql / ibmdb
-
-	opener := gormdb.GetDBOpener(dbType)
-	if opener == nil {
-		panic(fmt.Sprintf("不支持的数据库驱动: %s", dbType))
-	}
-
-	db, err := gorm.Open(opener(GetDSN(dbType)), &gorm.Config{
-		SkipDefaultTransaction: true,
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	sqldb, err := db.DB()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	sqldb.SetMaxIdleConns(10)
-	sqldb.SetMaxOpenConns(10)
-	sqldb.SetConnMaxLifetime(time.Second)
-	sqldb.SetConnMaxIdleTime(time.Second)
-
-	repository := gormdb.NewRepository(db)
-
-	return dao.NewTmTeacherDao(repository, &TestBaseDao{
-		tbInfoOpts: []agdao.TbInfoOpt{
-			agdao.WithTbNameStrategy(func(ctx context.Context, info *agdao.TableInfo) string {
-				return "tm_teacher"
-			}),
-		},
-	})
-}
-
-// GetDSN 根据数据库类型返回对应的连接字符串
-func GetDSN(dbType string) string {
-	switch dbType {
-	case "mysql":
-		return "root:root@tcp(localhost:3306)/process?parseTime=True&loc=Local"
-	case "ibmdb":
-		return "HOSTNAME=192.168.105.63;DATABASE=testdb;PORT=50003;UID=db2inst1;PWD=db2inst1;AUTHENTICATION=SERVER;CurrentSchema=db2inst1"
-	default:
-		panic(fmt.Sprintf("不支持的数据库类型: %s", dbType))
-	}
-}
-
-type TestBaseDao struct {
-	tbInfoOpts []agdao.TbInfoOpt
-}
-
-func (dao *TestBaseDao) ApplyTbInfoOpts(ctx context.Context, info *agdao.TableInfo) {
-	for _, opt := range dao.tbInfoOpts {
-		opt(ctx, info)
-	}
-}
-
-func (dao *TestBaseDao) RegTbInfoOpt(opts ...agdao.TbInfoOpt) {
-	dao.tbInfoOpts = append(dao.tbInfoOpts, opts...)
-}
 
 // func TestInsertOne(t *testing.T) {
 // 	// 测试插入一条数据

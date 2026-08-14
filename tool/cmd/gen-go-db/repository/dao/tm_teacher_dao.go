@@ -146,11 +146,10 @@ func (dao *TmTeacherDao) FindByStruct(ctx context.Context, entity *model.TmTeach
 		return nil, err
 	}
 
-	// 检查主键是否为空
+	// 检查主键是否已提供（主键索引可满足索引守卫，避免全表扫描）
+	pkUsed := false
 	if entity.Id != 0 {
-		db = db.Where("id = ?", entity.Id)
-		result := db.Find(&list)
-		return list, result.Error
+		pkUsed = true
 	}
 
 	// 检查索引列，确保使用了索引
@@ -172,13 +171,13 @@ func (dao *TmTeacherDao) FindByStruct(ctx context.Context, entity *model.TmTeach
 		indexUsed = true
 	}
 
-	// 检查索引列，确保使用了索引
-	if !indexUsed {
+	// 检查是否使用了主键或索引，避免全表扫描
+	if !pkUsed && !indexUsed {
 		return nil, errors.New("query not use any index")
 	}
 
-	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
+	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件；主键已由 pkUsed 承担索引守卫职责
+	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
 	if err != nil {
 		return nil, err
 	}
