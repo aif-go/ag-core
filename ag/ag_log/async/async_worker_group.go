@@ -53,10 +53,28 @@ func (t *logTask) Reset() {
 	t.handler = nil
 }
 
-var taskPool = sync.Pool{
-	New: func() any {
-		return &logTask{}
+type logTaskPool struct {
+	pool sync.Pool
+}
+
+var taskPool = &logTaskPool{
+	pool: sync.Pool{
+		New: func() any { return &logTask{} },
 	},
+}
+
+// Borrow 借一个 task
+func (p *logTaskPool) Borrow() *logTask {
+	return p.pool.Get().(*logTask)
+}
+
+// Return 归还 task（内部负责 Reset），纯生命周期管理，不含业务统计
+func (p *logTaskPool) Return(t *logTask) {
+	if t == nil {
+		return
+	}
+	t.Reset()
+	p.pool.Put(t)
 }
 
 type worker struct {
@@ -160,6 +178,7 @@ func (wg *WorkerGroup) Submit(task *logTask) error {
 			return nil
 		default:
 			wg.stats.Dropped.Add(1)
+			taskPool.Return(task)
 			return nil
 		}
 
@@ -172,12 +191,22 @@ func (wg *WorkerGroup) Submit(task *logTask) error {
 		select {
 		case wg.logQueue <- task:
 			wg.stats.Queued.Add(1)
+			return nil
 		default:
 			select {
-			case <-wg.logQueue:
+			case old := <-wg.logQueue:
 				wg.stats.Dropped.Add(1)
-				wg.logQueue <- task
+				taskPool.Return(old)
+				select {
+				case wg.logQueue <- task:
+					wg.stats.Queued.Add(1)
+				default:
+					wg.stats.Dropped.Add(1)
+					taskPool.Return(task)
+				}
 			default:
+				wg.stats.Dropped.Add(1)
+				taskPool.Return(task)
 			}
 		}
 		return nil
@@ -238,10 +267,7 @@ func (w *worker) run() {
 }
 
 func (w *worker) processTask(task *logTask) {
-	defer func() {
-		task.Reset()
-		taskPool.Put(task)
-	}()
+	defer taskPool.Return(task)
 
 	if err := task.handler.Handle(task.ctx, task.record); err != nil {
 		w.workerGroup.stats.Errors.Add(1)
