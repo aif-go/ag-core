@@ -6,5 +6,5 @@ package dao
 
 func InitTmTeacherNamingSql() {
 	// 执行一次初始化操作
-	InitTmTeacherMYSQL()
+	InitTmTeacherDB2()
 }

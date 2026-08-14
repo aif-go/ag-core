@@ -12,6 +12,7 @@ tool/cmd/gen-go-db/gendb/mps-template.xlsx.bak
 .gitnexus
 .claude 
 .opencode
+.codegraph
 
 tool/cmd/*/protoc-gen-*
 tool/cmd/*/aggo

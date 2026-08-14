@@ -1,0 +1,11 @@
+description: 测试字符串类型的IN操作
+input: status IN ('active', 'pending', 'completed')
+name: IN操作_字符串IN
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: status IN ('active', 'pending', 'completed')
+          field: ""
+          values: []

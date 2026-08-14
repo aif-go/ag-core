@@ -70,16 +70,27 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					}
 				}
 
-				// 处理标签
+				// 处理标签：以 ; 分隔的多 tag，逐 tag 精确匹配
 				if tag, ok := colMap["tag"].(string); ok {
-					if strings.Contains(tag, "///@create") {
-						col.IsAutoCreate = true
-					}
-					if strings.Contains(tag, "///@update") {
-						col.IsAutoUpdate = true
-					}
-					if strings.Contains(tag, "///@javaVersion") {
-						col.IsJavaVersion = true
+					for _, oneTag := range strings.Split(tag, ";") {
+						oneTag = strings.TrimSpace(oneTag)
+						if oneTag == "" {
+							continue
+						}
+						col.Tags = append(col.Tags, oneTag)
+						switch oneTag {
+						case "///@create":
+							col.IsAutoCreate = true
+						case "///@update":
+							col.IsAutoUpdate = true
+						case "///@javaVersion":
+							col.IsJavaVersion = true
+						case "///@optimisticlock":
+							col.IsOptimisticLock = true
+							// 乐观锁列 GoType 固定为 optimisticlock.Version，yaml type 保留作 DB 列类型
+							col.GoType = "optimisticlock.Version"
+							importPackages = append(importPackages, "gorm.io/plugin/optimisticlock")
+						}
 					}
 				}
 

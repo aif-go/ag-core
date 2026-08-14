@@ -34,6 +34,8 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 				checkCode += "entity." + col.JsonTag + ".IsZero()"
 			case "bool":
 				checkCode += "!entity." + col.JsonTag
+			case "optimisticlock.Version":
+				checkCode += "!entity." + col.JsonTag + ".Valid"
 			default:
 				// 数值类型
 				checkCode += "entity." + col.JsonTag + " == 0"
@@ -182,6 +184,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
 				case "bool":
 					nullCheck = "entity." + firstPkCol.JsonTag
+				case "optimisticlock.Version":
+					nullCheck = "entity." + firstPkCol.JsonTag + ".Valid"
 				default:
 					// 数值类型
 					nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
@@ -211,7 +215,10 @@ func GetDaoTemplate(tableData *table.TableData) string {
 							secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
 						case "bool":
 							secondaryNullCheck = "entity." + pkCol.JsonTag
+						case "optimisticlock.Version":
+							secondaryNullCheck = "entity." + pkCol.JsonTag + ".Valid"
 						default:
+							// 数值类型
 							secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
 						}
 					}
@@ -264,6 +271,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 							nullCheck = "!entity." + col.JsonTag + ".IsZero()"
 						case "bool":
 							nullCheck = "entity." + col.JsonTag
+						case "optimisticlock.Version":
+							nullCheck = "entity." + col.JsonTag + ".Valid"
 						default:
 							// 数值类型
 							nullCheck = "entity." + col.JsonTag + " != 0"
@@ -291,6 +300,8 @@ func GetDaoTemplate(tableData *table.TableData) string {
 										secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
 									case "bool":
 										secondaryNullCheck = "entity." + secondaryCol.JsonTag
+									case "optimisticlock.Version":
+										secondaryNullCheck = "entity." + secondaryCol.JsonTag + ".Valid"
 									default:
 										// 数值类型
 										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
@@ -523,7 +534,7 @@ func (dao *` + structName + `Dao) UpdateByPrimaryKey(ctx context.Context, entity
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 5. 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Save(entity)
+	result := db.Model(entity).Save(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -540,7 +551,7 @@ func (dao *` + structName + `Dao) UpdateByPrimaryKeyIngoreZeroValCols(ctx contex
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.` + structName + `{}).Where(where).Updates(entity)
+	result := db.Model(entity).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
@@ -945,7 +956,7 @@ var %sNamingSqlMap = map[string]string{}
 	excludeCols := []string{}
 	for _, col := range tableData.Columns {
 		// 检查列的标签是否包含需要排除的标记
-		if col.IsJavaVersion || col.IsAutoCreate || col.IsAutoUpdate {
+		if col.IsJavaVersion || col.IsOptimisticLock || col.IsAutoCreate || col.IsAutoUpdate {
 			excludeCols = append(excludeCols, col.JsonTag)
 			continue
 		}

@@ -145,4 +145,80 @@ func TestDAO_PointerDispatch(t *testing.T) {
 			t.Errorf("GetDaoTemplate 非指针主键应生成 IsZero 判断, got:\n%s", code)
 		}
 	})
+
+	t.Run("GetConstantTemplate 乐观锁列进排除名单", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName: "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:  "tm_opt_lock",
+			StructName: "TmOptLock",
+			Columns: []table.ColumnData{
+				{Name: "id", JsonTag: "Id", IsPrimaryKey: true},
+				{Name: "jpa_version", JsonTag: "JpaVersion", IsOptimisticLock: true},
+				{Name: "name", JsonTag: "Name"},
+			},
+		}
+		code := GetConstantTemplate(tableData)
+		if !strings.Contains(code, `"JpaVersion": 0`) {
+			t.Errorf("排除名单应包含乐观锁列 JpaVersion, got:\n%s", code)
+		}
+		if strings.Contains(code, `"Name": 0`) {
+			t.Errorf("排除名单不应包含普通列 Name, got:\n%s", code)
+		}
+	})
+}
+
+// TestDAO_OptimisticLockZeroCheck 防御性验证：乐观锁列（结构体类型）流入任何零值/空值检查时，
+// 生成 Valid 判断而非 == 0 / != 0（否则结构体与 0 比较会编译失败）。
+func TestDAO_OptimisticLockZeroCheck(t *testing.T) {
+	t.Run("generateZeroValueCheck 乐观锁列生成 !Valid", func(t *testing.T) {
+		columns := []table.ColumnData{{GoType: "optimisticlock.Version", JsonTag: "jpaVersion"}}
+		code := generateZeroValueCheck(columns)
+		if !strings.Contains(code, "!entity.jpaVersion.Valid") {
+			t.Errorf("generateZeroValueCheck 应生成 !entity.jpaVersion.Valid, got: %s", code)
+		}
+		if strings.Contains(code, "entity.jpaVersion == 0") {
+			t.Errorf("generateZeroValueCheck 乐观锁列不应生成 == 0, got: %s", code)
+		}
+	})
+
+	t.Run("GetDaoTemplate 乐观锁主键列生成 Valid 非空判断", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:   "tm_opt_lock_pk",
+			StructName:  "TmOptLockPk",
+			PrimaryKeys: []string{"jpa_version"},
+			Columns: []table.ColumnData{
+				{Name: "jpa_version", GoType: "optimisticlock.Version", JsonTag: "jpaVersion", IsPrimaryKey: true},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		if !strings.Contains(code, "if entity.jpaVersion.Valid {") {
+			t.Errorf("GetDaoTemplate 乐观锁主键应生成 Valid 非空判断, got:\n%s", code)
+		}
+		for _, notWant := range []string{"entity.jpaVersion != 0", "entity.jpaVersion == 0"} {
+			if strings.Contains(code, notWant) {
+				t.Errorf("GetDaoTemplate 乐观锁列不应生成 %q, got:\n%s", notWant, code)
+			}
+		}
+	})
+
+	t.Run("GetDaoTemplate 乐观锁索引列生成 Valid 非空判断", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:   "tm_opt_lock_idx",
+			StructName:  "TmOptLockIdx",
+			PrimaryKeys: []string{"id"},
+			Columns: []table.ColumnData{
+				{Name: "id", GoType: "int64", JsonTag: "id", IsPrimaryKey: true},
+				{Name: "jpa_version", GoType: "optimisticlock.Version", JsonTag: "jpaVersion"},
+			},
+			Indexes: []table.IndexData{
+				{Name: "idx_version", Columns: []string{"jpa_version"}},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		if !strings.Contains(code, "if entity.jpaVersion.Valid {") {
+			t.Errorf("GetDaoTemplate 乐观锁索引列应生成 Valid 非空判断, got:\n%s", code)
+		}
+	})
 }

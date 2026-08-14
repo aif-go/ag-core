@@ -15,16 +15,22 @@ import (
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
 	_ "github.com/ibmdb/go_ibm_db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestInsertOne(t *testing.T) {
 	ctx := context.Background()
 	tmTeacherDao := GetRepository()
+	TimePointer:= func() *time.Time {
+			t := time.Now()
+			return &t
+		}
 	res, err := tmTeacherDao.InsertOne(ctx, &model.TmTeacher{
 		Name:    "test1",
 		Address: "上海市浦东新区",
 		Phone:   "13800000000",
 		ClassId: "1",
+		TimePointer: TimePointer(),
 		CardNo:  "沪A123M1",
 	})
 	printEntity("InsertOne", res, err, t)
@@ -38,6 +44,7 @@ func TestInsertOneIgnoreZeroVal(t *testing.T) {
 		Address: "上海市徐汇区",
 		Phone:   "10000000003",
 		ClassId: "",
+		BoolTest: true,
 		CardNo:  "xxxx",
 	})
 	printEntity("InsertOneIgnoreZeroVal", res, err, t)
@@ -46,28 +53,43 @@ func TestInsertOneIgnoreZeroVal(t *testing.T) {
 func TestUpdateByPrimaryKey(t *testing.T) {
 	ctx := context.Background()
 	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{
-		Id:      1,
-		Name:    "test1B",
-		Address: "上海市浦东新区",
-		Phone:   "1380000000B",
-		ClassId: "",
-		CardNo:  "沪BBBB",
-	})
+	// tmTeacher, err := tmTeacherDao.FindByPrimaryKey(ctx, 1)
+	// printEntity("FindByPrimaryKey", tmTeacher, err, t)
+	// if err != nil {
+	// 	t.Errorf("FindByPrimaryKey failed: %v", err)
+	// }
+	// tmTeacher.Name = "test3B"
+	// tmTeacher.Address = "xxxx"	
+	// tmTeacher.CardNo = "1234567890"
+    tmTeacher := &model.TmTeacher {
+		Id:      402,
+		Name:    "I00001",
+		Address: "I000001",
+		Phone:   "10000000003",
+		ClassId: "1",
+		CardNo:  "I000003",
+	}
+	tmTeacher.JpaVersion.Int64 = 5
+	tmTeacher.JpaVersion.Valid = true
+	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, tmTeacher)
 	printEntity("UpdateByPrimaryKey", res, err, t)
 }
 
 func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 	ctx := context.Background()
 	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
-		Id:      2,
-		Name:    "test2",
-		Address: "上海市浦东新区",
-		Phone:   "1380000000x",
-		ClassId: "",
-		CardNo:  "沪AAAA",
-	})
+	tmTeacher:= &model.TmTeacher{
+		Id:      402,
+		Name:    "A002",
+		Address: "A0002",
+		Phone:   "A0000000002",
+		ClassId: "2",
+		CardNo:  "A00000002",
+	}
+	
+	tmTeacher.JpaVersion.Int64 = 1
+	tmTeacher.JpaVersion.Valid = true
+	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, tmTeacher)
 
 	printEntity("UpdaeByPrimaryKeyIngoreZeroValCols", res, err, t)
 }
@@ -143,7 +165,12 @@ func GetRepository() dao.ITmTeacherDao {
 
 	db, err := gorm.Open(opener(GetDSN(dbType)), &gorm.Config{
 		SkipDefaultTransaction: true,
+		Logger: logger.Default.LogMode(logger.Info),
 	})
+
+	// 乐观锁由 model 中 optimisticlock.Version 字段自动生效（v1.1.3 无 New/Config 注册 API，
+	// Version 通过实现 GORM clause 接口完成 WHERE version=X + SET version=version+1）。
+
 	if err != nil {
 		panic(err.Error())
 	}

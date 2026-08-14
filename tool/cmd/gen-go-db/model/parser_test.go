@@ -128,6 +128,99 @@ columns:
 	})
 }
 
+// TestParseYAML_OptimisticLockTag 验证 ///@optimisticlock 标记：多 tag 解析、GoType 覆盖、导入注入、Type 保留。
+func TestParseYAML_OptimisticLockTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "optimistic_lock.yaml")
+
+	yamlContent := `table_name: tm_opt_lock
+columns:
+- name: id
+  type: int64
+- name: jpa_version
+  type: int64
+  tag: "///@create;///@optimisticlock"
+- name: legacy
+  type: int64
+  tag: " ///@javaVersion ; "
+- name: unknown
+  type: string
+  tag: ///@omitempty
+`
+	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+
+	data, err := ParseYAML(yamlPath, "test-module")
+	if err != nil {
+		t.Fatalf("ParseYAML 返回错误: %v", err)
+	}
+
+	if len(data.Columns) != 4 {
+		t.Fatalf("列数量 = %d; want 4", len(data.Columns))
+	}
+
+	byName := make(map[string]table.ColumnData)
+	for _, col := range data.Columns {
+		byName[col.Name] = col
+	}
+
+	t.Run("乐观锁列多tag解析", func(t *testing.T) {
+		col := byName["jpa_version"]
+		if !col.IsOptimisticLock {
+			t.Errorf("IsOptimisticLock = false; want true")
+		}
+		if !col.IsAutoCreate {
+			t.Errorf("IsAutoCreate = false; want true (///@create 与 ///@optimisticlock 并存)")
+		}
+		if col.GoType != "optimisticlock.Version" {
+			t.Errorf("GoType = %q; want %q", col.GoType, "optimisticlock.Version")
+		}
+		if col.Type != "int64" {
+			t.Errorf("Type = %q; want %q (yaml type 应保留为 DB 列类型)", col.Type, "int64")
+		}
+		wantTags := []string{"///@create", "///@optimisticlock"}
+		if len(col.Tags) != len(wantTags) {
+			t.Fatalf("Tags = %v; want %v", col.Tags, wantTags)
+		}
+		for i := range wantTags {
+			if col.Tags[i] != wantTags[i] {
+				t.Errorf("Tags[%d] = %q; want %q", i, col.Tags[i], wantTags[i])
+			}
+		}
+	})
+
+	t.Run("存量javaVersion标记trim后仍生效", func(t *testing.T) {
+		col := byName["legacy"]
+		if !col.IsJavaVersion {
+			t.Errorf("IsJavaVersion = false; want true")
+		}
+		if col.IsOptimisticLock {
+			t.Errorf("IsOptimisticLock = true; want false")
+		}
+		if len(col.Tags) != 1 || col.Tags[0] != "///@javaVersion" {
+			t.Errorf("Tags = %v; want [///@javaVersion]", col.Tags)
+		}
+	})
+
+	t.Run("未知tag静默忽略", func(t *testing.T) {
+		col := byName["unknown"]
+		if col.IsOptimisticLock || col.IsJavaVersion || col.IsAutoCreate || col.IsAutoUpdate {
+			t.Errorf("未知 tag ///@omitempty 不应置任何 flag: %+v", col)
+		}
+		if len(col.Tags) != 1 || col.Tags[0] != "///@omitempty" {
+			t.Errorf("Tags = %v; want [///@omitempty] (原始 tag 应保留)", col.Tags)
+		}
+	})
+
+	t.Run("乐观锁导入注入", func(t *testing.T) {
+		imports := data.ModelTemplateData.ImportPackages
+		if !contains(imports, "gorm.io/plugin/optimisticlock") {
+			t.Errorf("ImportPackages = %v; 应包含 %q", imports, "gorm.io/plugin/optimisticlock")
+		}
+	})
+}
+
 // TestParseYAML_SelfQueriesOrder 验证 self_query_rules 解析后按 Name 字母序排列，保证生成产物顺序固定。
 func TestParseYAML_SelfQueriesOrder(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -203,6 +296,7 @@ func TestGetZeroCheck(t *testing.T) {
 		{"字符串列", "string", "name", `xxx.name == ""`},
 		{"布尔列", "bool", "active", "!xxx.active"},
 		{"数值列", "int64", "age", "xxx.age == 0"},
+		{"乐观锁列", "optimisticlock.Version", "jpaVersion", "!xxx.jpaVersion.Valid"},
 	}
 
 	for _, tt := range tests {

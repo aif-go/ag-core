@@ -41,12 +41,22 @@ columns:
   not_null: false
   auto_increment: false
   support_update: false
+- name: time_pointer
+  type: '*time.Time'
+  not_null: false
+  auto_increment: false
+  support_update: false
+- name: bool_test
+  type: bool
+  not_null: false
+  auto_increment: false
+  support_update: false
 - name: jpa_version
   type: int64
   not_null: false
   auto_increment: false
   support_update: false
-  tag: ///@javaVersion
+  tag: ///@optimisticlock
 - name: create_time
   type: time
   not_null: false
@@ -85,8 +95,8 @@ self_query_rules:
     where:
       operator: AND
       conditions:
-      - expr: name like %@Name
-      - expr: address like %@Address%
+      - expr: name = @Name
+      - expr: address = @Address
   FindByPhone:
     select_fields: '*'
     page: true

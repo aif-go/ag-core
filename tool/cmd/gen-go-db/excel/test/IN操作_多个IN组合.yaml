@@ -1,0 +1,16 @@
+description: 测试多个IN操作组合
+input: id IN (1, 2, 3) AND status IN ('active', 'pending')
+name: IN操作_多个IN组合
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id IN (1, 2, 3)
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: status IN ('active', 'pending')
+          field: ""
+          values: []

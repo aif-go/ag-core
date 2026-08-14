@@ -1,0 +1,11 @@
+description: 测试简单的EXISTS操作
+input: EXISTS (SELECT 1 FROM orders WHERE user_id = id AND status = 'completed')
+name: EXISTS_简单EXISTS
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: EXISTS
+          field: ""
+          values: []

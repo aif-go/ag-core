@@ -1,0 +1,16 @@
+description: 测试多个BETWEEN AND条件
+input: age BETWEEN 18 AND 60 AND score BETWEEN 60 AND 100
+name: BetweenAnd_多个between
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: age BETWEEN 18 AND 60
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: score BETWEEN 60 AND 100
+          field: ""
+          values: []

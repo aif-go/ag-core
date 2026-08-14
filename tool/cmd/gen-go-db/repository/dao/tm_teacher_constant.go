@@ -13,15 +13,15 @@ var excludeTmTeacherZeroColNames = map[string]int{"JpaVersion": 0, "CreateTime":
 
 
 
-var FindByPhoneNamingInfo = &db.NameingSqlArgInfo{
-	SqlName:  "FindByPhone",
-	ReqType:  (*model.TmTeacherFindByPhoneArg)(nil),
-	RespType: (*model.TmTeacherFindByPhonePageRes)(nil),
-}
-
-
 var FindByNameNadAddressNamingInfo = &db.NameingSqlArgInfo{
 	SqlName:  "FindByNameNadAddress",
 	ReqType:  (*model.TmTeacherFindByNameNadAddressArg)(nil),
 	RespType: ([]*model.TmTeacherFindByNameNadAddressRes)(nil),
+}
+
+
+var FindByPhoneNamingInfo = &db.NameingSqlArgInfo{
+	SqlName:  "FindByPhone",
+	ReqType:  (*model.TmTeacherFindByPhoneArg)(nil),
+	RespType: (*model.TmTeacherFindByPhonePageRes)(nil),
 }

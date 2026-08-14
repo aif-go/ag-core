@@ -1,0 +1,11 @@
+description: 测试大于等于操作符
+input: age >= 18
+name: 比较操作_大于等于
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: age >= 18
+          field: ""
+          values: []

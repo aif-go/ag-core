@@ -1,0 +1,16 @@
+description: 测试简单的JOIN条件
+input: users.id = orders.user_id AND users.status = 'active'
+name: JOIN_简单JOIN条件
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: users.id = orders.user_id
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: users.status = 'active'
+          field: ""
+          values: []
