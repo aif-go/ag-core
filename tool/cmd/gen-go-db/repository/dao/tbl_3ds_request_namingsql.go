@@ -6,5 +6,5 @@ package dao
 
 func InitTbl3dsRequestNamingSql() {
 	// 执行一次初始化操作
-	InitTbl3dsRequestMYSQL()
+	InitTbl3dsRequestDB2()
 }

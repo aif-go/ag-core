@@ -231,7 +231,7 @@ func TestGenerateAllYAML(t *testing.T) {
 		}
 
 		// safeName := sanitizeFilename(tc.name)
-		safeNme := tc.name
+		safeName := tc.name
 		filename := filepath.Join(testDir, safeName+".yaml")
 
 		if err := os.WriteFile(filename, yamlBytes, 0644); err != nil {

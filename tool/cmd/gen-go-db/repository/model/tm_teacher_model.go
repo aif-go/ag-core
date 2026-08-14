@@ -16,6 +16,8 @@ type TmTeacher struct {
 	ClassId string `gorm:"column:class_id;index:tm_teacher_classid_IDX,priority:1" json:"ClassId"`
 	CardNo string `gorm:"column:card_no;index:tm_teacher_name_IDX,priority:1" json:"CardNo"`
 	Salary float64 `gorm:"column:salary" json:"Salary"`
+	TimePointer *time.Time `gorm:"column:time_pointer" json:"TimePointer"`
+	BoolTest bool `gorm:"column:bool_test" json:"BoolTest"`
 	JpaVersion int64 `gorm:"column:jpa_version" json:"JpaVersion"`
 	CreateTime time.Time `gorm:"column:create_time;AUTOCREATETIME" json:"CreateTime"`
 	LastUpdateTime time.Time `gorm:"column:last_update_time;AUTOUPDATETIME" json:"LastUpdateTime"`
@@ -42,6 +44,8 @@ func (tmTeacher *TmTeacher) Clone() *TmTeacher {
 		ClassId: tmTeacher.ClassId,
 		CardNo: tmTeacher.CardNo,
 		Salary: tmTeacher.Salary,
+		TimePointer: tmTeacher.TimePointer,
+		BoolTest: tmTeacher.BoolTest,
 		JpaVersion: tmTeacher.JpaVersion,
 		CreateTime: tmTeacher.CreateTime,
 		LastUpdateTime: tmTeacher.LastUpdateTime,
@@ -127,6 +131,20 @@ func (tmTeacher *TmTeacher) ListZeroValueCols(filterPrimary bool, filterIndex bo
 		vals = append(vals, tmTeacher.Salary)
 	}
 
+	// TimePointer - 普通列
+	generalColZeroVal = tmTeacher.TimePointer == nil
+	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
+		cols = append(cols, "time_pointer")
+		vals = append(vals, tmTeacher.TimePointer)
+	}
+
+	// BoolTest - 普通列
+	generalColZeroVal = !tmTeacher.BoolTest
+	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
+		cols = append(cols, "bool_test")
+		vals = append(vals, tmTeacher.BoolTest)
+	}
+
 	// JpaVersion - 特殊列，用于乐观锁
 	if !filterSpecial {
 		isZero := tmTeacher.JpaVersion == 0
@@ -174,36 +192,6 @@ var TmTeacherIndexLeadingCols = []string{"id", "class_id", "name", "card_no", "p
 
 
 
-// TmTeacherFindByPhoneArg FindByPhone 查询参数
-type TmTeacherFindByPhoneArg struct {
-	db.Page
-	FieldMask *conditonwhere.FieldMask
-	Phone string
-}
-
-func (tmTeacherFindByPhoneArg *TmTeacherFindByPhoneArg) WithPhone(Phone string) *TmTeacherFindByPhoneArg{
-	tmTeacherFindByPhoneArg.Phone = Phone
-	tmTeacherFindByPhoneArg.FieldMask.Set("Phone")
-	return tmTeacherFindByPhoneArg
-} 
-
-// ConvertToMap 将参数转换为map
-func (tmTeacherFindByPhoneArg *TmTeacherFindByPhoneArg) ConvertToMap() map[string]interface{} {
-	if tmTeacherFindByPhoneArg == nil {
-		return nil
-	}
-	return map[string]interface{}{
-		"Page": tmTeacherFindByPhoneArg.Page,
-		"Phone": tmTeacherFindByPhoneArg.Phone,
-	}
-}
-
-// TmTeacherFindByPhonePageRes FindByPhone 分页查询结果
-type TmTeacherFindByPhonePageRes struct {
-	db.PageResult
-	ResultList []*TmTeacher
-}
-
 // TmTeacherFindByNameNadAddressArg FindByNameNadAddress 查询参数
 type TmTeacherFindByNameNadAddressArg struct {
 	FieldMask *conditonwhere.FieldMask
@@ -242,17 +230,47 @@ type TmTeacherFindByNameNadAddressRes struct {
 	ClassId string `gorm:"column:class_id" json:"ClassId"`
 }
 
+// TmTeacherFindByPhoneArg FindByPhone 查询参数
+type TmTeacherFindByPhoneArg struct {
+	db.Page
+	FieldMask *conditonwhere.FieldMask
+	Phone string
+}
+
+func (tmTeacherFindByPhoneArg *TmTeacherFindByPhoneArg) WithPhone(Phone string) *TmTeacherFindByPhoneArg{
+	tmTeacherFindByPhoneArg.Phone = Phone
+	tmTeacherFindByPhoneArg.FieldMask.Set("Phone")
+	return tmTeacherFindByPhoneArg
+} 
+
+// ConvertToMap 将参数转换为map
+func (tmTeacherFindByPhoneArg *TmTeacherFindByPhoneArg) ConvertToMap() map[string]interface{} {
+	if tmTeacherFindByPhoneArg == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"Page": tmTeacherFindByPhoneArg.Page,
+		"Phone": tmTeacherFindByPhoneArg.Phone,
+	}
+}
+
+// TmTeacherFindByPhonePageRes FindByPhone 分页查询结果
+type TmTeacherFindByPhonePageRes struct {
+	db.PageResult
+	ResultList []*TmTeacher
+}
+
 
 
 // WhereDataToYAMLCache WhereDataYAML缓存
 var TmTeacherWhereDataToYAMLCache = map[string]string{
-	"FindByPhone":`conditions:
-- expr: phone = @Phone
+	"FindByNameNadAddress":`conditions:
+- expr: name = @Name
+- expr: address = @Address
 operator: AND
 `,
-	"FindByNameNadAddress":`conditions:
-- expr: name like %@Name
-- expr: address like %@Address%
+	"FindByPhone":`conditions:
+- expr: phone = @Phone
 operator: AND
 `,
 }

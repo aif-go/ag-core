@@ -157,25 +157,18 @@ func (dao *TmTeacherDao) FindByStruct(ctx context.Context, entity *model.TmTeach
 	indexUsed := false
 	// 检查索引 tm_teacher_classid_IDX
 	if entity.ClassId != "" {
-		db = db.Where("class_id = ?", entity.ClassId)
 		indexUsed = true
 	}
 	// 检查索引 tm_teacher_Name_IDX
 	if entity.Name != "" {
-		db = db.Where("name = ?", entity.Name)
-		if entity.Address != "" {
-			db = db.Where("address = ?", entity.Address)
-		}
 		indexUsed = true
 	}
 	// 检查索引 tm_teacher_name_IDX
 	if entity.CardNo != "" {
-		db = db.Where("card_no = ?", entity.CardNo)
 		indexUsed = true
 	}
 	// 检查索引 tm_teacher_phone_IDX
 	if entity.Phone != "" {
-		db = db.Where("phone = ?", entity.Phone)
 		indexUsed = true
 	}
 
@@ -184,8 +177,8 @@ func (dao *TmTeacherDao) FindByStruct(ctx context.Context, entity *model.TmTeach
 		return nil, errors.New("query not use any index")
 	}
 
-	// 除了主键和索引以外的其他列如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, true, true, false)
+	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
 	if err != nil {
 		return nil, err
 	}
@@ -222,10 +215,10 @@ func (dao *TmTeacherDao) FindByCustomerRule(ctx context.Context, namingInfo *gor
 		return nil, errors.New("req type not match")
 	}
 	switch namingInfo.SqlName {
-	case "FindByPhone":
-		return dao.doFindByPhone(ctx, namingInfo, args)
 	case "FindByNameNadAddress":
 		return dao.doFindByNameNadAddress(ctx, namingInfo, args)
+	case "FindByPhone":
+		return dao.doFindByPhone(ctx, namingInfo, args)
 	default:
 		return nil, errors.New("not found naming sql")
 	}
@@ -314,6 +307,45 @@ func (dao *TmTeacherDao) FindFirstOneByCondition(ctx context.Context, condition 
 	return &entity, result.Error
 }
 
+// doFindByNameNadAddress 执行FindByNameNadAddress查询（非分页）
+func (dao *TmTeacherDao) doFindByNameNadAddress(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.TmTeacherFindByNameNadAddressRes, error) {
+
+	queryArgs, ok := args.(*model.TmTeacherFindByNameNadAddressArg)
+	if !ok {
+		return nil, errors.New("doFindByNameNadAddress args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "TmTeacher" + "_" + namingInfo.SqlName
+	execSql := TmTeacherNamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("FindByNameNadAddress",model.TmTeacherConditionMap)
+	if err != nil {
+		return nil, err
+	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.TmTeacherIndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
+
+	newTableName := dao.getApplyInfo(ctx).TableName
+	if newTableName != "" {
+		enity := &model.TmTeacher{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var list []*model.TmTeacherFindByNameNadAddressRes
+	result := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return list, nil
+}
+
 // doFindByPhone 执行FindByPhone查询（分页）
 func (dao *TmTeacherDao) doFindByPhone(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (*model.TmTeacherFindByPhonePageRes, error) {
 
@@ -386,45 +418,6 @@ func (dao *TmTeacherDao) doFindByPhone(ctx context.Context, namingInfo *gormdb.N
 		},
 		ResultList: list,
 	}, nil
-}
-
-// doFindByNameNadAddress 执行FindByNameNadAddress查询（非分页）
-func (dao *TmTeacherDao) doFindByNameNadAddress(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.TmTeacherFindByNameNadAddressRes, error) {
-
-	queryArgs, ok := args.(*model.TmTeacherFindByNameNadAddressArg)
-	if !ok {
-		return nil, errors.New("doFindByNameNadAddress args type not match")
-	}
-
-	sqlName := dao.DbType + "_" + "TmTeacher" + "_" + namingInfo.SqlName
-	execSql := TmTeacherNamingSqlMap[sqlName]
-	if execSql == "" {
-		return nil, errors.New("not found naming sql")
-	}
-
-	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("FindByNameNadAddress",model.TmTeacherConditionMap)
-	if err != nil {
-		return nil, err
-	}
-	// 校验新的where条件是否使用了索引列，避免全表扫描
-	check:=conditonwhere.ValidateLeadingCol(newwhere,model.TmTeacherIndexLeadingCols)
-	if !check {
-		return nil, errors.New("query not use any index")
-	}
-
-	newTableName := dao.getApplyInfo(ctx).TableName
-	if newTableName != "" {
-		enity := &model.TmTeacher{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-	}
-
-	argsMap := queryArgs.ConvertToMap()
-	var list []*model.TmTeacherFindByNameNadAddressRes
-	result := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return list, nil
 }
 
 
