@@ -248,7 +248,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		for _, index := range validIndexes {
 			indexCheck += "\t// 检查索引 " + index.Name + "\n"
 
-			// 生成索引列检查条件
+			// 只判断引导索引列是否非空，非空即标记已使用索引（最左前缀即可命中索引）
 			colName := index.Columns[0]
 			for _, col := range tableData.Columns {
 				if col.Name == colName {
@@ -270,40 +270,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 						}
 					}
 
-					// 每个索引都是独立的if检查
 					indexCheck += "\tif " + nullCheck + " {\n"
-					indexCheck += "\t\tdb = db.Where(\"" + col.Name + " = ?\", entity." + col.JsonTag + ")\n"
-
-					// 其他列作为次要条件
-					for j := 1; j < len(index.Columns); j++ {
-						secondaryColName := index.Columns[j]
-						for _, secondaryCol := range tableData.Columns {
-							if secondaryCol.Name == secondaryColName {
-								// 根据字段类型生成不同的空值判断条件
-								var secondaryNullCheck string
-								if isPointerGoType(secondaryCol.GoType) {
-									secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != nil"
-								} else {
-									switch secondaryCol.GoType {
-									case "string":
-										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != \"\""
-									case "time.Time":
-										secondaryNullCheck = "!entity." + secondaryCol.JsonTag + ".IsZero()"
-									case "bool":
-										secondaryNullCheck = "entity." + secondaryCol.JsonTag
-									default:
-										// 数值类型
-										secondaryNullCheck = "entity." + secondaryCol.JsonTag + " != 0"
-									}
-								}
-								indexCheck += "\t\tif " + secondaryNullCheck + " {\n"
-								indexCheck += "\t\t\tdb = db.Where(\"" + secondaryCol.Name + " = ?\", entity." + secondaryCol.JsonTag + ")\n"
-								indexCheck += "\t\t}\n"
-								break
-							}
-						}
-					}
-
 					indexCheck += "\t\tindexUsed = true\n"
 					indexCheck += "\t}\n"
 					break
@@ -557,8 +524,8 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 ` + primaryKeyCheck + `
 ` + indexCheck + `
 ` + indexUsedCheck+`
-	// 除了主键和索引以外的其他列如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, true, true, false)
+	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
 	if err != nil {
 		return nil, err
 	}

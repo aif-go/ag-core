@@ -58,7 +58,7 @@ func TestDAO_PointerDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("GetDaoTemplate 索引首列与次要列指针生成 != nil", func(t *testing.T) {
+	t.Run("GetDaoTemplate 索引引导列指针生成 != nil", func(t *testing.T) {
 		tableData := &table.TableData{
 			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
 			TableName:   "tm_pointer_idx",
@@ -74,20 +74,23 @@ func TestDAO_PointerDispatch(t *testing.T) {
 			},
 		}
 		code := GetDaoTemplate(tableData)
+		// 引导索引列生成指针非空判断；索引列纳入统一 where 拼接
 		for _, want := range []string{
 			"entity.createdDate != nil",
-			"entity.updatedDate != nil",
+			"entity.ListZeroValueCols(true, false, true, false)",
 		} {
 			if !strings.Contains(code, want) {
-				t.Errorf("GetDaoTemplate 应生成索引列指针 != nil 判断 %q, got:\n%s", want, code)
+				t.Errorf("GetDaoTemplate 应生成索引引导列指针 != nil 判断 %q, got:\n%s", want, code)
 			}
 		}
+		// 次要索引列不再在索引块生成非空判断（统一由 ListZeroValueCols 过滤）
 		for _, notWant := range []string{
+			"entity.updatedDate != nil",
 			"entity.createdDate != 0",
 			"entity.updatedDate != 0",
 		} {
 			if strings.Contains(code, notWant) {
-				t.Errorf("GetDaoTemplate 索引指针列不应生成 %q, got:\n%s", notWant, code)
+				t.Errorf("GetDaoTemplate 不应生成 %q, got:\n%s", notWant, code)
 			}
 		}
 	})

@@ -15,6 +15,7 @@ import (
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
 	_ "github.com/ibmdb/go_ibm_db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestInsertOne(t *testing.T) {
@@ -75,12 +76,46 @@ func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 func TestFindByStruct(t *testing.T) {
 	ctx := context.Background()
 	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.FindByStruct(ctx, &model.TmTeacher{
-		// Id: 2,
-		Name:    "aaa3",
-		Address: "上海市徐汇区",
-	})
-	printList("FindByStruct", res, err, t)
+
+	testCases := []struct {
+		name    string
+		entity  *model.TmTeacher
+		wantErr bool
+	}{
+		{name: "场景1:按主键查询(Id=401)", entity: &model.TmTeacher{Id: 401}, wantErr: false},
+		{name: "场景2:单索引列-Name", entity: &model.TmTeacher{Name: "test1"}, wantErr: false},
+		{name: "场景3:单索引列-ClassId", entity: &model.TmTeacher{ClassId: "1"}, wantErr: false},
+		{name: "场景4:单索引列-Phone", entity: &model.TmTeacher{Phone: "13800000000"}, wantErr: false},
+		{name: "场景5:联合索引-Name+Address", entity: &model.TmTeacher{Name: "test1", Address: "上海市浦东新区"}, wantErr: false},
+		{name: "场景6:索引+普通列-Name+Salary", entity: &model.TmTeacher{Name: "test1", Salary: 1000.0}, wantErr: false},
+		{name: "场景7:索引+特殊列-JpaVersion", entity: &model.TmTeacher{Name: "test1", JpaVersion: 1}, wantErr: false},
+		{name: "场景8:索引+特殊列-CreateTime", entity: &model.TmTeacher{Name: "test1", CreateTime: time.Date(2026, 8, 13, 15, 35, 13, 775000000, time.UTC)}, wantErr: false},
+		{name: "场景9:索引+特殊列-LastUpdateTime", entity: &model.TmTeacher{Name: "test1", LastUpdateTime: time.Date(2026, 8, 13, 15, 35, 13, 775000000, time.UTC)}, wantErr: false},
+		{name: "场景10:仅特殊列无索引-预期错误", entity: &model.TmTeacher{JpaVersion: 1}, wantErr: true},
+		{name: "场景11:空结构体-预期错误", entity: &model.TmTeacher{}, wantErr: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := tmTeacherDao.FindByStruct(ctx, tc.entity)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("期望错误但返回nil")
+				} else {
+					t.Logf("正确返回错误: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("返回错误: %v", err)
+				return
+			}
+			t.Logf("查询到 %d 条记录", len(res))
+			for _, e := range res {
+				t.Logf("结果: %+v", e)
+			}
+		})
+	}
 }
 
 func TestFindByCustomRule(t *testing.T) {
@@ -143,6 +178,7 @@ func GetRepository() dao.ITmTeacherDao {
 
 	db, err := gorm.Open(opener(GetDSN(dbType)), &gorm.Config{
 		SkipDefaultTransaction: true,
+		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		panic(err.Error())

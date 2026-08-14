@@ -162,26 +162,14 @@ func (dao *Tbl3dsRequestDao) FindByStruct(ctx context.Context, entity *model.Tbl
 	indexUsed := false
 	// 检查索引 IDX_INSERT_TIMESTAMP
 	if !entity.InsertTimestamp.IsZero() {
-		db = db.Where("INSERT_TIMESTAMP = ?", entity.InsertTimestamp)
 		indexUsed = true
 	}
 	// 检查索引 IDX_ORDER_ID
 	if entity.OrderId != "" {
-		db = db.Where("ORDER_ID = ?", entity.OrderId)
-		if entity.MerchantId != "" {
-			db = db.Where("MERCHANT_ID = ?", entity.MerchantId)
-		}
 		indexUsed = true
 	}
 	// 检查索引 IDX_RRN
 	if entity.RetrievalReferenceNumber != "" {
-		db = db.Where("RETRIEVAL_REFERENCE_NUMBER = ?", entity.RetrievalReferenceNumber)
-		if entity.MerchantId != "" {
-			db = db.Where("MERCHANT_ID = ?", entity.MerchantId)
-		}
-		if entity.TransactionType != "" {
-			db = db.Where("TRANSACTION_TYPE = ?", entity.TransactionType)
-		}
 		indexUsed = true
 	}
 
@@ -190,8 +178,8 @@ func (dao *Tbl3dsRequestDao) FindByStruct(ctx context.Context, entity *model.Tbl
 		return nil, errors.New("query not use any index")
 	}
 
-	// 除了主键和索引以外的其他列如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, true, true, false)
+	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
 	if err != nil {
 		return nil, err
 	}
