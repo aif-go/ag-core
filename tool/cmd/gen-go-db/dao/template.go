@@ -157,10 +157,13 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	// 	}
 	// }
 
-	// 构建主键查询代码（用于 FindByStruct）
-	var primaryKeyCheck string
+	// 构建主键/索引守卫代码（统一判定：主键或任一引导索引列有值才放行，否则报错，杜绝全表扫描）
+	var guardCheck string
+	guardCheck += "\t// 检查是否使用了主键或索引，避免全表扫描\n"
+	guardCheck += "\tkeyUsed := false\n"
+
+	// 主键检查（主键即索引；仅当主键存在时生成）
 	if len(tableData.PrimaryKeys) > 0 {
-		primaryKeyCheck = "\t// 检查主键是否为空\n"
 		// 获取第一个主键的列数据
 		var firstPkCol *table.ColumnData
 		for _, col := range tableData.Columns {
@@ -187,54 +190,15 @@ func GetDaoTemplate(tableData *table.TableData) string {
 					nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
 				}
 			}
-			primaryKeyCheck += "\tif " + nullCheck + " {\n"
-			primaryKeyCheck += "\t\tdb = db.Where(\"" + firstPkCol.Name + " = ?\", entity." + firstPkCol.JsonTag + ")\n"
-			
-			// 处理其他主键（嵌套在第一个主键的条件中）
-			for i := 1; i < len(tableData.PrimaryKeys); i++ {
-				var pkCol *table.ColumnData
-				for _, col := range tableData.Columns {
-					if col.Name == tableData.PrimaryKeys[i] {
-						pkCol = &col
-						break
-					}
-				}
-				if pkCol != nil {
-					var secondaryNullCheck string
-					if isPointerGoType(pkCol.GoType) {
-						secondaryNullCheck = "entity." + pkCol.JsonTag + " != nil"
-					} else {
-						switch pkCol.GoType {
-						case "string":
-							secondaryNullCheck = "entity." + pkCol.JsonTag + " != \"\""
-						case "time.Time":
-							secondaryNullCheck = "!entity." + pkCol.JsonTag + ".IsZero()"
-						case "bool":
-							secondaryNullCheck = "entity." + pkCol.JsonTag
-						default:
-							secondaryNullCheck = "entity." + pkCol.JsonTag + " != 0"
-						}
-					}
-					primaryKeyCheck += "\t\tif " + secondaryNullCheck + " {\n"
-					primaryKeyCheck += "\t\t\tdb = db.Where(\"" + pkCol.Name + " = ?\", entity." + pkCol.JsonTag + ")\n"
-					// primaryKeyCheck += "\t\t\tresult := db.Find(&list)\n"
-					// primaryKeyCheck += "\t\t\treturn list, result.Error\n"
-					primaryKeyCheck += "\t\t}\n"
-				}
-			}
-			
-			primaryKeyCheck += "\t\tresult := db.Find(&list)\n"
-			primaryKeyCheck += "\t\treturn list, result.Error\n"
-			primaryKeyCheck += "\t}\n"
+			guardCheck += "\t// 检查主键\n"
+			guardCheck += "\tif " + nullCheck + " {\n"
+			guardCheck += "\t\tkeyUsed = true\n"
+			guardCheck += "\t}\n"
 		}
 	}
 
-	// 构建索引查询代码
-	var indexCheck string
+	// 索引引导列检查（仅当索引存在时生成，最左前缀即可命中索引）
 	if len(tableData.Indexes) > 0 {
-		indexCheck = "\t// 检查索引列，确保使用了索引\n"
-		indexCheck += "\tindexUsed := false\n"
-
 		// 过滤掉空索引
 		var validIndexes []table.IndexData
 		for _, index := range tableData.Indexes {
@@ -246,7 +210,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		// 按优先级排序索引（如果有）
 		// 简单实现：假设索引已经按优先级排序
 		for _, index := range validIndexes {
-			indexCheck += "\t// 检查索引 " + index.Name + "\n"
+			guardCheck += "\t// 检查索引 " + index.Name + "\n"
 
 			// 只判断引导索引列是否非空，非空即标记已使用索引（最左前缀即可命中索引）
 			colName := index.Columns[0]
@@ -270,23 +234,19 @@ func GetDaoTemplate(tableData *table.TableData) string {
 						}
 					}
 
-					indexCheck += "\tif " + nullCheck + " {\n"
-					indexCheck += "\t\tindexUsed = true\n"
-					indexCheck += "\t}\n"
+					guardCheck += "\tif " + nullCheck + " {\n"
+					guardCheck += "\t\tkeyUsed = true\n"
+					guardCheck += "\t}\n"
 					break
 				}
 			}
 		}
 	}
 
-	// index 结果判断处理
-	var indexUsedCheck string
-	if len(tableData.Indexes) > 0 {
-	indexUsedCheck="\t// 检查索引列，确保使用了索引\n"
-	indexUsedCheck+="\tif !indexUsed {\n"
-	indexUsedCheck+="\t\treturn nil, errors.New(\"query not use any index\")\n"
-	indexUsedCheck+="\t}\n"
-	}
+	// 最终守卫判断（无条件生成；无主键无索引表 keyUsed 恒为 false，恒报错）
+	guardCheck += "\tif !keyUsed {\n"
+	guardCheck += "\t\treturn nil, errors.New(\"query not use any index\")\n"
+	guardCheck += "\t}\n"
 
 // 生成主键和唯一键更新条件代码
 	var primaryKeyUpdate string
@@ -521,11 +481,9 @@ func (dao *` + structName + `Dao) FindByStruct(ctx context.Context, entity *mode
 		return nil, err
 	}
 
-` + primaryKeyCheck + `
-` + indexCheck + `
-` + indexUsedCheck+`
-	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
+` + guardCheck + `
+	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
 	if err != nil {
 		return nil, err
 	}

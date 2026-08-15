@@ -146,39 +146,34 @@ func (dao *TmTeacherDao) FindByStruct(ctx context.Context, entity *model.TmTeach
 		return nil, err
 	}
 
-	// 检查主键是否为空
+	// 检查是否使用了主键或索引，避免全表扫描
+	keyUsed := false
+	// 检查主键
 	if entity.Id != 0 {
-		db = db.Where("id = ?", entity.Id)
-		result := db.Find(&list)
-		return list, result.Error
+		keyUsed = true
 	}
-
-	// 检查索引列，确保使用了索引
-	indexUsed := false
 	// 检查索引 tm_teacher_classid_IDX
 	if entity.ClassId != "" {
-		indexUsed = true
+		keyUsed = true
 	}
 	// 检查索引 tm_teacher_Name_IDX
 	if entity.Name != "" {
-		indexUsed = true
+		keyUsed = true
 	}
 	// 检查索引 tm_teacher_name_IDX
 	if entity.CardNo != "" {
-		indexUsed = true
+		keyUsed = true
 	}
 	// 检查索引 tm_teacher_phone_IDX
 	if entity.Phone != "" {
-		indexUsed = true
+		keyUsed = true
 	}
-
-	// 检查索引列，确保使用了索引
-	if !indexUsed {
+	if !keyUsed {
 		return nil, errors.New("query not use any index")
 	}
 
-	// 除主键外的其他列（含索引列）如果有值，也作为查询条件
-	colnames, colvals, err := entity.ListZeroValueCols(true, false, true, false)
+	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
 	if err != nil {
 		return nil, err
 	}

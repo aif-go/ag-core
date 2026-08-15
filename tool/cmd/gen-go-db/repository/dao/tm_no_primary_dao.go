@@ -9,48 +9,48 @@ import (
 	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
 
 	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
-	"strings"
+	
 
 	"gorm.io/gorm"
 )
 
-// Tbl3dsRequestDao tbl_3ds_request DAO
+// TmNoPrimaryDao tm_no_primary DAO
 // DO NOT EDIT
 // DO NOT EDIT
 // DO NOT EDIT
-type Tbl3dsRequestDao struct {
+type TmNoPrimaryDao struct {
 	*gormdb.Repository
 	info    agdao.TableInfo
 	baseDao agdao.BaseDao
 }
 
-// ITbl3dsRequestDao Tbl3dsRequest DAO接口
-type ITbl3dsRequestDao interface {
-	InsertOne(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	UpdateByPrimaryKey(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimarkey) (*model.Tbl3dsRequest, error)
-	FindByStruct(ctx context.Context, entity *model.Tbl3dsRequest) ([]*model.Tbl3dsRequest, error)
+// ITmNoPrimaryDao TmNoPrimary DAO接口
+type ITmNoPrimaryDao interface {
+	InsertOne(ctx context.Context, entity *model.TmNoPrimary) (int64, error)
+	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNoPrimary) (int64, error)
+	UpdateByPrimaryKey(ctx context.Context, entity *model.TmNoPrimary) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNoPrimary) (int64, error)
+	FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimaryPrimarkey) (*model.TmNoPrimary, error)
+	FindByStruct(ctx context.Context, entity *model.TmNoPrimary) ([]*model.TmNoPrimary, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
-	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.Tbl3dsRequest, *gormdb.PageResult, error)
-	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.Tbl3dsRequest, error)
+	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmNoPrimary, *gormdb.PageResult, error)
+	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmNoPrimary, error)
 }
 
-// NewTbl3dsRequestDao get dao instance
-func NewTbl3dsRequestDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITbl3dsRequestDao {
-	InitTbl3dsRequestNamingSql()
-	return &Tbl3dsRequestDao{
+// NewTmNoPrimaryDao get dao instance
+func NewTmNoPrimaryDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITmNoPrimaryDao {
+	
+	return &TmNoPrimaryDao{
 		Repository: repository,
 		baseDao:    baseDao,
 		info: agdao.TableInfo{
-			TableName: "tbl_3ds_request",
+			TableName: "tm_no_primary",
 		},
 	}
 }
 
 // insertOne 插入一条数据库数据
-func (dao *Tbl3dsRequestDao) InsertOne(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+func (dao *TmNoPrimaryDao) InsertOne(ctx context.Context, entity *model.TmNoPrimary) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -61,7 +61,7 @@ func (dao *Tbl3dsRequestDao) InsertOne(ctx context.Context, entity *model.Tbl3ds
 }
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
-func (dao *Tbl3dsRequestDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+func (dao *TmNoPrimaryDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNoPrimary) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
 	if err!= nil{
@@ -77,7 +77,7 @@ func (dao *Tbl3dsRequestDao) InsertOneIgnoreZeroValCols(ctx context.Context, ent
 }
 
 // UpdateByPrimaryKey 根据主键或者唯一键更新，该操作只适合从数据库查询原实体修改值之后使用
-func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+func (dao *TmNoPrimaryDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmNoPrimary) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -85,55 +85,41 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *mod
 
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.Id == 0) || (entity.ClusterId == "")) {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["ID"] = entity.Id
-		where["CLUSTER_ID"] = entity.ClusterId
-	}
 
 	if len(where) == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 5. 使用支持更新的列
-	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Save(entity)
+	result := db.Model(&model.TmNoPrimary{}).Where(where).Save(entity)
 	return result.RowsAffected, result.Error
 }
 
 // UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+func (dao *TmNoPrimaryDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNoPrimary) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}	
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.Id == 0) || (entity.ClusterId == "")) {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["ID"] = entity.Id
-		where["CLUSTER_ID"] = entity.ClusterId
-	}
 
 	if len(where) == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Updates(entity)
+	result := db.Model(&model.TmNoPrimary{}).Where(where).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
 // FindByPrimaryKey 根据主键查询
-func (dao *Tbl3dsRequestDao) FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimarkey) (*model.Tbl3dsRequest, error) {
+func (dao *TmNoPrimaryDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimaryPrimarkey) (*model.TmNoPrimary, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
 	}
 	
-	var entity model.Tbl3dsRequest
-	result := db.Where("ID = ? AND CLUSTER_ID = ?", primaryKey.Id, primaryKey.ClusterId).First(&entity)
+	var entity model.TmNoPrimary
+	result := db.Where("", ).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -141,8 +127,8 @@ func (dao *Tbl3dsRequestDao) FindByPrimaryKey(ctx context.Context, primaryKey mo
 }
 
 // FindByStruct 根据实体查询
-func (dao *Tbl3dsRequestDao) FindByStruct(ctx context.Context, entity *model.Tbl3dsRequest) ([]*model.Tbl3dsRequest, error) {
-	var list []*model.Tbl3dsRequest
+func (dao *TmNoPrimaryDao) FindByStruct(ctx context.Context, entity *model.TmNoPrimary) ([]*model.TmNoPrimary, error) {
+	var list []*model.TmNoPrimary
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
@@ -150,20 +136,20 @@ func (dao *Tbl3dsRequestDao) FindByStruct(ctx context.Context, entity *model.Tbl
 
 	// 检查是否使用了主键或索引，避免全表扫描
 	keyUsed := false
-	// 检查主键
-	if entity.Id != 0 {
+	// 检查索引 tm_teacher_name_IDX
+	if entity.CardNo != "" {
 		keyUsed = true
 	}
-	// 检查索引 IDX_INSERT_TIMESTAMP
-	if !entity.InsertTimestamp.IsZero() {
+	// 检查索引 tm_teacher_phone_IDX
+	if entity.Phone != "" {
 		keyUsed = true
 	}
-	// 检查索引 IDX_ORDER_ID
-	if entity.OrderId != "" {
+	// 检查索引 tm_teacher_classid_IDX
+	if entity.ClassId != "" {
 		keyUsed = true
 	}
-	// 检查索引 IDX_RRN
-	if entity.RetrievalReferenceNumber != "" {
+	// 检查索引 tm_teacher_Name_IDX
+	if entity.Name != "" {
 		keyUsed = true
 	}
 	if !keyUsed {
@@ -187,7 +173,7 @@ func (dao *Tbl3dsRequestDao) FindByStruct(ctx context.Context, entity *model.Tbl
 }
 
 // FindByCustomerRule 根据自定义规则查询
-func (dao *Tbl3dsRequestDao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
+func (dao *TmNoPrimaryDao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
 
 	if ctx == nil {
 		return nil, errors.New("ctx is nil")
@@ -208,16 +194,14 @@ func (dao *Tbl3dsRequestDao) FindByCustomerRule(ctx context.Context, namingInfo 
 		return nil, errors.New("req type not match")
 	}
 	switch namingInfo.SqlName {
-	case "Xxxxx":
-		return dao.doXxxxx(ctx, namingInfo, args)
 	default:
 		return nil, errors.New("not found naming sql")
 	}
 }
 
 // FindByCondition 根据条件构建器查询
-func (dao *Tbl3dsRequestDao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.Tbl3dsRequest, *gormdb.PageResult, error) {
-	var list []*model.Tbl3dsRequest
+func (dao *TmNoPrimaryDao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmNoPrimary, *gormdb.PageResult, error) {
+	var list []*model.TmNoPrimary
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -271,8 +255,8 @@ func (dao *Tbl3dsRequestDao) FindByCondition(ctx context.Context, condition *con
 }
 
 // FindFirstOneByCondition 根据条件构建器查询第一条记录
-func (dao *Tbl3dsRequestDao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.Tbl3dsRequest, error) {
-	var entity model.Tbl3dsRequest
+func (dao *TmNoPrimaryDao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmNoPrimary, error) {
+	var entity model.TmNoPrimary
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
@@ -298,61 +282,22 @@ func (dao *Tbl3dsRequestDao) FindFirstOneByCondition(ctx context.Context, condit
 	return &entity, result.Error
 }
 
-// doXxxxx 执行Xxxxx查询（非分页）
-func (dao *Tbl3dsRequestDao) doXxxxx(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.Tbl3dsRequest, error) {
-
-	queryArgs, ok := args.(*model.Tbl3dsRequestXxxxxArg)
-	if !ok {
-		return nil, errors.New("doXxxxx args type not match")
-	}
-
-	sqlName := dao.DbType + "_" + "Tbl3dsRequest" + "_" + namingInfo.SqlName
-	execSql := Tbl3dsRequestNamingSqlMap[sqlName]
-	if execSql == "" {
-		return nil, errors.New("not found naming sql")
-	}
-
-	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("Xxxxx",model.Tbl3dsRequestConditionMap)
-	if err != nil {
-		return nil, err
-	}
-	// 校验新的where条件是否使用了索引列，避免全表扫描
-	check:=conditonwhere.ValidateLeadingCol(newwhere,model.Tbl3dsRequestIndexLeadingCols)
-	if !check {
-		return nil, errors.New("query not use any index")
-	}
-
-	newTableName := dao.getApplyInfo(ctx).TableName
-	if newTableName != "" {
-		enity := &model.Tbl3dsRequest{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-	}
-
-	argsMap := queryArgs.ConvertToMap()
-	var list []*model.Tbl3dsRequest
-	result := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return list, nil
-}
-
 
 
 // getInfo 获取表信息
-func (dao *Tbl3dsRequestDao) getInfo() agdao.TableInfo {
+func (dao *TmNoPrimaryDao) getInfo() agdao.TableInfo {
 	return dao.info
 }
 
 // getApplyInfo 获取应用表信息
-func (dao *Tbl3dsRequestDao) getApplyInfo(ctx context.Context) agdao.TableInfo {
+func (dao *TmNoPrimaryDao) getApplyInfo(ctx context.Context) agdao.TableInfo {
 	info := dao.getInfo()
 	dao.baseDao.ApplyTbInfoOpts(ctx, &info)
 	return info
 }
 
 // newDB 创建一个新的DB实例
-func (dao *Tbl3dsRequestDao) newDB(ctx context.Context) (*gorm.DB, error) {
+func (dao *TmNoPrimaryDao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db := dao.DB(ctx)
 	info := dao.getApplyInfo(ctx)
 	tbname := info.TableName
