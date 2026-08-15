@@ -3,6 +3,7 @@ package ag_log
 import (
 	"github.com/aif-go/ag-core/ag/ag_log/agslog"
 	"github.com/aif-go/ag-core/ag/ag_log/async"
+	"github.com/aif-go/ag-core/ag/ag_log/failover"
 	"github.com/aif-go/ag-core/ag/ag_log/fanout"
 	"github.com/aif-go/ag-core/ag/ag_log/slogzap"
 	"log/slog"
@@ -15,6 +16,8 @@ var FxAglogMode = fx.Module("ag_log",
 	agslog.FxAgSlogProvide,
 	// fanout
 	fanout.FxAgSlogFanoutProvide,
+	// failover
+	failover.FxAgSlogFailoverProvide,
 	// async
 	async.FxAglogAsyncProvide,
 

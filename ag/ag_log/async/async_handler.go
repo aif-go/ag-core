@@ -38,8 +38,8 @@ func (h *AsyncHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.original.Enabled(ctx, level)
 }
 func (h *AsyncHandler) Handle(ctx context.Context, r slog.Record) error {
-	task := taskPool.Get().(*logTask)
-	task.ctx = ctx
+	task := taskPool.Borrow()
+	task.ctx = context.WithoutCancel(ctx)
 	task.record = r.Clone()
 	task.handler = h.original
 
