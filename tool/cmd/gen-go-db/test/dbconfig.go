@@ -40,6 +40,42 @@ func GetStudentRepository() dao.ITmStudentDao {
 	})
 }
 
+// GetTmNoRepository 获取 tm_no DAO 实例（无主键无索引表）
+func GetTmNoRepository() dao.ITmNoDao {
+	db := mustOpenDB()
+	return dao.NewTmNoDao(gormdb.NewRepository(db), &TestBaseDao{
+		tbInfoOpts: []agdao.TbInfoOpt{
+			agdao.WithTbNameStrategy(func(ctx context.Context, info *agdao.TableInfo) string {
+				return "tm_no"
+			}),
+		},
+	})
+}
+
+// GetTmNoIndexRepository 获取 tm_no_index DAO 实例（有主键无索引表）
+func GetTmNoIndexRepository() dao.ITmNoIndexDao {
+	db := mustOpenDB()
+	return dao.NewTmNoIndexDao(gormdb.NewRepository(db), &TestBaseDao{
+		tbInfoOpts: []agdao.TbInfoOpt{
+			agdao.WithTbNameStrategy(func(ctx context.Context, info *agdao.TableInfo) string {
+				return "tm_no_index"
+			}),
+		},
+	})
+}
+
+// GetTmNoPrimaryRepository 获取 tm_no_primary DAO 实例（无主键有索引表）
+func GetTmNoPrimaryRepository() dao.ITmNoPrimaryDao {
+	db := mustOpenDB()
+	return dao.NewTmNoPrimaryDao(gormdb.NewRepository(db), &TestBaseDao{
+		tbInfoOpts: []agdao.TbInfoOpt{
+			agdao.WithTbNameStrategy(func(ctx context.Context, info *agdao.TableInfo) string {
+				return "tm_no_primary"
+			}),
+		},
+	})
+}
+
 // mustOpenDB 建立数据库连接，失败直接 panic
 func mustOpenDB() *gorm.DB {
 	opener := gormdb.GetDBOpener(DbType)

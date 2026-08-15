@@ -48,10 +48,10 @@ func TestDAO_PointerDispatch(t *testing.T) {
 			},
 		}
 		code := GetDaoTemplate(tableData)
-		// 首主键生成指针非空判断并置 pkUsed；次主键不再在分支生成（统一由 ListZeroValueCols 拼接）
+		// 首主键生成指针非空判断并置 keyUsed；次主键不再在分支生成（统一由 ListZeroValueCols 拼接）
 		for _, want := range []string{
 			"entity.createdAt != nil",
-			"pkUsed = true",
+			"keyUsed = true",
 		} {
 			if !strings.Contains(code, want) {
 				t.Errorf("GetDaoTemplate 应生成指针 != nil 判断 %q, got:\n%s", want, code)
@@ -119,12 +119,11 @@ func TestDAO_PointerDispatch(t *testing.T) {
 			},
 		}
 		code := GetDaoTemplate(tableData)
-		// 主键与索引判断变量分离：indexUsed 独立初值，守卫要求两者都为 false 才报错；主键列纳入统一 where 拼接
+		// 统一守卫：主键或索引引导列任一命中即置 keyUsed，否则报错；主键列纳入统一 where 拼接
 		for _, want := range []string{
-			"pkUsed := false",
+			"keyUsed := false",
 			"if entity.Id != 0 {",
-			"indexUsed := false",
-			"if !pkUsed && !indexUsed {",
+			"if !keyUsed {",
 			"entity.ListZeroValueCols(false, false, true, false)",
 		} {
 			if !strings.Contains(code, want) {
@@ -193,9 +192,42 @@ func TestDAO_PointerDispatch(t *testing.T) {
 			},
 		}
 		code := GetDaoTemplate(tableData)
-		// 首主键（time.Time）在 pkUsed 块生成 IsZero 非零判断
+		// 首主键（time.Time）在 keyUsed 块生成 IsZero 非零判断
 		if !strings.Contains(code, "!entity.createdAt.IsZero()") {
 			t.Errorf("GetDaoTemplate 非指针主键应生成 IsZero 判断, got:\n%s", code)
+		}
+	})
+
+	t.Run("GetDaoTemplate 无主键无索引生成恒报错守卫", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName: "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:  "tm_keyless",
+			StructName: "TmKeyless",
+			Columns: []table.ColumnData{
+				{Name: "name", GoType: "string", JsonTag: "Name"},
+				{Name: "score", GoType: "int64", JsonTag: "Score"},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		// 无条件生成守卫；无主键无索引 → 无任何置位检查，keyUsed 恒 false → 恒报错
+		for _, want := range []string{
+			"keyUsed := false",
+			"if !keyUsed {",
+			"return nil, errors.New(\"query not use any index\")",
+		} {
+			if !strings.Contains(code, want) {
+				t.Errorf("GetDaoTemplate 无主键无索引应生成恒报错守卫 %q, got:\n%s", want, code)
+			}
+		}
+		// 不应生成任何置位检查（无主键、无索引引导列）
+		for _, notWant := range []string{
+			"keyUsed = true",
+			"pkUsed",
+			"indexUsed",
+		} {
+			if strings.Contains(code, notWant) {
+				t.Errorf("GetDaoTemplate 无主键无索引不应生成 %q, got:\n%s", notWant, code)
+			}
 		}
 	})
 }

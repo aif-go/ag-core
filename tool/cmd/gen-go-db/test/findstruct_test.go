@@ -275,6 +275,113 @@ func TestStudentFindByStruct(t *testing.T) {
 
 
 
+// TestTmNoFindByStruct 无主键无索引表（tm_no）：守卫恒报错，FindByStruct 一律拦截
+func TestTmNoFindByStruct(t *testing.T) {
+	ctx := context.Background()
+	tmNoDao := GetTmNoRepository()
+
+	testCases := []struct {
+		name    string
+		entity  *model.TmNo
+		wantErr bool
+		wantCnt int // 预期返回条数（-1 表示不检查）
+	}{
+		{name: "场景1:按字段Name查询-恒报错", entity: &model.TmNo{Name: "Alice"}, wantErr: true, wantCnt: 0},
+		{name: "场景2:按普通列Score查询-恒报错", entity: &model.TmNo{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景3:按TenantId+StudentNo查询-恒报错", entity: &model.TmNo{TenantId: 1, StudentNo: "NO001"}, wantErr: true, wantCnt: 0},
+		{name: "场景4:空结构体-恒报错", entity: &model.TmNo{}, wantErr: true, wantCnt: 0},
+	}
+
+	for _, tc := range testCases {
+		tc := tc // 避免循环变量捕获
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := tmNoDao.FindByStruct(ctx, tc.entity)
+			assertFindResult(t, tc.name, res, err, tc.wantErr, tc.wantCnt)
+		})
+	}
+}
+
+// TestTmNoIndexFindByStruct 有主键无索引表（tm_no_index）：必须按主键查询，普通列/空实体被拦截
+func TestTmNoIndexFindByStruct(t *testing.T) {
+	ctx := context.Background()
+	tmNoIndexDao := GetTmNoIndexRepository()
+
+	testCases := []struct {
+		name    string
+		entity  *model.TmNoIndex
+		wantErr bool
+		wantCnt int
+	}{
+		{name: "场景1:按完整主键-TenantId+StudentNo", entity: &model.TmNoIndex{TenantId: 1, StudentNo: "NO001"}, wantErr: false, wantCnt: 1},
+		{name: "场景2:仅首主键TenantId-主键索引生效", entity: &model.TmNoIndex{TenantId: 1}, wantErr: false, wantCnt: 4},
+		{name: "场景3:按普通列Name-无索引-预期错误", entity: &model.TmNoIndex{Name: "Alice"}, wantErr: true, wantCnt: 0},
+		{name: "场景4:按普通列Score-无索引-预期错误", entity: &model.TmNoIndex{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景5:空结构体-预期错误", entity: &model.TmNoIndex{}, wantErr: true, wantCnt: 0},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := tmNoIndexDao.FindByStruct(ctx, tc.entity)
+			assertFindResult(t, tc.name, res, err, tc.wantErr, tc.wantCnt)
+		})
+	}
+}
+
+// TestTmNoPrimaryFindByStruct 无主键有索引表（tm_no_primary）：必须走索引引导列，普通列/空实体被拦截
+func TestTmNoPrimaryFindByStruct(t *testing.T) {
+	ctx := context.Background()
+	tmNoPrimaryDao := GetTmNoPrimaryRepository()
+
+	testCases := []struct {
+		name    string
+		entity  *model.TmNoPrimary
+		wantErr bool
+		wantCnt int
+	}{
+		{name: "场景1:单索引列Name", entity: &model.TmNoPrimary{Name: "Alice"}, wantErr: false, wantCnt: 3},
+		{name: "场景2:单索引列ClassId", entity: &model.TmNoPrimary{ClassId: "C01"}, wantErr: false, wantCnt: 2},
+		{name: "场景3:联合索引Name+Address", entity: &model.TmNoPrimary{Name: "Alice", Address: "北京市海淀区"}, wantErr: false, wantCnt: 1},
+		{name: "场景4:多索引Name+Phone", entity: &model.TmNoPrimary{Name: "Helen", Phone: "13800000007"}, wantErr: false, wantCnt: 1},
+		{name: "场景5:索引+普通列Name+Score", entity: &model.TmNoPrimary{Name: "Alice", Score: 95}, wantErr: false, wantCnt: 1},
+		{name: "场景6:Address单独-非前导列-预期错误", entity: &model.TmNoPrimary{Address: "北京市海淀区"}, wantErr: true, wantCnt: 0},
+		{name: "场景7:仅普通列Score-预期错误", entity: &model.TmNoPrimary{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景8:空结构体-预期错误", entity: &model.TmNoPrimary{}, wantErr: true, wantCnt: 0},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := tmNoPrimaryDao.FindByStruct(ctx, tc.entity)
+			assertFindResult(t, tc.name, res, err, tc.wantErr, tc.wantCnt)
+		})
+	}
+}
+
+// assertFindResult 校验 FindByStruct 返回结果（期望错误 / 条数），供各表测试复用
+func assertFindResult[T any](t *testing.T, name string, res []*T, err error, wantErr bool, wantCnt int) {
+	if wantErr {
+		if err == nil {
+			t.Errorf("[%s] 期望错误但返回nil, 结果: %v", name, res)
+		} else {
+			t.Logf("[%s] 正确返回错误: %v", name, err)
+		}
+		return
+	}
+	if err != nil {
+		t.Errorf("[%s] 不期望错误但返回: %v", name, err)
+		return
+	}
+	if wantCnt > 0 && len(res) != wantCnt {
+		t.Errorf("[%s] 期望 %d 条，实际 %d 条, 结果: %v", name, wantCnt, len(res), res)
+		return
+	}
+	t.Logf("[%s] 查询到 %d 条记录", name, len(res))
+	for _, e := range res {
+		t.Logf("  -> %+v", e)
+	}
+}
+
 // === 辅助函数 ===
 
 // timePtr 辅助函数：将 time.Time 转为 *time.Time

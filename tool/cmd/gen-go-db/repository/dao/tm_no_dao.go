@@ -14,43 +14,43 @@ import (
 	"gorm.io/gorm"
 )
 
-// TmStudentDao tm_student DAO
+// TmNoDao tm_no DAO
 // DO NOT EDIT
 // DO NOT EDIT
 // DO NOT EDIT
-type TmStudentDao struct {
+type TmNoDao struct {
 	*gormdb.Repository
 	info    agdao.TableInfo
 	baseDao agdao.BaseDao
 }
 
-// ITmStudentDao TmStudent DAO接口
-type ITmStudentDao interface {
-	InsertOne(ctx context.Context, entity *model.TmStudent) (int64, error)
-	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmStudent) (int64, error)
-	UpdateByPrimaryKey(ctx context.Context, entity *model.TmStudent) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmStudent) (int64, error)
-	FindByPrimaryKey(ctx context.Context, primaryKey model.TmStudentPrimarkey) (*model.TmStudent, error)
-	FindByStruct(ctx context.Context, entity *model.TmStudent) ([]*model.TmStudent, error)
+// ITmNoDao TmNo DAO接口
+type ITmNoDao interface {
+	InsertOne(ctx context.Context, entity *model.TmNo) (int64, error)
+	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error)
+	UpdateByPrimaryKey(ctx context.Context, entity *model.TmNo) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error)
+	FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimarkey) (*model.TmNo, error)
+	FindByStruct(ctx context.Context, entity *model.TmNo) ([]*model.TmNo, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
-	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmStudent, *gormdb.PageResult, error)
-	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmStudent, error)
+	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmNo, *gormdb.PageResult, error)
+	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmNo, error)
 }
 
-// NewTmStudentDao get dao instance
-func NewTmStudentDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITmStudentDao {
+// NewTmNoDao get dao instance
+func NewTmNoDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITmNoDao {
 	
-	return &TmStudentDao{
+	return &TmNoDao{
 		Repository: repository,
 		baseDao:    baseDao,
 		info: agdao.TableInfo{
-			TableName: "tm_student",
+			TableName: "tm_no",
 		},
 	}
 }
 
 // insertOne 插入一条数据库数据
-func (dao *TmStudentDao) InsertOne(ctx context.Context, entity *model.TmStudent) (int64, error) {
+func (dao *TmNoDao) InsertOne(ctx context.Context, entity *model.TmNo) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -61,7 +61,7 @@ func (dao *TmStudentDao) InsertOne(ctx context.Context, entity *model.TmStudent)
 }
 
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
-func (dao *TmStudentDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmStudent) (int64, error) {
+func (dao *TmNoDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
 	if err!= nil{
@@ -77,7 +77,7 @@ func (dao *TmStudentDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity 
 }
 
 // UpdateByPrimaryKey 根据主键或者唯一键更新，该操作只适合从数据库查询原实体修改值之后使用
-func (dao *TmStudentDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmStudent) (int64, error) {
+func (dao *TmNoDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmNo) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -85,55 +85,41 @@ func (dao *TmStudentDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.TenantId == 0) || (entity.StudentNo == "")) {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["tenant_id"] = entity.TenantId
-		where["student_no"] = entity.StudentNo
-	}
 
 	if len(where) == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 5. 使用支持更新的列
-	result := db.Model(&model.TmStudent{}).Where(where).Save(entity)
+	result := db.Model(&model.TmNo{}).Where(where).Save(entity)
 	return result.RowsAffected, result.Error
 }
 
 // UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *TmStudentDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmStudent) (int64, error) {
+func (dao *TmNoDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}	
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.TenantId == 0) || (entity.StudentNo == "")) {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["tenant_id"] = entity.TenantId
-		where["student_no"] = entity.StudentNo
-	}
 
 	if len(where) == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.TmStudent{}).Where(where).Updates(entity)
+	result := db.Model(&model.TmNo{}).Where(where).Updates(entity)
 	return result.RowsAffected, result.Error
 }
 
 // FindByPrimaryKey 根据主键查询
-func (dao *TmStudentDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmStudentPrimarkey) (*model.TmStudent, error) {
+func (dao *TmNoDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimarkey) (*model.TmNo, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
 	}
 	
-	var entity model.TmStudent
-	result := db.Where("tenant_id = ? AND student_no = ?", primaryKey.TenantId, primaryKey.StudentNo).First(&entity)
+	var entity model.TmNo
+	result := db.Where("", ).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -141,8 +127,8 @@ func (dao *TmStudentDao) FindByPrimaryKey(ctx context.Context, primaryKey model.
 }
 
 // FindByStruct 根据实体查询
-func (dao *TmStudentDao) FindByStruct(ctx context.Context, entity *model.TmStudent) ([]*model.TmStudent, error) {
-	var list []*model.TmStudent
+func (dao *TmNoDao) FindByStruct(ctx context.Context, entity *model.TmNo) ([]*model.TmNo, error) {
+	var list []*model.TmNo
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
@@ -150,26 +136,6 @@ func (dao *TmStudentDao) FindByStruct(ctx context.Context, entity *model.TmStude
 
 	// 检查是否使用了主键或索引，避免全表扫描
 	keyUsed := false
-	// 检查主键
-	if entity.TenantId != 0 {
-		keyUsed = true
-	}
-	// 检查索引 tm_teacher_name_IDX
-	if entity.CardNo != "" {
-		keyUsed = true
-	}
-	// 检查索引 tm_teacher_phone_IDX
-	if entity.Phone != "" {
-		keyUsed = true
-	}
-	// 检查索引 tm_teacher_classid_IDX
-	if entity.ClassId != "" {
-		keyUsed = true
-	}
-	// 检查索引 tm_teacher_Name_IDX
-	if entity.Name != "" {
-		keyUsed = true
-	}
 	if !keyUsed {
 		return nil, errors.New("query not use any index")
 	}
@@ -191,7 +157,7 @@ func (dao *TmStudentDao) FindByStruct(ctx context.Context, entity *model.TmStude
 }
 
 // FindByCustomerRule 根据自定义规则查询
-func (dao *TmStudentDao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
+func (dao *TmNoDao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
 
 	if ctx == nil {
 		return nil, errors.New("ctx is nil")
@@ -218,8 +184,8 @@ func (dao *TmStudentDao) FindByCustomerRule(ctx context.Context, namingInfo *gor
 }
 
 // FindByCondition 根据条件构建器查询
-func (dao *TmStudentDao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmStudent, *gormdb.PageResult, error) {
-	var list []*model.TmStudent
+func (dao *TmNoDao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmNo, *gormdb.PageResult, error) {
+	var list []*model.TmNo
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -273,8 +239,8 @@ func (dao *TmStudentDao) FindByCondition(ctx context.Context, condition *condito
 }
 
 // FindFirstOneByCondition 根据条件构建器查询第一条记录
-func (dao *TmStudentDao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmStudent, error) {
-	var entity model.TmStudent
+func (dao *TmNoDao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.TmNo, error) {
+	var entity model.TmNo
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
@@ -303,19 +269,19 @@ func (dao *TmStudentDao) FindFirstOneByCondition(ctx context.Context, condition 
 
 
 // getInfo 获取表信息
-func (dao *TmStudentDao) getInfo() agdao.TableInfo {
+func (dao *TmNoDao) getInfo() agdao.TableInfo {
 	return dao.info
 }
 
 // getApplyInfo 获取应用表信息
-func (dao *TmStudentDao) getApplyInfo(ctx context.Context) agdao.TableInfo {
+func (dao *TmNoDao) getApplyInfo(ctx context.Context) agdao.TableInfo {
 	info := dao.getInfo()
 	dao.baseDao.ApplyTbInfoOpts(ctx, &info)
 	return info
 }
 
 // newDB 创建一个新的DB实例
-func (dao *TmStudentDao) newDB(ctx context.Context) (*gorm.DB, error) {
+func (dao *TmNoDao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db := dao.DB(ctx)
 	info := dao.getApplyInfo(ctx)
 	tbname := info.TableName
