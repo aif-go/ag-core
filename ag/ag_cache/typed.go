@@ -1,0 +1,226 @@
+package ag_cache
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"golang.org/x/sync/singleflight"
+)
+
+// typedCache wraps an Engine with type-safe serialization and singleflight
+// deduplication. Each typedCache owns its Engine (standalone instance).
+type typedCache[T any] struct {
+	engine     Engine
+	engineName string // requested engine name (WithEngine); empty = default engine
+	serializer Serializer[T]
+	defaultTTL time.Duration
+	ttlSet     bool // whether defaultTTL was set via Option
+	sf         singleflight.Group
+}
+
+// NewWithEngine creates an ICache[T] backed by an explicit Engine.
+// Use in tests (with MockEngine) or when a cache is built outside a Manager.
+func NewWithEngine[T any](engine Engine, opts ...Option[T]) ICache[T] {
+	c := &typedCache[T]{
+		engine:     engine,
+		serializer: DefaultSerializer[T](),
+		defaultTTL: 5 * time.Minute,
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
+}
+
+// NewAdminWithEngine creates an AdminCache[T] backed by an explicit Engine.
+func NewAdminWithEngine[T any](engine Engine, opts ...Option[T]) AdminCache[T] {
+	c := &typedCache[T]{
+		engine:     engine,
+		serializer: DefaultSerializer[T](),
+		defaultTTL: 5 * time.Minute,
+	}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
+}
+
+// Option configures a typedCache.
+type Option[T any] func(*typedCache[T])
+
+// WithEngine selects a specific engine implementation by registered name.
+// When omitted, the Manager's default engine is used.
+func WithEngine[T any](engineName string) Option[T] {
+	return func(c *typedCache[T]) { c.engineName = engineName }
+}
+
+// WithDefaultTTL overrides the default TTL used when Set is called without
+// an explicit TTL. Takes priority over the engine's DefaultTTLProvider.
+func WithDefaultTTL[T any](ttl time.Duration) Option[T] {
+	return func(c *typedCache[T]) {
+		c.defaultTTL = ttl
+		c.ttlSet = true
+	}
+}
+
+// WithSerializer overrides the default serializer.
+func WithSerializer[T any](s Serializer[T]) Option[T] {
+	return func(c *typedCache[T]) { c.serializer = s }
+}
+
+// Get implements ICache — pure read, no loader.
+// Returns ErrCacheMiss on miss; ErrBackend-wrapped error on backend failure.
+func (c *typedCache[T]) Get(ctx context.Context, key string) (val T, err error) {
+	defer c.recoverPanic(&err)
+	data, err := c.engine.Get(ctx, key)
+	if err != nil {
+		var zero T
+		return zero, errBackend(err) // ErrCacheMiss passes through, others wrap ErrBackend
+	}
+	return c.unmarshal(data)
+}
+
+// GetOrElse implements ICache.
+// Returns ErrCacheMiss only if loader returns it; backend failures are
+// ErrBackend-wrapped (NOT treated as a miss — no loader storm on backend down).
+func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader LoaderFunc[T]) (val T, err error) {
+	defer c.recoverPanic(&err)
+
+	data, err := c.engine.Get(ctx, key)
+	if err == nil {
+		return c.unmarshal(data)
+	}
+	if !errors.Is(err, ErrCacheMiss) {
+		// Backend failure — do NOT call loader (would storm the source).
+		var zero T
+		return zero, errBackend(err)
+	}
+
+	type result struct {
+		val T
+		err error
+	}
+	res, _, _ := c.sf.Do(key, func() (any, error) {
+		if data, err := c.engine.Get(ctx, key); err == nil {
+			v, verr := c.unmarshal(data)
+			return result{v, verr}, nil
+		} else if !errors.Is(err, ErrCacheMiss) {
+			var zero T
+			return result{zero, errBackend(err)}, nil
+		}
+
+		// loader must NOT be cancelled by the first caller's ctx —
+		// use WithoutCancel so all concurrent waiters share one load.
+		v, lerr := loader(context.WithoutCancel(ctx), key)
+		if lerr != nil {
+			return result{v, lerr}, lerr
+		}
+
+		data, serr := c.serializer.Marshal(v)
+		if serr != nil {
+			return result{v, serr}, serr
+		}
+
+		if serr := c.engine.Set(ctx, key, data, c.defaultTTL); serr != nil {
+			return result{v, serr}, serr
+		}
+		// Guarantee the loaded value is visible to subsequent reads
+		// (optional capability for async engines like Ristretto).
+		if s, ok := c.engine.(syncer); ok {
+			s.Sync()
+		}
+		return result{v, nil}, nil
+	})
+
+	r := res.(result)
+	return r.val, r.err
+}
+
+// Set implements ICache.
+// ttl semantics: omitted → defaultTTL; 0 → never expire; >0 → explicit TTL.
+func (c *typedCache[T]) Set(ctx context.Context, key string, value T, ttl ...time.Duration) (err error) {
+	defer c.recoverPanic(&err)
+
+	data, err := c.serializer.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	t := c.defaultTTL
+	if len(ttl) > 0 {
+		t = ttl[0] // 0 = never expire, >0 = explicit TTL
+	}
+
+	return errBackend(c.engine.Set(ctx, key, data, t))
+}
+
+// Del implements ICache.
+func (c *typedCache[T]) Del(ctx context.Context, keys ...string) error {
+	for _, key := range keys {
+		if err := c.engine.Del(ctx, key); err != nil {
+			return errBackend(err)
+		}
+	}
+	return nil
+}
+
+// Clear implements ICache — clears all entries of this standalone instance.
+func (c *typedCache[T]) Clear(ctx context.Context) error {
+	return errBackend(c.engine.Clear(ctx))
+}
+
+// Peek implements AdminCache — pure read, no loader.
+func (c *typedCache[T]) Peek(ctx context.Context, key string) (T, bool, error) {
+	data, err := c.engine.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, ErrCacheMiss) {
+			var zero T
+			return zero, false, nil
+		}
+		var zero T
+		return zero, false, errBackend(err)
+	}
+	v, err := c.unmarshal(data)
+	if err != nil {
+		var zero T
+		return zero, false, err
+	}
+	return v, true, nil
+}
+
+// Stats implements AdminCache.
+func (c *typedCache[T]) Stats() Stats { return c.engine.Stats() }
+
+// stats is the non-generic view used by Manager.Visit to traverse map[string]any.
+func (c *typedCache[T]) stats() Stats { return c.engine.Stats() }
+
+// closeEngine closes the underlying engine (used by Manager.Close).
+func (c *typedCache[T]) closeEngine() {
+	if c.engine != nil {
+		_ = c.engine.Close()
+	}
+}
+
+func (c *typedCache[T]) unmarshal(data []byte) (T, error) {
+	v, err := c.serializer.Unmarshal(data)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return *v, nil
+}
+
+// recoverPanic catches panics from engine calls and converts them to ErrBackend.
+func (c *typedCache[T]) recoverPanic(err *error) {
+	if r := recover(); r != nil {
+		*err = errBackend(fmt.Errorf("engine panic: %v", r))
+	}
+}
+
+var (
+	_ ICache[string]     = (*typedCache[string])(nil)
+	_ AdminCache[string] = (*typedCache[string])(nil)
+	_ engineCloser       = (*typedCache[string])(nil)
+)
