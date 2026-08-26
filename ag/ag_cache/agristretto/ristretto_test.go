@@ -60,37 +60,6 @@ func TestSet_ZeroTTL_NeverExpires(t *testing.T) {
 	}
 }
 
-// ──────── Stats ────────
-
-func TestEngine_Stats(t *testing.T) {
-	e1 := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
-	defer e1.Close()
-	e2 := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
-	defer e2.Close()
-	ctx := context.Background()
-
-	e1.Set(ctx, "k1", []byte("a"), 0)
-	syncNow(t, e1)
-	e1.Get(ctx, "k1")     // hit
-	e1.Get(ctx, "k-miss") // miss
-	e2.Get(ctx, "k-miss") // miss in e2 only
-
-	s1 := e1.Stats()
-	s2 := e2.Stats()
-	if s1.Hits == 0 {
-		t.Fatal("e1 should have hits")
-	}
-	if s1.Misses == 0 {
-		t.Fatal("e1 should have a miss")
-	}
-	if s2.Hits != 0 {
-		t.Fatalf("e2 should have no hits, got %d", s2.Hits)
-	}
-	if s2.Misses < 1 {
-		t.Fatalf("e2 should have >=1 miss, got %d", s2.Misses)
-	}
-}
-
 // ──────── 淘汰 ────────
 
 func TestEviction(t *testing.T) {
@@ -112,9 +81,6 @@ func TestEviction(t *testing.T) {
 	}
 	if evicted == 0 {
 		t.Fatal("expected some evictions with tiny MaxCost")
-	}
-	if s := e.Stats(); s.Evictions == 0 {
-		t.Fatal("expected Evictions counter > 0")
 	}
 }
 

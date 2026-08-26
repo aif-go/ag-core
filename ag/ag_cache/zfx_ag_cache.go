@@ -2,7 +2,6 @@ package ag_cache
 
 import (
 	"context"
-	"log/slog"
 
 	"go.uber.org/fx"
 )
@@ -26,23 +25,13 @@ func NewAgCacheManager(p EngineFactoryParams, props *AgCacheProperties) (*Manage
 }
 
 // registerHooks sets the default manager (so package-level New/Get work)
-// and registers the OnStop hook: stats then Close.
+// and registers the OnStop hook: just Close (stats are not tracked in v3).
 func registerHooks(lc fx.Lifecycle, m *Manager) {
 	SetDefault(m)
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
-			LogStats(m)
 			return m.Close()
 		},
-	})
-}
-
-// LogStats outputs per-namespace cache stats via slog.
-func LogStats(m *Manager) {
-	m.Visit(func(name string, s Stats) {
-		slog.Info("agcache stats", "namespace", name,
-			"hits", s.Hits, "misses", s.Misses,
-			"evictions", s.Evictions, "entries", s.EntryCount)
 	})
 }
 

@@ -48,7 +48,7 @@ func NewRistrettoEngine(cfg RistrettoConfig) (ag_cache.Engine, error) {
 		NumCounters: cfg.NumCounters,
 		MaxCost:     cfg.MaxCost,
 		BufferItems: 64,
-		Metrics:     true,
+		Metrics:     false, // v3: Stats 后置，无统计消费，关闭 Metrics 省开销
 	})
 	if err != nil {
 		return nil, err
@@ -92,17 +92,6 @@ func (e *ristrettoEngine) Del(ctx context.Context, key string) error {
 func (e *ristrettoEngine) Clear(ctx context.Context) error {
 	e.cache.Clear()
 	return nil
-}
-
-// Stats implements ag_cache.Engine.
-func (e *ristrettoEngine) Stats() ag_cache.Stats {
-	m := e.cache.Metrics
-	return ag_cache.Stats{
-		Hits:       int64(m.Hits()),
-		Misses:     int64(m.Misses()),
-		Evictions:  int64(m.KeysEvicted()),
-		EntryCount: int64(m.KeysAdded() - m.KeysEvicted() - m.KeysUpdated()),
-	}
 }
 
 // Close implements ag_cache.Engine.

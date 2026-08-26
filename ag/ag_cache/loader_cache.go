@@ -2,7 +2,6 @@ package ag_cache
 
 import (
 	"context"
-	"time"
 )
 
 // LoaderCache binds a default loader to a cache, so Get becomes read-through
@@ -10,8 +9,7 @@ import (
 //
 // Semantics: LoaderCache.Get is a side-effecting read (may write cache), unlike
 // ICache.Get (pure read). The type name carries the semantic — like Spring's
-// @Cacheable method. For a pure read, use Peek (Admin view); for a one-off
-// different loader, use GetOrElse with a custom loader.
+// @Cacheable method. For a pure read without loader, use TryGet.
 type LoaderCache[T any] struct {
 	inner  ICache[T]
 	loader LoaderFunc[T]
@@ -34,8 +32,8 @@ func (c *LoaderCache[T]) GetOrElse(ctx context.Context, key string, loader Loade
 }
 
 // Set forwards.
-func (c *LoaderCache[T]) Set(ctx context.Context, key string, value T, ttl ...time.Duration) error {
-	return c.inner.Set(ctx, key, value, ttl...)
+func (c *LoaderCache[T]) Set(ctx context.Context, key string, value T) error {
+	return c.inner.Set(ctx, key, value)
 }
 
 // Del forwards.
@@ -48,29 +46,9 @@ func (c *LoaderCache[T]) Clear(ctx context.Context) error {
 	return c.inner.Clear(ctx)
 }
 
-// Peek is the pure-read escape hatch (Admin view).
-func (c *LoaderCache[T]) Peek(ctx context.Context, key string) (T, bool, error) {
-	if admin, ok := c.inner.(AdminCache[T]); ok {
-		return admin.Peek(ctx, key)
-	}
-	// Fallback: Get and translate ErrCacheMiss.
-	v, err := c.inner.Get(ctx, key)
-	if err != nil {
-		var zero T
-		if err == ErrCacheMiss {
-			return zero, false, nil
-		}
-		return zero, false, err
-	}
-	return v, true, nil
-}
-
-// Stats forwards to the inner admin view if available.
-func (c *LoaderCache[T]) Stats() Stats {
-	if admin, ok := c.inner.(AdminCache[T]); ok {
-		return admin.Stats()
-	}
-	return Stats{}
+// TryGet forwards — pure read without a miss error.
+func (c *LoaderCache[T]) TryGet(ctx context.Context, key string) (T, bool, error) {
+	return c.inner.TryGet(ctx, key)
 }
 
 var _ ICache[string] = (*LoaderCache[string])(nil)

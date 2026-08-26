@@ -41,6 +41,18 @@ func (m *MockCache[T]) Get(ctx context.Context, key string) (T, error) {
 	return zero, ErrCacheMiss
 }
 
+// TryGet implements ICache — relaxed read without a miss error.
+func (m *MockCache[T]) TryGet(ctx context.Context, key string) (T, bool, error) {
+	m.mu.RLock()
+	v, ok := m.data[key]
+	m.mu.RUnlock()
+	if !ok {
+		var zero T
+		return zero, false, nil
+	}
+	return v, true, nil
+}
+
 // GetOrElse implements ICache.
 func (m *MockCache[T]) GetOrElse(ctx context.Context, key string, loader LoaderFunc[T]) (T, error) {
 	if m.err != nil {
@@ -75,7 +87,7 @@ func (m *MockCache[T]) GetOrElse(ctx context.Context, key string, loader LoaderF
 }
 
 // Set implements ICache.
-func (m *MockCache[T]) Set(ctx context.Context, key string, value T, ttl ...time.Duration) error {
+func (m *MockCache[T]) Set(ctx context.Context, key string, value T) error {
 	m.mu.Lock()
 	m.data[key] = value
 	m.stats.EntryCount = int64(len(m.data))
@@ -103,25 +115,7 @@ func (m *MockCache[T]) Clear(ctx context.Context) error {
 	return nil
 }
 
-// Peek implements AdminCache — pure read, no stats update.
-func (m *MockCache[T]) Peek(ctx context.Context, key string) (T, bool, error) {
-	m.mu.RLock()
-	v, ok := m.data[key]
-	m.mu.RUnlock()
-	return v, ok, nil
-}
-
-// Stats implements AdminCache.
-func (m *MockCache[T]) Stats() Stats {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.stats
-}
-
-var (
-	_ ICache[string]     = (*MockCache[string])(nil)
-	_ AdminCache[string] = (*MockCache[string])(nil)
-)
+var _ ICache[string] = (*MockCache[string])(nil)
 
 // ──────── MockEngine ────────
 

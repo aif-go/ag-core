@@ -85,60 +85,11 @@ func TestNew_LazyCreateAndReuse(t *testing.T) {
 	}
 }
 
-func TestGetAdmin(t *testing.T) {
-	registerMockEngine()
-	props := ag_cache.DefaultAgCacheProperties()
-	props.DefaultEngine = "mock"
-	m, err := ag_cache.NewManager(props)
-	if err != nil {
-		t.Fatalf("NewManager: %v", err)
-	}
-	ag_cache.SetDefault(m)
-	defer ag_cache.CloseAll()
-	ctx := context.Background()
-
-	admin := ag_cache.GetAdmin[string]("users")
-	admin.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) { return "v", nil })
-	if s := admin.Stats(); s.EntryCount < 1 {
-		t.Fatalf("expected entries>=1, got %d", s.EntryCount)
-	}
-}
-
 func TestManager_UnknownEngine_FailFast(t *testing.T) {
 	props := ag_cache.DefaultAgCacheProperties()
 	props.DefaultEngine = "no-such-engine"
 	if _, err := ag_cache.NewManager(props); err == nil {
 		t.Fatal("NewManager should fail fast for unknown default engine")
-	}
-}
-
-func TestManager_Visit(t *testing.T) {
-	registerMockEngine()
-	props := ag_cache.DefaultAgCacheProperties()
-	props.DefaultEngine = "mock"
-	m, err := ag_cache.NewManager(props)
-	if err != nil {
-		t.Fatalf("NewManager: %v", err)
-	}
-	ag_cache.SetDefault(m)
-	defer ag_cache.CloseAll()
-	ctx := context.Background()
-
-	ag_cache.New[string]("users", strLoader("U1")).GetOrElse(ctx, "u1", strLoader("U1"))
-	ag_cache.Get[string]("params").Get(ctx, "missing")
-
-	visited := map[string]ag_cache.Stats{}
-	m.Visit(func(name string, s ag_cache.Stats) {
-		visited[name] = s
-	})
-	if len(visited) != 2 {
-		t.Fatalf("Visit should report 2 namespaces, got %d: %v", len(visited), visited)
-	}
-	if _, ok := visited["users"]; !ok {
-		t.Fatalf("users not visited: %v", visited)
-	}
-	if _, ok := visited["params"]; !ok {
-		t.Fatalf("params not visited: %v", visited)
 	}
 }
 

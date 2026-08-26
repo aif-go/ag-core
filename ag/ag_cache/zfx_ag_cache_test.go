@@ -52,27 +52,7 @@ func TestFxAgCacheMode_IdempotentRegister(t *testing.T) {
 	app2.RequireStart().RequireStop()
 }
 
-// ──────── 生命周期统计 ────────
+// ──────── 生命周期（OnStop 只 Close，无统计）───────
 
-func TestLogStats(t *testing.T) {
-	registerMockEngine()
-	props := ag_cache.DefaultAgCacheProperties()
-	props.DefaultEngine = "mock"
-	m, err := ag_cache.NewManager(props)
-	if err != nil {
-		t.Fatalf("NewManager: %v", err)
-	}
-	ag_cache.SetDefault(m)
-	defer ag_cache.CloseAll()
-	ctx := context.Background()
-
-	ag_cache.New[string]("users", strLoader("U1")).GetOrElse(ctx, "u1", strLoader("U1"))
-	ag_cache.Get[string]("params").Get(ctx, "missing")
-
-	count := 0
-	m.Visit(func(name string, s ag_cache.Stats) { count++ })
-	if count != 2 {
-		t.Fatalf("expected 2 namespaces, got %d", count)
-	}
-	ag_cache.LogStats(m) // must not panic; stats verified via Visit
-}
+// TestFxAgCacheMode_OnStopClose 验证 Fx 联合装配 + 生命周期（已含于 TestFxAgCacheMode）。
+// Stats 已后置移除，无需统计断言。

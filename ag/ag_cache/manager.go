@@ -51,24 +51,8 @@ func (m *Manager) Close() error {
 	return nil
 }
 
-// Visit iterates over all lazily-created namespaces and their stats.
-// The callback runs while holding the manager lock; keep it cheap.
-func (m *Manager) Visit(fn func(name string, s Stats)) {
-	if m == nil {
-		return
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for name, c := range m.caches {
-		fn(name, c.(engineStat).stats())
-	}
-}
-
 // engineCloser lets Close close typedCache instances of any T.
 type engineCloser interface{ closeEngine() }
-
-// engineStat lets Visit read stats of typedCache instances of any T.
-type engineStat interface{ stats() Stats }
 
 // ──────── Replaceable default instance (sql-package style) ────────
 
@@ -95,15 +79,6 @@ func New[T any](name string, loader LoaderFunc[T], opts ...Option[T]) *LoaderCac
 // Get returns the named cache from the default manager.
 // Panics if SetDefault has not been called.
 func Get[T any](name string) ICache[T] {
-	m := defaultManager.Load()
-	if m == nil {
-		panic("agcache: no default manager — call SetDefault or use NewWithEngine")
-	}
-	return getOrCreate[T](m, name)
-}
-
-// GetAdmin returns the named cache with admin operations from the default manager.
-func GetAdmin[T any](name string) AdminCache[T] {
 	m := defaultManager.Load()
 	if m == nil {
 		panic("agcache: no default manager — call SetDefault or use NewWithEngine")

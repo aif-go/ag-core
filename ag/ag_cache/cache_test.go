@@ -94,7 +94,7 @@ func TestGetOrElse_Basic(t *testing.T) {
 
 func TestGet_PureRead(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.GetAdmin[string]("users")
+	cache := ag_cache.Get[string]("users")
 	ctx := context.Background()
 
 	_, err := cache.Get(ctx, "missing")
@@ -157,9 +157,9 @@ func TestSerialization_StructType(t *testing.T) {
 		t.Fatalf("GetOrElse: %v", err)
 	}
 
-	v, ok, err := cache.Peek(ctx, "u1")
+	v, ok, err := cache.TryGet(ctx, "u1")
 	if err != nil || !ok || v != user {
-		t.Fatalf("peek: v=%+v ok=%v err=%v", v, ok, err)
+		t.Fatalf("tryget: v=%+v ok=%v err=%v", v, ok, err)
 	}
 }
 
@@ -194,8 +194,8 @@ func TestClear_OnlyAffectsOwnInstance(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.GetAdmin[string]("users")
-	params := ag_cache.GetAdmin[string]("params")
+	users := ag_cache.Get[string]("users")
+	params := ag_cache.Get[string]("params")
 
 	users.GetOrElse(ctx, "u1", func(ctx context.Context, key string) (string, error) { return "U1", nil })
 	params.GetOrElse(ctx, "p1", func(ctx context.Context, key string) (string, error) { return "P1", nil })
@@ -376,7 +376,7 @@ func TestLoaderCache_GetOrElse_CustomLoader(t *testing.T) {
 	}
 }
 
-func TestLoaderCache_Peek_NoLoader(t *testing.T) {
+func TestLoaderCache_TryGet_NoLoader(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
@@ -386,18 +386,18 @@ func TestLoaderCache_Peek_NoLoader(t *testing.T) {
 		return "v", nil
 	})
 
-	_, ok, err := users.Peek(ctx, "missing")
+	_, ok, err := users.TryGet(ctx, "missing")
 	if err != nil || ok {
-		t.Fatalf("Peek miss: ok=%v err=%v", ok, err)
+		t.Fatalf("TryGet miss: ok=%v err=%v", ok, err)
 	}
 	if callCount != 0 {
-		t.Fatalf("Peek must not call loader, called %d times", callCount)
+		t.Fatalf("TryGet must not call loader, called %d times", callCount)
 	}
 
 	users.Get(ctx, "k")
-	_, ok, _ = users.Peek(ctx, "k")
+	_, ok, _ = users.TryGet(ctx, "k")
 	if !ok {
-		t.Fatal("Peek after Get should hit")
+		t.Fatal("TryGet after Get should hit")
 	}
 }
 
@@ -478,5 +478,195 @@ func TestMockCache_AsTestDouble(t *testing.T) {
 	})
 	if v != 3 {
 		t.Fatalf("expected 3, got %d", v)
+	}
+}
+
+// ──────── TryGet 行为 ────────
+
+func TestTryGet_Miss(t *testing.T) {
+	setupManager(t)
+	c := ag_cache.Get[string]("users")
+	ctx := context.Background()
+
+	v, ok, err := c.TryGet(ctx, "missing")
+	if err != nil || ok || v != "" {
+		t.Fatalf("TryGet miss: v=%q ok=%v err=%v", v, ok, err)
+	}
+}
+
+func TestTryGet_Hit(t *testing.T) {
+	setupManager(t)
+	c := ag_cache.New[string]("users", strLoader("v"))
+	ctx := context.Background()
+	c.GetOrElse(ctx, "k", strLoader("v"))
+
+	v, ok, err := c.TryGet(ctx, "k")
+	if err != nil || !ok || v != "v" {
+		t.Fatalf("TryGet hit: v=%q ok=%v err=%v", v, ok, err)
+	}
+}
+
+// ──────── Del 探测 BulkDelEngine ────────
+
+// bulkDelEngine: 实现 BulkDelEngine，记录 DelMany 调用
+type bulkDelEngine struct {
+	*ag_cache.MockEngine
+	mu      sync.Mutex
+	delMany []string
+}
+
+func (e *bulkDelEngine) DelMany(ctx context.Context, keys ...string) error {
+	e.mu.Lock()
+	e.delMany = append(e.delMany, keys...)
+	e.mu.Unlock()
+	return nil
+}
+
+func (e *bulkDelEngine) lastDelMany() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]string(nil), e.delMany...)
+}
+
+func TestDel_BulkDelEngine(t *testing.T) {
+	e := &bulkDelEngine{MockEngine: ag_cache.NewMockEngine()}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	if err := c.Del(ctx, "a", "b", "c"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	if got := e.lastDelMany(); len(got) != 3 || got[0] != "a" || got[2] != "c" {
+		t.Fatalf("DelMany not used: %v", got)
+	}
+}
+
+// ──────── 健壮性 2.1: double-check 用 WithoutCancel ────────
+
+func TestGetOrElse_DoubleCheck_WithoutCancel(t *testing.T) {
+	setupManager(t)
+	c := ag_cache.New[string]("users", strLoader("loaded"))
+	ctx := context.Background()
+
+	var mu sync.Mutex
+	callCount := 0
+	loader := func(ctx context.Context, key string) (string, error) {
+		mu.Lock()
+		callCount++
+		mu.Unlock()
+		time.Sleep(80 * time.Millisecond)
+		return "loaded", nil
+	}
+
+	// 首个调用者 ctx 取消，其余等待者正常
+	cancelCtx, cancel := context.WithCancel(ctx)
+	cancel() // 立即取消首个调用者
+
+	var wg sync.WaitGroup
+	errs := make([]error, 5)
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i == 0 {
+				_, errs[i] = c.GetOrElse(cancelCtx, "k", loader)
+			} else {
+				_, errs[i] = c.GetOrElse(context.Background(), "k", loader)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// 等待者应成功加载（loader 用 WithoutCancel；double-check 也用 WithoutCancel）
+	for i := 1; i < 5; i++ {
+		if errs[i] != nil {
+			t.Fatalf("waiter %d: %v", i, errs[i])
+		}
+	}
+	mu.Lock()
+	n := callCount
+	mu.Unlock()
+	if n != 1 {
+		t.Fatalf("loader called %d times, want 1", n)
+	}
+}
+
+// ──────── 健壮性 2.2: GetOrElse 写失败包 ErrBackend ────────
+
+// setFailEngine: 包装 MockEngine，Get 走 miss，Set 返回固定错误。
+type setFailEngine struct {
+	*ag_cache.MockEngine
+	fail error
+}
+
+func (e *setFailEngine) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if e.fail != nil {
+		return e.fail
+	}
+	return e.MockEngine.Set(ctx, key, value, ttl)
+}
+
+func TestGetOrElse_SetFailure_ErrBackend(t *testing.T) {
+	e := &setFailEngine{MockEngine: ag_cache.NewMockEngine(), fail: errors.New("persist: disk full")}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	_, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
+		return "loaded", nil
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+// ──────── 覆盖缺口 #2: TryGet 后端故障路径 ────────
+
+func TestTryGet_BackendFailure(t *testing.T) {
+	engine := ag_cache.NewMockEngine()
+	engine.Err = errors.New("connection refused")
+	c := ag_cache.NewWithEngine[string](engine)
+	ctx := context.Background()
+
+	v, ok, err := c.TryGet(ctx, "k")
+	if ok || v != "" {
+		t.Fatalf("TryGet backend failure: v=%q ok=%v", v, ok)
+	}
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+// ──────── 覆盖缺口 #3: Del 非 bulk 引擎多 key 中间失败短路 ────────
+
+// delFailEngine: 包装 MockEngine，删除指定 key 时返回错误。
+type delFailEngine struct {
+	*ag_cache.MockEngine
+	failKey string
+}
+
+func (e *delFailEngine) Del(ctx context.Context, key string) error {
+	if key == e.failKey {
+		return errors.New("del failed")
+	}
+	return e.MockEngine.Del(ctx, key)
+}
+
+func TestDel_Loop_StopsOnError(t *testing.T) {
+	e := &delFailEngine{MockEngine: ag_cache.NewMockEngine(), failKey: "b"}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	err := c.Del(ctx, "a", "b", "c") // b 失败 → 短路返回 ErrBackend
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
 	}
 }

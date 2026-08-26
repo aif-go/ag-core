@@ -7,7 +7,6 @@ package ag_cache
 import (
 	"context"
 	"errors"
-	"time"
 )
 
 // Sentinel errors for cache operations.
@@ -29,29 +28,24 @@ type LoaderFunc[T any] func(ctx context.Context, key string) (T, error)
 // Intentionally minimal: only the methods used in 90% of call sites.
 type ICache[T any] interface {
 	// Get reads from cache. Returns (value, nil) on hit, (zero, ErrCacheMiss) on miss.
-	// Stats counters (Hits/Misses) are updated.
 	Get(ctx context.Context, key string) (T, error)
+
+	// TryGet reads from cache without a miss error: (value, true, nil) on hit,
+	// (zero, false, nil) on miss, (zero, false, err) on backend failure.
+	// Use it for existence checks and probing (e.g. monitoring expected hits).
+	TryGet(ctx context.Context, key string) (T, bool, error)
 
 	// GetOrElse reads from cache; on miss, calls loader, caches the result, and returns it.
 	GetOrElse(ctx context.Context, key string, loader LoaderFunc[T]) (T, error)
 
-	// Set writes a value. ttl omitted uses the default TTL (engine-declared or core fallback);
-	// 0 = never expire; >0 = explicit TTL.
-	Set(ctx context.Context, key string, value T, ttl ...time.Duration) error
+	// Set writes a value. The TTL is the namespace default (WithDefaultTTL or the
+	// engine's DefaultTTLProvider); the business interface does not expose TTL.
+	Set(ctx context.Context, key string, value T) error
 	Del(ctx context.Context, keys ...string) error
 	Clear(ctx context.Context) error
 }
 
-// AdminCache extends ICache with diagnostics and admin operations.
-// Business code injects ICache[T]; monitoring/admin code injects AdminCache[T].
-type AdminCache[T any] interface {
-	ICache[T]
-	// Peek is a pure read: does not trigger a loader.
-	Peek(ctx context.Context, key string) (T, bool, error)
-	Stats() Stats
-}
-
-// Stats holds cache metrics.
+// Stats holds cache metrics (reserved for future StatsProvider; not part of Engine).
 type Stats struct {
 	Hits       int64
 	Misses     int64

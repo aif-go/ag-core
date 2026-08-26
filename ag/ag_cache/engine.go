@@ -20,13 +20,23 @@ import (
 //   - Get returns ErrCacheMiss when the key is not present; any other error
 //     means a backend failure (the caller should NOT treat it as a miss).
 //   - Set/Del/Clear return nil on success, an error on backend failure.
+//
+// Set carries a ttl as an execution-layer parameter: engines that support TTL
+// apply it (Ristretto SetWithTTL / Redis SETEX); engines without TTL ignore it
+// (entries never expire, rely on Del/Clear). ttl=0 means never expire.
 type Engine interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	Set(ctx context.Context, key string, value []byte, ttl time.Duration) error
 	Del(ctx context.Context, key string) error
 	Clear(ctx context.Context) error
-	Stats() Stats
 	Close() error
+}
+
+// BulkDelEngine is an optional capability: engines that can delete multiple keys
+// in one operation implement it. typedCache.Del probes it and uses DelMany when
+// available, otherwise falls back to looping single-key Del.
+type BulkDelEngine interface {
+	DelMany(ctx context.Context, keys ...string) error
 }
 
 // EngineFactory creates named engine instances. Create takes no parameters:
