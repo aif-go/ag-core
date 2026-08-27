@@ -178,7 +178,7 @@ func getZeroCheck(lowerStructName string, col table.ColumnData) string {
 	switch col.GoType {
 	case "string":
 		return fmt.Sprintf("%s.%s == \"\"", lowerStructName, col.JsonTag)
-	case "time.Time":
+	case "time.Time","decimal.Decimal":
 		return fmt.Sprintf("%s.%s.IsZero()", lowerStructName, col.JsonTag)
 	case "bool":
 		return fmt.Sprintf("!%s.%s", lowerStructName, col.JsonTag)

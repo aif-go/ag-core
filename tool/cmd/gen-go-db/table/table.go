@@ -25,6 +25,7 @@ type ModelTemplateData struct {
 type ColumnData struct {
 	Name            string
 	Type            string
+	Length          string
 	GoType          string
 	GormTag         string
 	JsonTag         string

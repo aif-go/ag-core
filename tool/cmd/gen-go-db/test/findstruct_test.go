@@ -6,14 +6,16 @@ import (
 	"time"
 
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"github.com/shopspring/decimal"
 )
 
 func TestStudentFindByStruct(t *testing.T) {
 	ctx := context.Background()
 	studentDao := GetStudentRepository()
 
-	// 固定时间，与数据库测试数据一致（DSN loc=Local，故用 time.Local）
-	fixedCreateTime := time.Date(2026, 8, 13, 15, 35, 14, 0, time.Local)
+	// 测试表策略：清空整表 + 插入自备数据，测试结束清空整表（保证精确条数断言可靠）
+	cleanup := seedTmStudent(t, ctx, studentDao)
+	defer cleanup()
 
 	testCases := []struct {
 		name    string
@@ -54,7 +56,7 @@ func TestStudentFindByStruct(t *testing.T) {
 		},
 		{
 			name:    "场景6:索引+普通列-Name+Score",
-			entity:  &model.TmStudent{Name: "Alice", Score: 95.0},
+			entity:  &model.TmStudent{Name: "Alice", Score: decimal.NewFromFloat(95.0)},
 			wantErr: false,
 			wantCnt: 1,
 		},
@@ -124,7 +126,7 @@ func TestStudentFindByStruct(t *testing.T) {
 		},
 		{
 			name:    "场景17:复合主键仅首键+普通列-主键索引生效",
-			entity:  &model.TmStudent{TenantId: 1, Score: 100},
+			entity:  &model.TmStudent{TenantId: 1, Score: decimal.NewFromInt(100)},
 			wantErr: false,
 			wantCnt: 0, // 首键命中主键索引；tenant_id=1 且 score=100 无匹配行
 		},
@@ -162,7 +164,7 @@ func TestStudentFindByStruct(t *testing.T) {
 		},
 		{
 			name:    "场景23:Score=0.0+Name-零值double不进WHERE",
-			entity:  &model.TmStudent{Name: "TestZero", Score: 0.0},
+			entity:  &model.TmStudent{Name: "TestZero", Score: decimal.NewFromFloat(0.0)},
 			wantErr: false,
 			wantCnt: 2, // Score=0不进WHERE, Name命中2条
 		},
@@ -225,13 +227,13 @@ func TestStudentFindByStruct(t *testing.T) {
 		},
 		{
 			name:    "场景32:数值零值-Score=0不进WHERE",
-			entity:  &model.TmStudent{Name: "Alice", Score: 0},
+			entity:  &model.TmStudent{Name: "Alice", Score: decimal.NewFromInt(0)},
 			wantErr: false,
 			wantCnt: 3, // score=0不进WHERE, 仅name=Alice命中3条
 		},
 		{
 			name:    "场景33:仅普通列有值-所有索引列/主键为零-预期错误",
-			entity:  &model.TmStudent{Score: 100},
+			entity:  &model.TmStudent{Score: decimal.NewFromInt(100)},
 			wantErr: true,
 			wantCnt: 0,
 		},
@@ -287,7 +289,7 @@ func TestTmNoFindByStruct(t *testing.T) {
 		wantCnt int // 预期返回条数（-1 表示不检查）
 	}{
 		{name: "场景1:按字段Name查询-恒报错", entity: &model.TmNo{Name: "Alice"}, wantErr: true, wantCnt: 0},
-		{name: "场景2:按普通列Score查询-恒报错", entity: &model.TmNo{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景2:按普通列Score查询-恒报错", entity: &model.TmNo{Score: decimal.NewFromInt(95)}, wantErr: true, wantCnt: 0},
 		{name: "场景3:按TenantId+StudentNo查询-恒报错", entity: &model.TmNo{TenantId: 1, StudentNo: "NO001"}, wantErr: true, wantCnt: 0},
 		{name: "场景4:空结构体-恒报错", entity: &model.TmNo{}, wantErr: true, wantCnt: 0},
 	}
@@ -306,6 +308,10 @@ func TestTmNoIndexFindByStruct(t *testing.T) {
 	ctx := context.Background()
 	tmNoIndexDao := GetTmNoIndexRepository()
 
+	// 测试表策略：清空整表 + 插入自备数据，测试结束清空整表
+	cleanup := seedTmNoIndex(t, ctx, tmNoIndexDao)
+	defer cleanup()
+
 	testCases := []struct {
 		name    string
 		entity  *model.TmNoIndex
@@ -315,7 +321,7 @@ func TestTmNoIndexFindByStruct(t *testing.T) {
 		{name: "场景1:按完整主键-TenantId+StudentNo", entity: &model.TmNoIndex{TenantId: 1, StudentNo: "NO001"}, wantErr: false, wantCnt: 1},
 		{name: "场景2:仅首主键TenantId-主键索引生效", entity: &model.TmNoIndex{TenantId: 1}, wantErr: false, wantCnt: 4},
 		{name: "场景3:按普通列Name-无索引-预期错误", entity: &model.TmNoIndex{Name: "Alice"}, wantErr: true, wantCnt: 0},
-		{name: "场景4:按普通列Score-无索引-预期错误", entity: &model.TmNoIndex{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景4:按普通列Score-无索引-预期错误", entity: &model.TmNoIndex{Score: decimal.NewFromInt(95)}, wantErr: true, wantCnt: 0},
 		{name: "场景5:空结构体-预期错误", entity: &model.TmNoIndex{}, wantErr: true, wantCnt: 0},
 	}
 
@@ -333,6 +339,10 @@ func TestTmNoPrimaryFindByStruct(t *testing.T) {
 	ctx := context.Background()
 	tmNoPrimaryDao := GetTmNoPrimaryRepository()
 
+	// 测试表策略：清空整表 + 插入自备数据，测试结束清空整表
+	cleanup := seedTmNoPrimary(t, ctx, tmNoPrimaryDao)
+	defer cleanup()
+
 	testCases := []struct {
 		name    string
 		entity  *model.TmNoPrimary
@@ -343,9 +353,9 @@ func TestTmNoPrimaryFindByStruct(t *testing.T) {
 		{name: "场景2:单索引列ClassId", entity: &model.TmNoPrimary{ClassId: "C01"}, wantErr: false, wantCnt: 2},
 		{name: "场景3:联合索引Name+Address", entity: &model.TmNoPrimary{Name: "Alice", Address: "北京市海淀区"}, wantErr: false, wantCnt: 1},
 		{name: "场景4:多索引Name+Phone", entity: &model.TmNoPrimary{Name: "Helen", Phone: "13800000007"}, wantErr: false, wantCnt: 1},
-		{name: "场景5:索引+普通列Name+Score", entity: &model.TmNoPrimary{Name: "Alice", Score: 95}, wantErr: false, wantCnt: 1},
+		{name: "场景5:索引+普通列Name+Score", entity: &model.TmNoPrimary{Name: "Alice", Score: decimal.NewFromInt(95)}, wantErr: false, wantCnt: 1},
 		{name: "场景6:Address单独-非前导列-预期错误", entity: &model.TmNoPrimary{Address: "北京市海淀区"}, wantErr: true, wantCnt: 0},
-		{name: "场景7:仅普通列Score-预期错误", entity: &model.TmNoPrimary{Score: 95}, wantErr: true, wantCnt: 0},
+		{name: "场景7:仅普通列Score-预期错误", entity: &model.TmNoPrimary{Score: decimal.NewFromInt(95)}, wantErr: true, wantCnt: 0},
 		{name: "场景8:空结构体-预期错误", entity: &model.TmNoPrimary{}, wantErr: true, wantCnt: 0},
 	}
 
@@ -379,6 +389,82 @@ func assertFindResult[T any](t *testing.T, name string, res []*T, err error, wan
 	t.Logf("[%s] 查询到 %d 条记录", name, len(res))
 	for _, e := range res {
 		t.Logf("  -> %+v", e)
+	}
+}
+
+// TestTeacherFindByStruct tm_teacher（单主键+自定义规则表）FindByStruct 全覆盖
+// tm_teacher 无约定种子数据，使用自备数据保证确定性；
+// 断言采用"结果必须包含自备数据 Id"策略，对表内可能存在的其他业务数据免疫，不影响 FindByStruct 测试结果
+func TestTeacherFindByStruct(t *testing.T) {
+	ctx := context.Background()
+	teacherDao := GetRepository()
+
+	seeds := []*model.TmTeacher{
+		// 注意：tm_teacher.class_id 列为 varchar(2)，自备数据必须用 2 字符以内
+		{Id: 91001, Name: "Alice", Address: "北京市海淀区", ClassId: "C1", Phone: "13800000001", CardNo: "BJ001", Salary: decimal.NewFromFloat(95.0)},
+		{Id: 91002, Name: "Alice", Address: "上海市浦东新区", ClassId: "C2", Phone: "13800000002", CardNo: "BJ002", Salary: decimal.NewFromFloat(88.0)},
+		{Id: 91003, Name: "Bob", Address: "北京市海淀区", ClassId: "C1", Phone: "13800000003", CardNo: "BJ003", Salary: decimal.NewFromFloat(70.0)},
+	}
+	// 测试表策略：清空整表 + 插入自备数据，测试结束清空整表
+	clearTable(t, "tm_teacher")
+	defer clearTable(t, "tm_teacher")
+	for _, s := range seeds {
+		if _, err := teacherDao.InsertOne(ctx, s); err != nil {
+			t.Fatalf("前置插入失败: %v", err)
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		entity  *model.TmTeacher
+		wantErr bool
+		wantIds []int64 // 期望结果中必须包含的自备数据 Id（对表内其他数据免疫）
+	}{
+		{name: "场景1:单主键Id", entity: &model.TmTeacher{Id: 91001}, wantIds: []int64{91001}},
+		{name: "场景2:单索引Name", entity: &model.TmTeacher{Name: "Alice"}, wantIds: []int64{91001, 91002}},
+		{name: "场景3:单索引ClassId", entity: &model.TmTeacher{ClassId: "C1"}, wantIds: []int64{91001, 91003}},
+		{name: "场景4:单索引Phone", entity: &model.TmTeacher{Phone: "13800000002"}, wantIds: []int64{91002}},
+		{name: "场景5:单索引CardNo", entity: &model.TmTeacher{CardNo: "BJ001"}, wantIds: []int64{91001}},
+		{name: "场景6:联合索引Name+Address", entity: &model.TmTeacher{Name: "Alice", Address: "北京市海淀区"}, wantIds: []int64{91001}},
+		{name: "场景7:索引+普通列Name+Salary", entity: &model.TmTeacher{Name: "Alice", Salary: decimal.NewFromFloat(88.0)}, wantIds: []int64{91002}},
+		{name: "场景8:Address单独-联合索引非前导列-预期错误", entity: &model.TmTeacher{Address: "北京市海淀区"}, wantErr: true},
+		{name: "场景9:仅普通列Salary-预期错误", entity: &model.TmTeacher{Salary: decimal.NewFromFloat(95.0)}, wantErr: true},
+		{name: "场景10:空结构体-预期错误", entity: &model.TmTeacher{}, wantErr: true},
+		{name: "场景11:Name空+ClassId-零值不进WHERE", entity: &model.TmTeacher{ClassId: "C1"}, wantIds: []int64{91001, 91003}},
+		{name: "场景12:Name+Salary零值-零值不进WHERE", entity: &model.TmTeacher{Name: "Alice", Salary: decimal.NewFromInt(0)}, wantIds: []int64{91001, 91002}},
+	}
+
+	for _, tc := range testCases {
+		tc := tc // 避免循环变量捕获
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := teacherDao.FindByStruct(ctx, tc.entity)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("[%s] 期望错误但返回nil, 结果: %v", tc.name, res)
+				} else {
+					t.Logf("[%s] 正确返回错误: %v", tc.name, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("[%s] 不期望错误但返回: %v", tc.name, err)
+				return
+			}
+			// 校验结果必须包含全部期望的自备数据 Id（条数不精确断言，对表内其他数据免疫）
+			found := make(map[int64]bool, len(res))
+			for _, e := range res {
+				found[e.Id] = true
+			}
+			for _, id := range tc.wantIds {
+				if !found[id] {
+					t.Errorf("[%s] 结果中未包含自备数据 Id=%d, 实际: %v", tc.name, id, res)
+				}
+			}
+			t.Logf("[%s] 查询到 %d 条记录", tc.name, len(res))
+			for _, e := range res {
+				t.Logf("  -> %+v", e)
+			}
+		})
 	}
 }
 

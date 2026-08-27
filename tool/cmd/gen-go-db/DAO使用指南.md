@@ -716,6 +716,7 @@ func ComplexQuery(ctx context.Context, tmTeacherDao dao.ITmTeacherDao) error {
 4. **条件构建**：使用 `WhereClauseBuilder` 可以灵活构建复杂的查询条件
 5. **排序构建**：使用 `OrderBuilder` 可以链式构建排序条件
 6. **事务处理**：DAO 方法需要配合事务使用，具体请参考事务相关文档
+7. **decimal 类型**：数据库 `decimal` 列在 Model 中映射为 `decimal.Decimal`（`github.com/shopspring/decimal`），支持精确计算；零值过滤使用 `IsZero()` 判断，查询时作为条件值写入 SQL。`decimal.Decimal` 默认 JSON 序列化为带引号字符串（如 `"123.45"`），如需数字格式可在服务启动处设置 `decimal.MarshalJSONWithoutQuotes = true`；`*decimal.Decimal` 指针形式按 nil 判断处理
 
 ---
 

@@ -163,6 +163,31 @@ gendb sheet -i ./data.xlsx -o ./output_dir -k "自定义脚本名字"
 # 生成文件：./output_dir/data_20260320.xlsx
 ```
 
+## 类型映射
+
+`gen-go-db` 会将 Excel/YAML 中的字段类型映射为对应的 Go 类型，常见映射如下：
+
+| SQL 类型 | Go 类型 | 说明 |
+|---|---|---|
+| `int` / `int32` / `tinyint` / `smallint` | `int` | |
+| `int64` / `bigint` | `int64` | |
+| `float` / `float32` / `double` / `float64` | `float64` | 非精确浮点，普通场景使用 |
+| `decimal` | `decimal.Decimal` | 精确小数，支持精确计算（金额等场景） |
+| `varchar` / `char` / `text` | `string` | |
+| `bool` / `boolean` | `bool` | |
+| `time` / `datetime` / `timestamp` / `date` | `time.Time` | |
+| `*` 前缀类型 | 原样透传 | 如 `*time.Time`、`*decimal.Decimal` |
+
+### decimal 类型说明
+
+- 数据库 `decimal` 列映射为 `github.com/shopspring/decimal` 的 `decimal.Decimal` 类型，以支持精确的浮点计算（金额等场景）。
+- 生成的 Model 会自动导入 `github.com/shopspring/decimal` 依赖。
+- 列 `length` 的处理遵循 GORM 官方标准方案：
+  - `string` 列 → `size:<length>`（如 `size:20`）
+  - `decimal` 列（`decimal.Decimal`/`*decimal.Decimal`）→ `type:decimal(p,s);precision:p;scale:s`（如 `type:decimal(10,2);precision:10;scale:2`）；`length` 为空也会生成 `type:decimal`，避免 GORM 将 decimal 误判为 string 建文本列
+  - 其他类型（`int64`/`bool`/`float64`/`time.Time`）数据库列大小固定，不生成 `length`/`type` 相关 tag
+- **JSON 序列化注意**：`decimal.Decimal` 默认序列化为带引号的字符串（如 `"123.45"`）。如需输出数字格式，可在业务服务启动处设置 `decimal.MarshalJSONWithoutQuotes = true`（包级全局，全进程生效）。
+
 ## 完整工作流程
 
 ### 典型使用流程

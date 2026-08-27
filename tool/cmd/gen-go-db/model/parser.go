@@ -1,13 +1,15 @@
 package model
 
 import (
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/conditonwhere"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 	"fmt"
 	"io/ioutil"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/conditonwhere"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/utils"
 
 	"gopkg.in/yaml.v2"
 )
@@ -54,19 +56,26 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					col.JsonTag = utils.ToCamelCase(name)
 				}
 
+				// 提取长度信息（兼容字符串与纯数字写法，如 "20" / 10,2 / 100）
+				if length, ok := colMap["length"].(string); ok {
+					col.Length = length
+				} else if lengthInt, ok := colMap["length"].(int); ok {
+					col.Length = strconv.Itoa(lengthInt)
+				}
+
 				if colType, ok := colMap["type"].(string); ok {
 					col.Type = colType
 
-					// 以 * 前缀开头的类型原样透传为 GoType，不做固化映射
-					if strings.HasPrefix(colType, "*") {
-						col.GoType = colType
-					} else {
-						col.GoType = getGoType(colType)
-					}
+					// 归一化为 Go 类型（* 前缀原样透传，其余走 getGoType 映射）
+					col.GoType = normalizeGoType(colType)
 
 					// 检查是否需要导入额外的包
 					if col.GoType == "time.Time" || col.GoType == "*time.Time" {
 						importPackages = append(importPackages, "time")
+					}
+					// 添加decimal类型的支持（含指针形式）
+					if col.GoType == "decimal.Decimal" || col.GoType == "*decimal.Decimal" {
+						importPackages = append(importPackages, "github.com/shopspring/decimal")
 					}
 				}
 
@@ -247,11 +256,19 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 								ColName: paramMap["colname"].(string),
 								FieldName: paramMap["paraname"].(string),
 								IsSlice: paramMap["slice"].(bool),
-								GoType: paramMap["type"].(string),
+								GoType: normalizeGoType(paramMap["type"].(string)),
 							}
 							colWhereFields=append(colWhereFields, whereColField)
 
 							fields=append(fields, whereColField.ColName)		
+
+							// 补充查询参数类型的 import
+							if whereColField.GoType == "time.Time" || whereColField.GoType == "*time.Time" {
+								importPackages = append(importPackages, "time")
+							}
+							if whereColField.GoType == "decimal.Decimal" || whereColField.GoType == "*decimal.Decimal" {
+								importPackages = append(importPackages, "github.com/shopspring/decimal")
+							}
 						}
 					}
 					q.WhereFields = fields
@@ -317,9 +334,12 @@ func getGoType(sqlType string) string {
 		return "int"
 	case "int64", "bigint":
 		return "int64"
-	// 浮点类型
-	case "float", "float32", "double", "float64", "decimal":
+	// 浮点类型（非精确，保持 float64）
+	case "float", "float32", "double", "float64":
 		return "float64"
+	// 精确小数类型，映射为 decimal.Decimal 以支持精确计算
+	case "decimal":
+		return "decimal.Decimal"
 	// 字符串类型
 	case "string", "varchar", "char", "text":
 		return "string"
@@ -333,6 +353,25 @@ func getGoType(sqlType string) string {
 	default:
 		return "string"
 	}
+}
+
+// normalizeGoType 将原始类型词汇归一化为 Go 类型：
+// 以 * 前缀开头的类型原样透传，其余走 getGoType 映射。
+// 供列解析与查询参数（Where_params）解析共用，保证生成的字段类型一致。
+func normalizeGoType(sqlType string) string {
+	if strings.HasPrefix(sqlType, "*") {
+		return sqlType
+	}
+	return getGoType(sqlType)
+}
+
+// splitDecimalLen 拆分 decimal 列的 length 为精度和小数位。
+// 如 "10,2" → ("10","2")；"18" → ("18","")。
+func splitDecimalLen(length string) (string, string) {
+	if idx := strings.Index(length, ","); idx != -1 {
+		return strings.TrimSpace(length[:idx]), strings.TrimSpace(length[idx+1:])
+	}
+	return strings.TrimSpace(length), ""
 }
 
 // 将where条件map转换为YAML字符串
@@ -451,6 +490,27 @@ func generateGormTag(col *table.ColumnData, indexes []table.IndexData) string {
 	if col.IsPrimaryKey {
 		tags = append(tags, "primaryKey")
 		tags = append(tags, "not null")
+	}
+
+	// 按官方标准方案处理长度：
+	// - string → size:<length>
+	// - decimal.Decimal（含指针）→ type:decimal(p,s);precision:p;scale:s
+	//   （必须给 type，否则 GORM 会把 decimal.Decimal 误判为 string 建成文本列；length 为空也给 type:decimal）
+	// - 其他类型固定大小，不生成长度相关 tag
+	if col.GoType == "string" && col.Length != "" {
+		tags = append(tags, fmt.Sprintf("size:%s", col.Length))
+	}
+	if col.GoType == "decimal.Decimal" || col.GoType == "*decimal.Decimal" {
+		if col.Length != "" {
+			p, s := splitDecimalLen(col.Length)
+			if s != "" {
+				tags = append(tags, fmt.Sprintf("type:decimal(%s,%s);precision:%s;scale:%s", p, s, p, s))
+			} else {
+				tags = append(tags, fmt.Sprintf("type:decimal(%s);precision:%s;scale:0", p, p))
+			}
+		} else {
+			tags = append(tags, "type:decimal")
+		}
 	}
 
 	// 自动创建时间
