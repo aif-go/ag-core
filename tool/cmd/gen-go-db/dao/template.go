@@ -30,7 +30,7 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 			switch col.GoType {
 			case "string":
 				checkCode += "entity." + col.JsonTag + " == \"\""
-			case "time.Time":
+			case "time.Time","decimal.Decimal":
 				checkCode += "entity." + col.JsonTag + ".IsZero()"
 			case "bool":
 				checkCode += "!entity." + col.JsonTag
@@ -181,7 +181,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 				switch firstPkCol.GoType {
 				case "string":
 					nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
-				case "time.Time":
+				case "time.Time","decimal.Decimal":
 					nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
 				case "bool":
 					nullCheck = "entity." + firstPkCol.JsonTag
@@ -224,7 +224,7 @@ func GetDaoTemplate(tableData *table.TableData) string {
 						switch col.GoType {
 						case "string":
 							nullCheck = "entity." + col.JsonTag + " != \"\""
-						case "time.Time":
+						case "time.Time","decimal.Decimal":
 							nullCheck = "!entity." + col.JsonTag + ".IsZero()"
 						case "bool":
 							nullCheck = "entity." + col.JsonTag

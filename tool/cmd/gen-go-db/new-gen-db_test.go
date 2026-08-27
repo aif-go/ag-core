@@ -10,6 +10,7 @@ import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/test"
+	"github.com/shopspring/decimal"
 
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
 	_ "github.com/ibmdb/go_ibm_db"
@@ -84,7 +85,7 @@ func TestFindByStruct(t *testing.T) {
 		{name: "场景3:单索引列-ClassId", entity: &model.TmTeacher{ClassId: "1"}, wantErr: false},
 		{name: "场景4:单索引列-Phone", entity: &model.TmTeacher{Phone: "13800000000"}, wantErr: false},
 		{name: "场景5:联合索引-Name+Address", entity: &model.TmTeacher{Name: "test1", Address: "上海市浦东新区"}, wantErr: false},
-		{name: "场景6:索引+普通列-Name+Salary", entity: &model.TmTeacher{Name: "test1", Salary: 1000.0}, wantErr: false},
+		{name: "场景6:索引+普通列-Name+Salary", entity: &model.TmTeacher{Name: "test1", Salary: decimal.NewFromFloat(1000.0)}, wantErr: false},
 		{name: "场景7:索引+特殊列-JpaVersion", entity: &model.TmTeacher{Name: "test1", JpaVersion: 1}, wantErr: false},
 		{name: "场景8:索引+特殊列-CreateTime", entity: &model.TmTeacher{Name: "test1", CreateTime: time.Date(2026, 8, 13, 15, 35, 13, 775000000, time.UTC)}, wantErr: false},
 		{name: "场景9:索引+特殊列-LastUpdateTime", entity: &model.TmTeacher{Name: "test1", LastUpdateTime: time.Date(2026, 8, 13, 15, 35, 13, 775000000, time.UTC)}, wantErr: false},
