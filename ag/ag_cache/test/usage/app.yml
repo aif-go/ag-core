@@ -1,7 +1,7 @@
 # 完整实践用法示例配置（真实 app.yml 加载路径）
 agcache:
   defaultEngine: ristretto
-agcache.ristretto:
-  maxCost: 104857600
-  numCounters: 0
-  defaultTtl: 60s
+  ristretto:
+    maxCost: 104857600
+    numCounters: 0
+    defaultTtl: 60s

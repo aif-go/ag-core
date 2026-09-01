@@ -1,5 +1,5 @@
-// Package agristretto provides the Ristretto-backed local engine for ag_cache.
-// This is the only package allowed to import Ristretto.
+// Package agristretto 提供 ag_cache 的 Ristretto 本地引擎。
+// 这是唯一允许 import Ristretto 的包。
 package agristretto
 
 import (
@@ -11,32 +11,32 @@ import (
 	"github.com/dgraph-io/ristretto/v2"
 )
 
-// RistrettoConfig is the engine's own config. MaxCost lives here —
-// memory management is the engine's responsibility.
+// RistrettoConfig 是引擎自身的配置。MaxCost 在这里——
+// 内存管理是引擎的责任。
 type RistrettoConfig struct {
 	MaxCost     int64
 	NumCounters int64
 }
 
-// DefaultRistrettoConfig returns a 100MB / 10M-counter default config.
+// DefaultRistrettoConfig 返回 100MB / 10M-counter 的默认配置。
 func DefaultRistrettoConfig() RistrettoConfig {
 	return RistrettoConfig{MaxCost: 100_000_000, NumCounters: 10_000_000}
 }
 
-// String implements fmt.Stringer.
+// String 实现 fmt.Stringer。
 func (c RistrettoConfig) String() string {
 	return fmt.Sprintf("RistrettoConfig{MaxCost=%d, NumCounters=%d}", c.MaxCost, c.NumCounters)
 }
 
-// ristrettoEngine implements ag_cache.Engine backed by a single Ristretto instance.
-// Each instance is standalone — no shared state, no key index.
+// ristrettoEngine 实现由单个 Ristretto 实例支撑的 ag_cache.Engine。
+// 每个实例独立——无共享状态、无 key 索引。
 type ristrettoEngine struct {
 	cache      *ristretto.Cache[string, []byte]
-	defaultTTL time.Duration // engine internal default TTL (config defaultTtl)
+	defaultTTL time.Duration // 引擎内部默认 TTL（配置 defaultTtl）
 }
 
-// NewRistrettoEngine creates a local engine from config.
-// Zero values fall back to defaults (MaxCost) or derivation (NumCounters).
+// NewRistrettoEngine 从配置创建本地引擎。
+// 零值回退到默认（MaxCost）或推导（NumCounters）。
 func NewRistrettoEngine(cfg RistrettoConfig) (ag_cache.Engine, error) {
 	return newRistrettoEngine(cfg, 0)
 }
@@ -61,7 +61,7 @@ func newRistrettoEngine(cfg RistrettoConfig, defaultTTL time.Duration) (ag_cache
 	return &ristrettoEngine{cache: cache, defaultTTL: defaultTTL}, nil
 }
 
-// Get returns (data, nil) on hit, (nil, ag_cache.ErrCacheMiss) on miss.
+// Get 命中返回 (data, nil)，未命中返回 (nil, ag_cache.ErrCacheMiss)。
 func (e *ristrettoEngine) Get(ctx context.Context, key string) ([]byte, error) {
 	v, ok := e.cache.Get(key)
 	if !ok {
@@ -70,14 +70,14 @@ func (e *ristrettoEngine) Get(ctx context.Context, key string) ([]byte, error) {
 	return v, nil
 }
 
-// Set uses the engine internal default TTL.
-// Set is asynchronous (no Wait). Cost is computed internally from the value
-// byte length — the generic SPI carries no cost concept.
+// Set 使用引擎内部默认 TTL。
+// Set 是异步的（无 Wait）。cost 由值字节长度内部计算——
+// 泛型 SPI 不携带 cost 概念。
 func (e *ristrettoEngine) Set(ctx context.Context, key string, value []byte) error {
 	return e.setWithTTL(key, value, e.defaultTTL)
 }
 
-// SetWithTTL implements ag_cache.TTLSetter — explicit per-entry TTL.
+// SetWithTTL 实现 ag_cache.TTLSetter——显式 per-entry TTL。
 func (e *ristrettoEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
 	return e.setWithTTL(key, value, ttl)
 }
@@ -94,22 +94,22 @@ func (e *ristrettoEngine) setWithTTL(key string, value []byte, ttl time.Duration
 	return nil
 }
 
-// Sync implements ag_cache.syncer — blocks until pending writes are visible to reads.
+// Sync 实现 ag_cache.syncer——阻塞直到待写写入对读可见。
 func (e *ristrettoEngine) Sync() { e.cache.Wait() }
 
-// Del implements ag_cache.Engine.
+// Del 实现 ag_cache.Engine。
 func (e *ristrettoEngine) Del(ctx context.Context, key string) error {
 	e.cache.Del(key)
 	return nil
 }
 
-// Clear implements ag_cache.Engine — clears this standalone instance, ignores prefix.
+// Clear 实现 ag_cache.Engine——清空本独立实例，忽略 prefix。
 func (e *ristrettoEngine) Clear(ctx context.Context, prefix string) error {
 	e.cache.Clear()
 	return nil
 }
 
-// Close implements ag_cache.Engine.
+// Close 实现 ag_cache.Engine。
 func (e *ristrettoEngine) Close() error {
 	e.cache.Close()
 	return nil
@@ -119,19 +119,19 @@ var _ ag_cache.Engine = (*ristrettoEngine)(nil)
 
 // ──────── Engine factory ────────
 
-// agristrettoFactory implements ag_cache.EngineFactory and holds the engine
-// config plus the engine-declared default TTL (self-contained).
+// agristrettoFactory 实现 ag_cache.EngineFactory，持有引擎配置
+// 与引擎声明的默认 TTL（自包含）。
 type agristrettoFactory struct {
 	cfg RistrettoConfig
 	ttl time.Duration
 }
 
-// Name returns the registered engine name.
+// Name 返回注册的引擎名。
 func (f agristrettoFactory) Name() string { return "ristretto" }
 
-// Create builds an engine from the factory-held config, seeding the engine's
-// internal default TTL from the engine-declared value. name is a namespace
-// context (agristretto ignores it — every cache name gets a fresh instance).
+// Create 从工厂持有的配置构建引擎，用引擎声明的默认值
+// 播种引擎内部默认 TTL。name 是 namespace 上下文
+// （agristretto 忽略——每个缓存名获取全新实例）。
 func (f agristrettoFactory) Create(name string) (ag_cache.Engine, error) {
 	return newRistrettoEngine(f.cfg, f.ttl)
 }

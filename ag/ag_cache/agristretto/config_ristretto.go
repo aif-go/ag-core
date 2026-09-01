@@ -8,30 +8,30 @@ import (
 )
 
 const (
-	// RistrettoConfPrefix is the engine's own config prefix (bound by the engine).
+	// RistrettoConfPrefix 是引擎自身的配置前缀（由引擎绑定）。
 	RistrettoConfPrefix = "agcache.ristretto"
 )
 
-// RistrettoConfigProperties is the engine's YAML-bound config model.
-// No value tags: ag_conf matches config keys case-insensitively by field name.
+// RistrettoConfigProperties 是引擎的 YAML 绑定配置模型。
+// 无 value tag：ag_conf 按字段名大小写不敏感匹配配置键。
 type RistrettoConfigProperties struct {
-	// MaxCost is the memory budget in bytes (0 = engine default 100MB).
+	// MaxCost 是内存预算（字节），0=引擎默认 100MB。
 	MaxCost int64
-	// NumCounters is the counter count (0 = derived from MaxCost).
+	// NumCounters 是计数器数量（0=由 MaxCost 推导）。
 	NumCounters int64
-	// DefaultTTL is the engine's default TTL: ""→default 0 (never expire);
-	// "60s"→explicit. "0" is the same as "" (never expire).
+	// DefaultTTL 是引擎默认 TTL：""→默认 0（永不过期）；
+	// "60s"→显式。"0" 与 "" 相同（永不过期）。
 	DefaultTTL string
 }
 
-// DefaultRistrettoConfigProperties returns a properties object carrying defaults;
-// the binder only overrides keys present in the configuration.
+// DefaultRistrettoConfigProperties 返回携带默认值的属性对象；
+// binder 仅覆盖配置中存在的键。
 func DefaultRistrettoConfigProperties() *RistrettoConfigProperties {
 	return &RistrettoConfigProperties{MaxCost: 100_000_000}
 }
 
-// BindRistrettoConfigProperties binds agcache.ristretto.* from the config binder,
-// starting from DefaultRistrettoConfigProperties.
+// BindRistrettoConfigProperties 从配置 binder 绑定 agcache.ristretto.*，
+// 以 DefaultRistrettoConfigProperties 为起点。
 func BindRistrettoConfigProperties(binder ag_conf.IBinder) (*RistrettoConfigProperties, error) {
 	props := DefaultRistrettoConfigProperties()
 	if err := binder.Bind(props, RistrettoConfPrefix); err != nil {
@@ -40,9 +40,9 @@ func BindRistrettoConfigProperties(binder ag_conf.IBinder) (*RistrettoConfigProp
 	return props, nil
 }
 
-// parseTTL converts the DefaultTTL string to a duration.
-// "" or "0" → 0 (never expire, the engine default); "60s" → 60s.
-// Invalid strings error.
+// parseTTL 将 DefaultTTL 字符串转为时长。
+// "" 或 "0" → 0（永不过期，引擎默认）；"60s" → 60s。
+// 非法字符串报错。
 func parseTTL(s string) (time.Duration, error) {
 	if s == "" {
 		return 0, nil

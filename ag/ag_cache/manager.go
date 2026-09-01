@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 )
 
-// Manager lazily creates and reuses per-name cache instances.
-// It collects engine factories (fx group injection) and selects the default
-// engine via config; engine selection per instance is config-driven.
+// Manager 懒创建并按名复用缓存实例。
+// 它收集引擎工厂（fx group 注入）并经 config 选择默认引擎；
+// 实例的引擎选择由配置驱动。
 type Manager struct {
 	mu              sync.Mutex
 	defaultEngine   string
@@ -17,7 +17,7 @@ type Manager struct {
 	caches          map[string]any           // name → *typedCache[T]
 }
 
-// NewManager creates a Manager from core properties.
+// NewManager 从 core 属性创建 Manager。
 func NewManager(props *AgCacheProperties) (*Manager, error) {
 	if props == nil {
 		return nil, errors.New("agcache: nil AgCacheProperties")
@@ -33,7 +33,7 @@ func NewManager(props *AgCacheProperties) (*Manager, error) {
 	}, nil
 }
 
-// SetEngineFactory registers an engine factory by Name (fx group consumption).
+// SetEngineFactory 按 Name 注册引擎工厂（fx group 消费）。
 func (m *Manager) SetEngineFactory(name string, f EngineFactory) {
 	if m == nil {
 		panic("agcache: nil Manager")
@@ -43,7 +43,7 @@ func (m *Manager) SetEngineFactory(name string, f EngineFactory) {
 	m.engineFactories[name] = f
 }
 
-// EngineFactory returns the engine factory registered under name (nil if absent).
+// EngineFactory 返回 name 下注册的引擎工厂（不存在返回 nil）。
 func (m *Manager) EngineFactory(name string) EngineFactory {
 	if m == nil {
 		return nil
@@ -53,7 +53,7 @@ func (m *Manager) EngineFactory(name string) EngineFactory {
 	return m.engineFactories[name]
 }
 
-// DefaultEngine returns the configured default engine name.
+// DefaultEngine 返回配置的默认引擎名。
 func (m *Manager) DefaultEngine() string {
 	if m == nil {
 		return ""
@@ -61,8 +61,8 @@ func (m *Manager) DefaultEngine() string {
 	return m.defaultEngine
 }
 
-// Close closes all lazily-created cache instances. Idempotent.
-// NOTE: after Close the Manager should not be reused; create a new one.
+// Close 关闭所有懒创建的缓存实例。幂等。
+// 注意：Close 后 Manager 不应复用；请新建一个。
 func (m *Manager) Close() error {
 	if m == nil {
 		return nil
@@ -76,23 +76,22 @@ func (m *Manager) Close() error {
 	return nil
 }
 
-// engineCloser lets Close close typedCache instances of any T.
+// engineCloser 使 Close 能关闭任意 T 的 typedCache 实例。
 type engineCloser interface{ closeEngine() }
 
-// ──────── Replaceable default instance (sql-package style) ────────
+// ──────── 可替换默认实例（sql-package 风格）───────
 
 var defaultManager atomic.Pointer[Manager]
 
-// SetDefault replaces the default manager used by DefaultManager().
-// Typically called from an Fx Invoke (or test setup). Thread-safe.
+// SetDefault 替换 DefaultManager() 使用的默认 Manager。
+// 通常在 Fx Invoke（或测试 setup）中调用。线程安全。
 func SetDefault(m *Manager) {
 	defaultManager.Store(m)
 }
 
-// GetCacheWithLoader returns a LoaderCache bound to a loader, backed by the
-// named cache instance from the explicit Manager. opts may override the
-// default TTL (WithDefaultTTL) or serializer (WithSerializer).
-// The cache instance is lazily created on first use and reused by name.
+// GetCacheWithLoader 返回绑定 loader 的 LoaderCache，底层是显式 Manager 的
+// 具名缓存实例。opts 可覆盖默认 TTL（WithDefaultTTL）或序列化器（WithSerializer）。
+// 缓存实例首次使用时懒创建，并按名复用。
 func GetCacheWithLoader[T any](m *Manager, name string, loader LoaderFunc[T], opts ...Option[T]) *LoaderCache[T] {
 	if m == nil {
 		panic("agcache: nil Manager")
@@ -100,7 +99,7 @@ func GetCacheWithLoader[T any](m *Manager, name string, loader LoaderFunc[T], op
 	return &LoaderCache[T]{inner: getOrCreate[T](m, name, opts...), loader: loader}
 }
 
-// GetCache returns the named cache from the explicit Manager (pure read, no loader).
+// GetCache 从显式 Manager 返回具名缓存（纯读，无 loader）。
 func GetCache[T any](m *Manager, name string) ICache[T] {
 	if m == nil {
 		panic("agcache: nil Manager")
@@ -108,13 +107,13 @@ func GetCache[T any](m *Manager, name string) ICache[T] {
 	return getOrCreate[T](m, name)
 }
 
-// DefaultManager returns the current default manager set by SetDefault.
-// Returns nil if SetDefault has not been called.
+// DefaultManager 返回 SetDefault 设置的当前默认 Manager。
+// 未调用 SetDefault 时返回 nil。
 func DefaultManager() *Manager {
 	return defaultManager.Load()
 }
 
-// CloseAll closes the default manager and clears it. Idempotent.
+// CloseAll 关闭默认 Manager 并清空。幂等。
 func CloseAll() {
 	m := defaultManager.Load()
 	if m == nil {
@@ -124,10 +123,10 @@ func CloseAll() {
 	defaultManager.Store(nil)
 }
 
-// getOrCreate lazily creates the typed cache for a name.
-// Engine selection: config default engine factory Create(name).
-// TTL priority: WithDefaultTTL > engine internal default.
-// Engine creation happens OUTSIDE the lock; double-check after re-acquiring.
+// getOrCreate 懒创建指定 name 的 typed cache。
+// 引擎选择：config 默认引擎工厂 Create(name)。
+// TTL 优先级：WithDefaultTTL > 引擎内部默认。
+// 引擎创建发生在锁外；重取锁后双重检查。
 func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[T] {
 	m.mu.Lock()
 	if c, ok := m.caches[name]; ok {
@@ -136,7 +135,7 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 	}
 	m.mu.Unlock()
 
-	// Apply options first to determine any explicit TTL.
+	// 先应用 opts 以确定任何显式 TTL。
 	c := &typedCache[T]{
 		name:       name,
 		prefix:     cachePrefix(name),
@@ -160,7 +159,7 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if existing, ok := m.caches[name]; ok { // another goroutine won the race
+	if existing, ok := m.caches[name]; ok { // 另一 goroutine 赢得了竞争
 		_ = engine.Close()
 		return existing.(*typedCache[T])
 	}

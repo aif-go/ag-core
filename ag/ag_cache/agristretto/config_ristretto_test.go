@@ -1,6 +1,7 @@
 package agristretto
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -84,5 +85,17 @@ func TestParseTTL(t *testing.T) {
 		if !tt.err && got != tt.want {
 			t.Fatalf("parseTTL(%q) = %v, want %v", tt.in, got, tt.want)
 		}
+	}
+}
+
+// failBinder 是返回固定错误的 ag_conf.IBinder 测试替身。
+type failBinder struct{}
+
+func (failBinder) GetEnv() ag_conf.IConfigurableEnvironment { return nil }
+func (failBinder) Bind(any, ...string) error                { return errors.New("bind failed") }
+
+func TestBindRistrettoConfigProperties_Error(t *testing.T) {
+	if _, err := BindRistrettoConfigProperties(failBinder{}); err == nil {
+		t.Fatal("BindRistrettoConfigProperties with failing binder should error")
 	}
 }

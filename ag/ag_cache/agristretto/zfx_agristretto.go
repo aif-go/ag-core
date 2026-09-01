@@ -7,10 +7,10 @@ import (
 	"go.uber.org/fx"
 )
 
-// ProvideAgristrettoFactory binds agcache.ristretto.* and returns an
-// ag_cache.EngineFactory (Name="ristretto") carrying the engine config and
-// engine-declared default TTL. The factory is injected into the fx group
-// "agcache.engine" and consumed by core — the engine never registers globally.
+// ProvideAgristrettoFactory 绑定 agcache.ristretto.* 并返回
+// ag_cache.EngineFactory（Name="ristretto"），携带引擎配置与
+// 引擎声明的默认 TTL。工厂注入 fx group "agcache.engine" 并由 core 消费——
+// 引擎从不全局注册。
 func ProvideAgristrettoFactory(binder ag_conf.IBinder) (ag_cache.EngineFactory, error) {
 	props, err := BindRistrettoConfigProperties(binder)
 	if err != nil {
@@ -26,8 +26,8 @@ func ProvideAgristrettoFactory(binder ag_conf.IBinder) (ag_cache.EngineFactory, 
 	}, nil
 }
 
-// FxAgCacheRistrettoMode contributes the Ristretto engine factory to the
-// core's "agcache.engine" fx group.
+// FxAgCacheRistrettoMode 将 Ristretto 引擎工厂贡献给 core 的
+// "agcache.engine" fx group。
 var FxAgCacheRistrettoMode = fx.Module("ag_cache.agristretto",
 	fx.Provide(
 		fx.Annotate(ProvideAgristrettoFactory, fx.ResultTags(`group:"agcache.engine"`)),

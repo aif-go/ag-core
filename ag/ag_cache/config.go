@@ -5,29 +5,28 @@ import (
 )
 
 const (
-	// AgCacheConfPrefix is the config root prefix bound by FxAgCacheMode.
+	// AgCacheConfPrefix 是 FxAgCacheMode 绑定的配置根前缀。
 	AgCacheConfPrefix = "agcache"
 )
 
-// AgCacheProperties is the core assembly config: it only selects which engine
-// implementation to use by name. Engine-specific parameters and TTL are owned
-// by each engine package (e.g. agcache.ristretto.*).
+// AgCacheProperties 是 core 装配配置：仅按名选择引擎实现。
+// 引擎特定参数与 TTL 由各引擎包持有（如 agcache.ristretto.*）。
 //
-// No value tags: ag_conf matches config keys case-insensitively by field name
-// (DefaultEngine ↔ defaultEngine).
+// 无 value tag：ag_conf 按字段名大小写不敏感匹配配置键
+// （DefaultEngine ↔ defaultEngine）。
 type AgCacheProperties struct {
-	// DefaultEngine selects the engine implementation name (e.g. "ristretto").
+	// DefaultEngine 选择引擎实现名（如 "ristretto"）。
 	DefaultEngine string
 }
 
-// DefaultAgCacheProperties returns a properties object carrying defaults;
-// the binder only overrides keys present in the configuration.
+// DefaultAgCacheProperties 返回携带默认值的属性对象；
+// binder 仅覆盖配置中存在的键。
 func DefaultAgCacheProperties() *AgCacheProperties {
 	return &AgCacheProperties{DefaultEngine: "ristretto"}
 }
 
-// BindAgCacheProperties binds agcache.* from the config binder,
-// starting from DefaultAgCacheProperties.
+// BindAgCacheProperties 从配置 binder 绑定 agcache.*，
+// 以 DefaultAgCacheProperties 为起点。
 func BindAgCacheProperties(binder ag_conf.IBinder) (*AgCacheProperties, error) {
 	props := DefaultAgCacheProperties()
 	if err := binder.Bind(props, AgCacheConfPrefix); err != nil {

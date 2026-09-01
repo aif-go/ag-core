@@ -95,7 +95,7 @@ func TestNew_LazyCreateAndReuse(t *testing.T) {
 	c1 := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) { return "v", nil })
 	c1.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) { return "v", nil })
 
-	// Same name reuses the same instance.
+	// 同 name 复用同一实例。
 	loaded := false
 	v, err := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) {
 		loaded = true

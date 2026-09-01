@@ -198,3 +198,43 @@ func TestFactory_CreateName(t *testing.T) {
 		t.Fatal("Create(name) should return fresh instances per name")
 	}
 }
+
+// ──────── Del：引擎级删除 ────────
+
+func TestDel(t *testing.T) {
+	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	defer e.Close()
+	ctx := context.Background()
+
+	// 多个 key 写入后逐个 Del，验证只删目标 key。
+	e.Set(ctx, "a", []byte("A"))
+	e.Set(ctx, "b", []byte("B"))
+	syncNow(t, e)
+
+	if err := e.Del(ctx, "a"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	syncNow(t, e)
+
+	if _, err := e.Get(ctx, "a"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("deleted key a should miss, got %v", err)
+	}
+	if _, err := e.Get(ctx, "b"); err != nil {
+		t.Fatalf("unrelated key b should survive, got %v", err)
+	}
+}
+
+// ──────── 引擎默认 TTL=0（永不过期）───────
+
+func TestEngine_DefaultTTLZero_NeverExpires(t *testing.T) {
+	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	defer e.Close()
+	ctx := context.Background()
+
+	// NewRistrettoEngine 默认 defaultTTL=0（永不过期），Set 后经足够时间仍命中。
+	e.Set(ctx, "k", []byte("v"))
+	syncNow(t, e)
+	if _, err := e.Get(ctx, "k"); err != nil {
+		t.Fatalf("immediate read should hit, got %v", err)
+	}
+}

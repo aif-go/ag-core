@@ -13,7 +13,7 @@ import (
 
 // ──────── helpers ────────
 
-// mockEngineFactory registers a "mock" engine for core-layer tests (no Ristretto).
+// mockEngineFactory 注册 "mock" 引擎，供 core 层测试使用（无需 Ristretto）。
 type mockEngineFactory struct{}
 
 func (mockEngineFactory) Name() string { return "mock" }
@@ -21,7 +21,7 @@ func (mockEngineFactory) Create(name string) (ag_cache.Engine, error) {
 	return ag_cache.NewMockEngine(), nil
 }
 
-// countingFactory registers a "counting" engine and counts Create calls.
+// countingFactory 注册 "counting" 引擎并统计 Create 调用次数。
 type countingFactory struct {
 	creates atomic.Int32
 }
@@ -32,7 +32,7 @@ func (f *countingFactory) Create(name string) (ag_cache.Engine, error) {
 	return ag_cache.NewMockEngine(), nil
 }
 
-// setupManager sets the default manager backed by mock engines.
+// setupManager 设置默认 Manager（由 mock 引擎支撑）。
 func setupManager(t *testing.T) {
 	t.Helper()
 	props := ag_cache.DefaultAgCacheProperties()
@@ -50,7 +50,7 @@ func strLoader(v string) ag_cache.LoaderFunc[string] {
 	return func(ctx context.Context, key string) (string, error) { return v, nil }
 }
 
-// dflt returns the default manager (set via setupManager / SetDefault).
+// dflt 返回默认 Manager（经 setupManager / SetDefault 设置）。
 func dflt() *ag_cache.Manager {
 	m := ag_cache.DefaultManager()
 	if m == nil {
@@ -688,5 +688,163 @@ func TestSetWithTTL_NoTTLSetter_FallsBackToSet(t *testing.T) {
 	}
 	if _, err := c.Get(ctx, "k"); err != nil {
 		t.Fatalf("value should be stored via Set fallback, got %v", err)
+	}
+}
+
+// ──────── LoaderCache Del/Clear 转发 ────────
+
+func TestLoaderCache_Del(t *testing.T) {
+	setupManager(t)
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
+	ctx := context.Background()
+
+	users.GetOrElse(ctx, "u:1", strLoader("v"))
+	if _, err := users.Get(ctx, "u:1"); err != nil {
+		t.Fatalf("pre-del Get should hit, got %v", err)
+	}
+
+	if err := users.Del(ctx, "u:1"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	// Del 后 TryGet（纯读，不触发 loader）应 miss——值已被删除。
+	if _, ok, err := users.TryGet(ctx, "u:1"); err != nil || ok {
+		t.Fatalf("post-del TryGet should miss, ok=%v err=%v", ok, err)
+	}
+	// Get（读穿透）会重新 loader 写回——Cache-Aside 失效后重载的预期行为。
+	if v, err := users.Get(ctx, "u:1"); err != nil || v != "v" {
+		t.Fatalf("post-del Get should reload, v=%q err=%v", v, err)
+	}
+}
+
+func TestLoaderCache_Clear(t *testing.T) {
+	setupManager(t)
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
+	params := ag_cache.GetCacheWithLoader[string](dflt(), "params", strLoader("p"))
+	ctx := context.Background()
+
+	users.GetOrElse(ctx, "u:1", strLoader("v"))
+	params.GetOrElse(ctx, "p:1", strLoader("p"))
+
+	if err := users.Clear(ctx); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	// users 清空（TryGet 纯读 miss），params 不受影响。
+	if _, ok, err := users.TryGet(ctx, "u:1"); err != nil || ok {
+		t.Fatalf("users post-clear TryGet should miss, ok=%v err=%v", ok, err)
+	}
+	if _, err := params.Get(ctx, "p:1"); err != nil {
+		t.Fatalf("params should be unaffected, got %v", err)
+	}
+}
+
+// ──────── MockCache 测试替身自身方法 ────────
+
+func TestMockCache_SetGetDel(t *testing.T) {
+	c := ag_cache.NewMock[string]()
+	ctx := context.Background()
+
+	if err := c.Set(ctx, "k", "v"); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if v, err := c.Get(ctx, "k"); err != nil || v != "v" {
+		t.Fatalf("Get after Set: v=%q err=%v", v, err)
+	}
+	// TryGet 命中。
+	if v, ok, err := c.TryGet(ctx, "k"); err != nil || !ok || v != "v" {
+		t.Fatalf("TryGet hit: v=%q ok=%v err=%v", v, ok, err)
+	}
+	// SetWithTTL 等同 Set（mock 无 TTL）。
+	if err := c.SetWithTTL(ctx, "k", "v2", time.Minute); err != nil {
+		t.Fatalf("SetWithTTL: %v", err)
+	}
+	if v, _ := c.Get(ctx, "k"); v != "v2" {
+		t.Fatalf("Get after SetWithTTL: v=%q", v)
+	}
+	// Del。
+	if err := c.Del(ctx, "k"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	if _, err := c.Get(ctx, "k"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("Get after Del should miss, got %v", err)
+	}
+}
+
+func TestMockCache_GetOrElse_MissLoaderAndErr(t *testing.T) {
+	c := ag_cache.NewMock[int]()
+	ctx := context.Background()
+
+	// miss → loader 写入。
+	v, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (int, error) {
+		return 42, nil
+	})
+	if err != nil || v != 42 {
+		t.Fatalf("GetOrElse: v=%d err=%v", v, err)
+	}
+	// hit 不再调 loader。
+	calls := 0
+	if v, _ := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (int, error) {
+		calls++
+		return 0, nil
+	}); v != 42 {
+		t.Fatalf("hit should return cached 42, got %d", v)
+	}
+	if calls != 0 {
+		t.Fatalf("loader called %d times on hit, want 0", calls)
+	}
+
+	// SetError → 所有 GetOrElse 返回该错误（模拟后端故障）。
+	c.SetError(errors.New("backend down"))
+	if _, err := c.GetOrElse(ctx, "any", func(ctx context.Context, key string) (int, error) {
+		return 1, nil
+	}); err == nil {
+		t.Fatal("SetError should make GetOrElse return the injected error")
+	}
+}
+
+func TestMockCache_Clear(t *testing.T) {
+	c := ag_cache.NewMock[string]()
+	ctx := context.Background()
+	c.Set(ctx, "a", "A")
+	c.Set(ctx, "b", "B")
+	if err := c.Clear(ctx); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	if _, err := c.Get(ctx, "a"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("post-clear Get(a) should miss, got %v", err)
+	}
+	if _, err := c.Get(ctx, "b"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("post-clear Get(b) should miss, got %v", err)
+	}
+}
+
+// ──────── WithSerializer 自定义序列化 ────────
+
+// upperSerializer 自定义 Serializer：Marshal 原样存 []byte，Unmarshal 加前缀标记。
+// 用于验证 WithSerializer option 生效（typedCache 用自定义序列化器而非默认）。
+type upperSerializer struct{}
+
+func (upperSerializer) Marshal(v string) ([]byte, error) {
+	return []byte("raw:" + v), nil
+}
+func (upperSerializer) Unmarshal(data []byte) (*string, error) {
+	s := string(data)
+	return &s, nil
+}
+
+func TestWithSerializer_Custom(t *testing.T) {
+	e := ag_cache.NewMockEngine()
+	c := ag_cache.NewWithEngine[string](e, ag_cache.WithSerializer[string](upperSerializer{}))
+	ctx := context.Background()
+
+	if err := c.Set(ctx, "k", "hello"); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	// 验证引擎中存的是自定义序列化结果（"raw:hello"），而非默认序列化。
+	if v, err := e.Get(ctx, "k"); err != nil || string(v) != "raw:hello" {
+		t.Fatalf("engine should store custom-serialized bytes, got %q err=%v", v, err)
+	}
+	// 读回原值（自定义 Unmarshal 原样返回）。
+	if v, err := c.Get(ctx, "k"); err != nil || v != "raw:hello" {
+		t.Fatalf("Get via custom serializer: v=%q err=%v", v, err)
 	}
 }

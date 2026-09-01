@@ -6,14 +6,13 @@ import (
 	"time"
 )
 
-// TestEngine_SpiCompile asserts the Engine SPI shape at compile time by
-// assigning a non-nil engine to a local interface of the exact desired shape.
-// RED: this file fails to compile while the SPI still carries the old shapes
-// (Set with ttl / no TTLSetter / no prefix on Clear).
+// TestEngine_SpiCompile 在编译期断言 Engine SPI 形态：将非 nil 引擎
+// 赋给形状精确的本地接口。RED：当 SPI 仍携带旧形态时本文件编译失败
+// （Set 带 ttl / 无 TTLSetter / Clear 无 prefix）。
 func TestEngine_SpiCompile(t *testing.T) {
 	engine := NewMockEngine()
 
-	// Engine.Set must take (ctx, key, value) with no ttl; Clear takes a prefix.
+	// Engine.Set 必须取 (ctx, key, value) 无 ttl；Clear 取 prefix。
 	var wantEngine interface {
 		Get(ctx context.Context, key string) ([]byte, error)
 		Set(ctx context.Context, key string, value []byte) error
@@ -23,14 +22,14 @@ func TestEngine_SpiCompile(t *testing.T) {
 	} = engine
 	_ = wantEngine
 
-	// TTLSetter is the optional external-TTL capability.
+	// TTLSetter 是可选的外部 TTL 能力。
 	var wantTTL interface {
 		SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error
 	} = engine
 	_ = wantTTL
 }
 
-// TestEngine_ClearPrefix asserts Engine.Clear takes the namespace prefix.
+// TestEngine_ClearPrefix 断言 Engine.Clear 接收 namespace prefix。
 func TestEngine_ClearPrefix(t *testing.T) {
 	engine := NewMockEngine()
 	var want interface {

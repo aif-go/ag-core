@@ -67,7 +67,7 @@ func TestConcurrency_HighVolumeStability(t *testing.T) {
 	var wg sync.WaitGroup
 	var failures atomic.Int32
 
-	// 20 readers, 5 writers
+	// 20 读、5 写
 	for w := 0; w < 20; w++ {
 		wg.Add(1)
 		go func(w int) {

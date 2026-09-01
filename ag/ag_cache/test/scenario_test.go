@@ -46,7 +46,7 @@ func TestScenario_UserCache_CacheAside(t *testing.T) {
 		return u, nil
 	}, ag_cache.WithDefaultTTL[*User](1*time.Second))
 
-	// miss → loader
+	// 未命中 → loader
 	u, err := users.Get(ctx, "u:1")
 	if err != nil || u.ID != "u:1" {
 		t.Fatalf("first Get: u=%+v err=%v", u, err)

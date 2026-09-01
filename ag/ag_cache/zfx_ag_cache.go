@@ -7,16 +7,15 @@ import (
 	"go.uber.org/fx"
 )
 
-// EngineFactoryParams collects all engine factories contributed by engine
-// modules (e.g. agristretto.FxAgCacheRistrettoMode) via fx value groups.
+// EngineFactoryParams 收集各引擎模块（如 agristretto.FxAgCacheRistrettoMode）
+// 经 fx value group 注入的引擎工厂。
 type EngineFactoryParams struct {
 	fx.In
 	Factories []EngineFactory `group:"agcache.engine"`
 }
 
-// NewAgCacheManager builds a Manager from the contributed engine factories and
-// the core assembly config: fill the factory map, select the default engine via
-// config, and fail fast if the default engine is not registered.
+// NewAgCacheManager 从注入的引擎工厂与 core 装配配置构建 Manager：
+// 填工厂 map，经 config 选择默认引擎，默认引擎未注册则快速失败。
 func NewAgCacheManager(p EngineFactoryParams, props *AgCacheProperties) (*Manager, error) {
 	m, err := NewManager(props)
 	if err != nil {
@@ -39,8 +38,8 @@ func factoryNames(fs []EngineFactory) []string {
 	return names
 }
 
-// registerHooks sets the default manager (so DefaultManager() works at runtime)
-// and registers the OnStop hook: just Close (stats are not tracked in v3).
+// registerHooks 设置默认 Manager（使运行时 DefaultManager() 可用），
+// 并注册 OnStop 钩子：仅 Close（v3 不跟踪统计）。
 func registerHooks(lc fx.Lifecycle, m *Manager) {
 	SetDefault(m)
 	lc.Append(fx.Hook{
@@ -50,9 +49,9 @@ func registerHooks(lc fx.Lifecycle, m *Manager) {
 	})
 }
 
-// FxAgCacheMode is the self-contained Fx module for the cache core:
-// it collects all engine factories (fx group), registers them, builds the
-// Manager from agcache.* config, and wires lifecycle hooks.
+// FxAgCacheMode 是缓存 core 的自包含 Fx 模块：
+// 收集所有引擎工厂（fx group）、建 Manager、装配 agcache.* 配置、
+// 并接好生命周期钩子。
 var FxAgCacheMode = fx.Module("ag_cache",
 	fx.Provide(
 		BindAgCacheProperties,

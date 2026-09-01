@@ -5,15 +5,15 @@ import (
 	"fmt"
 )
 
-// Serializer converts between T and []byte for cache storage.
-// Implementations must be thread-safe.
+// Serializer 在 T 与 []byte 之间转换，用于缓存存储。
+// 实现必须线程安全。
 type Serializer[T any] interface {
 	Marshal(v T) ([]byte, error)
 	Unmarshal(data []byte) (*T, error)
 }
 
-// DefaultSerializer uses type-switch fast path for basic types,
-// falling back to encoding/json for complex types.
+// DefaultSerializer 对基础类型走 type-switch 快路径，
+// 复杂类型回退到 encoding/json。
 func DefaultSerializer[T any]() Serializer[T] {
 	return &defaultSerializer[T]{}
 }
@@ -21,7 +21,7 @@ func DefaultSerializer[T any]() Serializer[T] {
 type defaultSerializer[T any] struct{}
 
 func (s *defaultSerializer[T]) Marshal(v T) ([]byte, error) {
-	// Type-switch fast path: avoid JSON overhead for basic types.
+	// Type-switch 快路径：基础类型避免 JSON 开销。
 	switch val := any(v).(type) {
 	case string:
 		return []byte(val), nil
@@ -47,7 +47,7 @@ func (s *defaultSerializer[T]) Marshal(v T) ([]byte, error) {
 
 func (s *defaultSerializer[T]) Unmarshal(data []byte) (*T, error) {
 	var v T
-	// Type-switch fast path.
+	// Type-switch 快路径。
 	switch any(&v).(type) {
 	case *string:
 		str := string(data)

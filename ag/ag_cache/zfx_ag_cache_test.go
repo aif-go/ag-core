@@ -45,7 +45,7 @@ func TestFxAgCacheMode_IdempotentRegister(t *testing.T) {
 		ag_cache.FxAgCacheMode,
 		agristretto.FxAgCacheRistrettoMode,
 	}
-	// Two fx apps in one process: core must skip re-registration (idempotent).
+	// 一个进程内两个 fx app：core 需跳过重复注册（幂等）。
 	app1 := fxtest.New(t, opts...)
 	app1.RequireStart().RequireStop()
 	app2 := fxtest.New(t, opts...)

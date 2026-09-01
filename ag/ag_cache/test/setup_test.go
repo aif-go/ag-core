@@ -11,8 +11,8 @@ import (
 	"go.uber.org/fx/fxtest"
 )
 
-// newBinder builds an ag_conf.IBinder seeded with a flat lowercase property map,
-// mimicking YAML flattened keys (agcache.defaultEngine, agcache.ristretto.maxCost, ...).
+// newBinder 构建 ag_conf.IBinder，用扁平小写属性 map 填充，
+// 模拟 YAML 展平键（agcache.defaultEngine、agcache.ristretto.maxCost, ...）。
 func newBinder(src map[string]any) ag_conf.IBinder {
 	ps := &ag_conf.MapPropertySource{}
 	ps.Name = "test"
@@ -25,9 +25,8 @@ func newBinder(src map[string]any) ag_conf.IBinder {
 	return ag_conf.NewConfigurationPropertiesBinder(env)
 }
 
-// startFx boots the real assembly (core + agristretto engine) with the given YAML
-// property map, returns a stop function. Registration is idempotent so multiple
-// apps may be booted in one test process.
+// startFx 用给定 YAML 属性 map 启动真实装配（core + agristretto 引擎），
+// 返回 stop 函数。注册幂等，一个测试进程可启动多个 app。
 func startFx(t *testing.T, yaml map[string]any) (stop func()) {
 	t.Helper()
 	binder := newBinder(yaml)
@@ -39,11 +38,11 @@ func startFx(t *testing.T, yaml map[string]any) (stop func()) {
 	app.RequireStart()
 	return func() {
 		app.RequireStop()
-		ag_cache.CloseAll() // clear default manager to avoid cross-test leakage
+		ag_cache.CloseAll() // 清默认 Manager，避免跨测试泄漏
 	}
 }
 
-// dflt returns the default manager (set by startFx's SetDefault).
+// dflt 返回默认 Manager（startFx 的 SetDefault 设置）。
 func dflt() *ag_cache.Manager {
 	m := ag_cache.DefaultManager()
 	if m == nil {
