@@ -35,7 +35,7 @@ func TestScenario_UserCache_CacheAside(t *testing.T) {
 	db := map[string]*User{"u:1": {ID: "u:1", Name: "Alice"}}
 	var dbCalls int
 	var mu sync.Mutex
-	users := ag_cache.New[*User]("users", func(ctx context.Context, key string) (*User, error) {
+	users := ag_cache.GetCacheWithLoader[*User](dflt(), "users", func(ctx context.Context, key string) (*User, error) {
 		mu.Lock()
 		dbCalls++
 		mu.Unlock()
@@ -84,10 +84,10 @@ func TestScenario_ParamCache_ClearReload(t *testing.T) {
 	ctx := context.Background()
 
 	paramStore := map[string]string{"host:port": "10.0.0.1:8080"}
-	users := ag_cache.New[*User]("users", func(ctx context.Context, key string) (*User, error) {
+	users := ag_cache.GetCacheWithLoader[*User](dflt(), "users", func(ctx context.Context, key string) (*User, error) {
 		return &User{ID: key, Name: "U"}, nil
 	})
-	params := ag_cache.New[*Param]("params", func(ctx context.Context, key string) (*Param, error) {
+	params := ag_cache.GetCacheWithLoader[*Param](dflt(), "params", func(ctx context.Context, key string) (*Param, error) {
 		v, ok := paramStore[key]
 		if !ok {
 			return nil, ag_cache.ErrCacheMiss
@@ -124,11 +124,11 @@ func TestScenario_ForceRefresh_SetAndDel(t *testing.T) {
 	ctx := context.Background()
 
 	var loaded int
-	c := ag_cache.New[string]("cfg", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "cfg", func(ctx context.Context, key string) (string, error) {
 		loaded++
 		return "from-db", nil
 	})
-	reader := ag_cache.Get[string]("cfg") // 纯读视角（同实例，TryGet 不调 loader）
+	reader := ag_cache.GetCache[string](dflt(), "cfg") // 纯读视角（同实例，TryGet 不调 loader）
 
 	c.Set(ctx, "k", "v1")
 	if v := waitVisible(t, reader, "k"); v != "v1" {
@@ -178,11 +178,11 @@ func TestScenario_NegativeCachePattern(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	notExist := ag_cache.New[bool]("user-notexist", func(ctx context.Context, key string) (bool, error) {
+	notExist := ag_cache.GetCacheWithLoader[bool](dflt(), "user-notexist", func(ctx context.Context, key string) (bool, error) {
 		return false, ag_cache.ErrCacheMiss // 无标记 → miss（纯读，不写缓存）
 	})
 	var dbCalls int
-	users := ag_cache.New[*User]("users", func(ctx context.Context, key string) (*User, error) {
+	users := ag_cache.GetCacheWithLoader[*User](dflt(), "users", func(ctx context.Context, key string) (*User, error) {
 		dbCalls++
 		if key == "u:999" {
 			notExist.Set(ctx, key, true) // 记录"不存在"（默认 TTL）
@@ -238,15 +238,15 @@ func TestScenario_BasicTypeSerialization(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	str := ag_cache.New[string]("s", func(ctx context.Context, key string) (string, error) { return "sv", nil })
-	i64 := ag_cache.New[int64]("i64", func(ctx context.Context, key string) (int64, error) { return 42, nil })
-	b := ag_cache.New[bool]("b", func(ctx context.Context, key string) (bool, error) { return true, nil })
-	bytes := ag_cache.New[[]byte]("bytes", func(ctx context.Context, key string) ([]byte, error) { return []byte("bv"), nil })
+	str := ag_cache.GetCacheWithLoader[string](dflt(), "s", func(ctx context.Context, key string) (string, error) { return "sv", nil })
+	i64 := ag_cache.GetCacheWithLoader[int64](dflt(), "i64", func(ctx context.Context, key string) (int64, error) { return 42, nil })
+	b := ag_cache.GetCacheWithLoader[bool](dflt(), "b", func(ctx context.Context, key string) (bool, error) { return true, nil })
+	bytes := ag_cache.GetCacheWithLoader[[]byte](dflt(), "bytes", func(ctx context.Context, key string) ([]byte, error) { return []byte("bv"), nil })
 
-	strReader := ag_cache.Get[string]("s")
-	i64Reader := ag_cache.Get[int64]("i64")
-	bReader := ag_cache.Get[bool]("b")
-	bytesReader := ag_cache.Get[[]byte]("bytes")
+	strReader := ag_cache.GetCache[string](dflt(), "s")
+	i64Reader := ag_cache.GetCache[int64](dflt(), "i64")
+	bReader := ag_cache.GetCache[bool](dflt(), "b")
+	bytesReader := ag_cache.GetCache[[]byte](dflt(), "bytes")
 
 	str.Set(ctx, "k", "x")
 	if v := waitT(t, strReader, "k"); v != "x" {
@@ -320,7 +320,7 @@ func TestScenario_Probe_WithTryGet(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	c := ag_cache.New[string]("probe", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "probe", func(ctx context.Context, key string) (string, error) {
 		return "uv", nil
 	})
 

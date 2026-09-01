@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Manager lazily creates and reuses per-name cache instances.
-// It holds no assembly config besides the default engine name; engine selection
-// per instance is via WithEngine option (or the default engine).
+// It collects engine factories (fx group injection) and selects the default
+// engine via config; engine selection per instance is config-driven.
 type Manager struct {
-	mu            sync.Mutex
-	defaultEngine string
-	caches        map[string]any // name → *typedCache[T]
+	mu              sync.Mutex
+	defaultEngine   string
+	engineFactories map[string]EngineFactory // name → factory
+	caches          map[string]any           // name → *typedCache[T]
 }
 
 // NewManager creates a Manager from core properties.
-// Fails fast if the default engine is not registered.
 func NewManager(props *AgCacheProperties) (*Manager, error) {
 	if props == nil {
 		return nil, errors.New("agcache: nil AgCacheProperties")
@@ -27,13 +26,39 @@ func NewManager(props *AgCacheProperties) (*Manager, error) {
 	if engine == "" {
 		engine = "ristretto"
 	}
-	if _, err := getFactory(engine); err != nil {
-		return nil, fmt.Errorf("agcache: default engine: %w", err)
-	}
 	return &Manager{
-		defaultEngine: engine,
-		caches:        make(map[string]any),
+		defaultEngine:   engine,
+		engineFactories: make(map[string]EngineFactory),
+		caches:          make(map[string]any),
 	}, nil
+}
+
+// SetEngineFactory registers an engine factory by Name (fx group consumption).
+func (m *Manager) SetEngineFactory(name string, f EngineFactory) {
+	if m == nil {
+		panic("agcache: nil Manager")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.engineFactories[name] = f
+}
+
+// EngineFactory returns the engine factory registered under name (nil if absent).
+func (m *Manager) EngineFactory(name string) EngineFactory {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.engineFactories[name]
+}
+
+// DefaultEngine returns the configured default engine name.
+func (m *Manager) DefaultEngine() string {
+	if m == nil {
+		return ""
+	}
+	return m.defaultEngine
 }
 
 // Close closes all lazily-created cache instances. Idempotent.
@@ -64,26 +89,29 @@ func SetDefault(m *Manager) {
 	defaultManager.Store(m)
 }
 
-// New returns a LoaderCache bound to a loader, backed by the named cache
-// instance from the default manager. opts may select a specific engine
-// (WithEngine) or override the default TTL (WithDefaultTTL).
-// Panics if SetDefault has not been called.
-func New[T any](name string, loader LoaderFunc[T], opts ...Option[T]) *LoaderCache[T] {
-	m := defaultManager.Load()
+// GetCacheWithLoader returns a LoaderCache bound to a loader, backed by the
+// named cache instance from the explicit Manager. opts may override the
+// default TTL (WithDefaultTTL) or serializer (WithSerializer).
+// The cache instance is lazily created on first use and reused by name.
+func GetCacheWithLoader[T any](m *Manager, name string, loader LoaderFunc[T], opts ...Option[T]) *LoaderCache[T] {
 	if m == nil {
-		panic("agcache: no default manager — call SetDefault or use NewWithEngine")
+		panic("agcache: nil Manager")
 	}
 	return &LoaderCache[T]{inner: getOrCreate[T](m, name, opts...), loader: loader}
 }
 
-// Get returns the named cache from the default manager.
-// Panics if SetDefault has not been called.
-func Get[T any](name string) ICache[T] {
-	m := defaultManager.Load()
+// GetCache returns the named cache from the explicit Manager (pure read, no loader).
+func GetCache[T any](m *Manager, name string) ICache[T] {
 	if m == nil {
-		panic("agcache: no default manager — call SetDefault or use NewWithEngine")
+		panic("agcache: nil Manager")
 	}
 	return getOrCreate[T](m, name)
+}
+
+// DefaultManager returns the current default manager set by SetDefault.
+// Returns nil if SetDefault has not been called.
+func DefaultManager() *Manager {
+	return defaultManager.Load()
 }
 
 // CloseAll closes the default manager and clears it. Idempotent.
@@ -97,8 +125,8 @@ func CloseAll() {
 }
 
 // getOrCreate lazily creates the typed cache for a name.
-// Engine selection: WithEngine(opts) or the manager default engine.
-// TTL priority: WithDefaultTTL > engine DefaultTTLProvider > 5min.
+// Engine selection: config default engine factory Create(name).
+// TTL priority: WithDefaultTTL > engine internal default.
 // Engine creation happens OUTSIDE the lock; double-check after re-acquiring.
 func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[T] {
 	m.mu.Lock()
@@ -108,8 +136,10 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 	}
 	m.mu.Unlock()
 
-	// Apply options first to determine engine name and any explicit TTL.
+	// Apply options first to determine any explicit TTL.
 	c := &typedCache[T]{
+		name:       name,
+		prefix:     cachePrefix(name),
 		serializer: DefaultSerializer[T](),
 		defaultTTL: 0,
 	}
@@ -117,27 +147,16 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 		o(c)
 	}
 
-	engineName := c.engineName
-	if engineName == "" {
-		engineName = m.defaultEngine
-	}
-	f, err := getFactory(engineName)
-	if err != nil {
-		panic(err.Error())
+	f := m.EngineFactory(m.defaultEngine)
+	if f == nil {
+		panic(fmt.Sprintf("agcache: engine %q not registered", m.defaultEngine))
 	}
 
-	engine, err := f.Create()
+	engine, err := f.Create(name)
 	if err != nil {
 		panic(fmt.Sprintf("agcache: create engine for %q: %v", name, err))
 	}
 	c.engine = engine
-
-	if !c.ttlSet {
-		c.defaultTTL = 5 * time.Minute
-		if p, ok := f.(DefaultTTLProvider); ok {
-			c.defaultTTL = p.DefaultTTL()
-		}
-	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()

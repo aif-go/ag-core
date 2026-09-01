@@ -45,7 +45,7 @@ func BindRistrettoConfigProperties(binder ag_conf.IBinder) (*RistrettoConfigProp
 // "60s" → 60s. Invalid strings error.
 func parseTTL(s string) (time.Duration, error) {
 	if s == "" {
-		return 5 * time.Minute, nil
+		return 5 * time.Minute, nil // TODO 是否默认不超时？
 	}
 	d, err := time.ParseDuration(s)
 	if err != nil {

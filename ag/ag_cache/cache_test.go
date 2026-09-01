@@ -17,7 +17,7 @@ import (
 type mockEngineFactory struct{}
 
 func (mockEngineFactory) Name() string { return "mock" }
-func (mockEngineFactory) Create() (ag_cache.Engine, error) {
+func (mockEngineFactory) Create(name string) (ag_cache.Engine, error) {
 	return ag_cache.NewMockEngine(), nil
 }
 
@@ -27,29 +27,21 @@ type countingFactory struct {
 }
 
 func (f *countingFactory) Name() string { return "counting" }
-func (f *countingFactory) Create() (ag_cache.Engine, error) {
+func (f *countingFactory) Create(name string) (ag_cache.Engine, error) {
 	f.creates.Add(1)
 	return ag_cache.NewMockEngine(), nil
-}
-
-var registerMockOnce sync.Once
-
-func registerMockEngine() {
-	registerMockOnce.Do(func() {
-		ag_cache.RegisterEngine(mockEngineFactory{})
-	})
 }
 
 // setupManager sets the default manager backed by mock engines.
 func setupManager(t *testing.T) {
 	t.Helper()
-	registerMockEngine()
 	props := ag_cache.DefaultAgCacheProperties()
 	props.DefaultEngine = "mock"
 	m, err := ag_cache.NewManager(props)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
+	m.SetEngineFactory("mock", mockEngineFactory{})
 	ag_cache.SetDefault(m)
 	t.Cleanup(ag_cache.CloseAll)
 }
@@ -58,11 +50,20 @@ func strLoader(v string) ag_cache.LoaderFunc[string] {
 	return func(ctx context.Context, key string) (string, error) { return v, nil }
 }
 
+// dflt returns the default manager (set via setupManager / SetDefault).
+func dflt() *ag_cache.Manager {
+	m := ag_cache.DefaultManager()
+	if m == nil {
+		panic("no default manager")
+	}
+	return m
+}
+
 // ──────── POC 7: 基础语义回归 ────────
 
 func TestGetOrElse_Basic(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.New[string]("users", strLoader("loaded"))
+	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	callCount := 0
@@ -94,7 +95,7 @@ func TestGetOrElse_Basic(t *testing.T) {
 
 func TestGet_PureRead(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.Get[string]("users")
+	cache := ag_cache.GetCache[string](dflt(), "users")
 	ctx := context.Background()
 
 	_, err := cache.Get(ctx, "missing")
@@ -105,7 +106,7 @@ func TestGet_PureRead(t *testing.T) {
 
 func TestSingleflight_LoaderCalledOnce(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.New[string]("users", strLoader("loaded"))
+	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	var mu sync.Mutex
@@ -145,7 +146,7 @@ func TestSerialization_StructType(t *testing.T) {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 	}
-	cache := ag_cache.New[User]("users", func(ctx context.Context, key string) (User, error) {
+	cache := ag_cache.GetCacheWithLoader[User](dflt(), "users", func(ctx context.Context, key string) (User, error) {
 		return User{Name: "Alice", Age: 30}, nil
 	})
 	ctx := context.Background()
@@ -169,8 +170,8 @@ func TestIndependentInstances_Isolation(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.New[string]("users", strLoader("user-value"))
-	params := ag_cache.New[string]("params", strLoader("param-value"))
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("user-value"))
+	params := ag_cache.GetCacheWithLoader[string](dflt(), "params", strLoader("param-value"))
 
 	if _, err := users.GetOrElse(ctx, "shared-key", func(ctx context.Context, key string) (string, error) {
 		return "user-value", nil
@@ -194,8 +195,8 @@ func TestClear_OnlyAffectsOwnInstance(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.Get[string]("users")
-	params := ag_cache.Get[string]("params")
+	users := ag_cache.GetCache[string](dflt(), "users")
+	params := ag_cache.GetCache[string](dflt(), "params")
 
 	users.GetOrElse(ctx, "u1", func(ctx context.Context, key string) (string, error) { return "U1", nil })
 	params.GetOrElse(ctx, "p1", func(ctx context.Context, key string) (string, error) { return "P1", nil })
@@ -281,7 +282,7 @@ func TestErrBackend_PanicRecovery(t *testing.T) {
 // P2-C: loader 不被第一个调用者的 ctx 取消（WithoutCancel）
 func TestLoader_NotCancelledByFirstCallerCtx(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.New[string]("users", strLoader("loaded"))
+	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
 
 	loaderCalled := false
 	loader := func(ctx context.Context, key string) (string, error) {
@@ -333,7 +334,7 @@ func TestLoaderCache_Get_ReadThrough(t *testing.T) {
 		callCount++
 		return "loaded-" + key, nil
 	}
-	users := ag_cache.New[string]("users", loader)
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", loader)
 
 	v, err := users.Get(ctx, "u:1")
 	if err != nil || v != "loaded-u:1" {
@@ -364,7 +365,7 @@ func TestLoaderCache_GetOrElse_CustomLoader(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.New[string]("users", func(ctx context.Context, key string) (string, error) {
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) {
 		return "default-loader", nil
 	})
 
@@ -381,7 +382,7 @@ func TestLoaderCache_TryGet_NoLoader(t *testing.T) {
 	ctx := context.Background()
 
 	callCount := 0
-	users := ag_cache.New[string]("users", func(ctx context.Context, key string) (string, error) {
+	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) {
 		callCount++
 		return "v", nil
 	})
@@ -405,7 +406,7 @@ func TestLoaderCache_WithLoader(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.WithLoader(ag_cache.Get[string]("users"), func(ctx context.Context, key string) (string, error) {
+	users := ag_cache.WithLoader(ag_cache.GetCache[string](dflt(), "users"), func(ctx context.Context, key string) (string, error) {
 		return "from-loader", nil
 	})
 
@@ -435,33 +436,24 @@ func TestNewWithEngine_ExplicitIsolation(t *testing.T) {
 	}
 }
 
-// ──────── WithEngine：选择指定引擎实现名 ────────
+// ──────── config 选默认引擎 ────────
 
-func TestWithEngine_SelectsEngine(t *testing.T) {
-	registerMockEngine()
-	counting := &countingFactory{}
-	ag_cache.RegisterEngine(counting) // "counting"
-	defer ag_cache.CloseAll()
-
+func TestDefaultEngine_ConfigSelects(t *testing.T) {
+	count := &countingFactory{}
 	props := ag_cache.DefaultAgCacheProperties()
-	props.DefaultEngine = "mock"
+	props.DefaultEngine = "counting"
 	m, err := ag_cache.NewManager(props)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
+	m.SetEngineFactory("counting", count)
 	ag_cache.SetDefault(m)
+	defer ag_cache.CloseAll()
 	ctx := context.Background()
 
-	// 默认引擎：mock，counting 不被调用
-	ag_cache.New[string]("a", strLoader("x")).Get(ctx, "k")
-	if counting.creates.Load() != 0 {
-		t.Fatalf("default engine should be mock, counting creates=%d", counting.creates.Load())
-	}
-
-	// WithEngine("counting")：切到 counting 引擎
-	ag_cache.New[string]("b", strLoader("y"), ag_cache.WithEngine[string]("counting")).Get(ctx, "k")
-	if counting.creates.Load() != 1 {
-		t.Fatalf("WithEngine should select counting, creates=%d", counting.creates.Load())
+	ag_cache.GetCacheWithLoader[string](dflt(), "a", strLoader("x")).Get(ctx, "k")
+	if count.creates.Load() != 1 {
+		t.Fatalf("config default engine should be counting, creates=%d", count.creates.Load())
 	}
 }
 
@@ -485,7 +477,7 @@ func TestMockCache_AsTestDouble(t *testing.T) {
 
 func TestTryGet_Miss(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.Get[string]("users")
+	c := ag_cache.GetCache[string](dflt(), "users")
 	ctx := context.Background()
 
 	v, ok, err := c.TryGet(ctx, "missing")
@@ -496,7 +488,7 @@ func TestTryGet_Miss(t *testing.T) {
 
 func TestTryGet_Hit(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.New[string]("users", strLoader("v"))
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
 	ctx := context.Background()
 	c.GetOrElse(ctx, "k", strLoader("v"))
 
@@ -545,7 +537,7 @@ func TestDel_BulkDelEngine(t *testing.T) {
 
 func TestGetOrElse_DoubleCheck_WithoutCancel(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.New[string]("users", strLoader("loaded"))
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	var mu sync.Mutex
@@ -599,11 +591,18 @@ type setFailEngine struct {
 	fail error
 }
 
-func (e *setFailEngine) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+func (e *setFailEngine) Set(ctx context.Context, key string, value []byte) error {
 	if e.fail != nil {
 		return e.fail
 	}
-	return e.MockEngine.Set(ctx, key, value, ttl)
+	return e.MockEngine.Set(ctx, key, value)
+}
+
+func (e *setFailEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if e.fail != nil {
+		return e.fail
+	}
+	return e.MockEngine.SetWithTTL(ctx, key, value, ttl)
 }
 
 func TestGetOrElse_SetFailure_ErrBackend(t *testing.T) {
@@ -668,5 +667,26 @@ func TestDel_Loop_StopsOnError(t *testing.T) {
 	}
 	if !errors.Is(err, ag_cache.ErrBackend) {
 		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+// ──────── 引擎不实现 TTLSetter → SetWithTTL 等同 Set ────────
+
+// noTTLEngine: 不实现 TTLSetter（无 SetWithTTL）的 Engine。
+type noTTLEngine struct {
+	*ag_cache.MockEngine
+}
+
+func TestSetWithTTL_NoTTLSetter_FallsBackToSet(t *testing.T) {
+	e := &noTTLEngine{MockEngine: ag_cache.NewMockEngine()}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	// 引擎无 TTLSetter：SetWithTTL 不报错，等同 Set。
+	if err := c.SetWithTTL(ctx, "k", "v", 30*time.Second); err != nil {
+		t.Fatalf("SetWithTTL on no-TTL engine should not error, got %v", err)
+	}
+	if _, err := c.Get(ctx, "k"); err != nil {
+		t.Fatalf("value should be stored via Set fallback, got %v", err)
 	}
 }

@@ -13,7 +13,8 @@ import (
 // deduplication. Each typedCache owns its Engine (standalone instance).
 type typedCache[T any] struct {
 	engine     Engine
-	engineName string // requested engine name (WithEngine); empty = default engine
+	name       string // cache name (namespace)
+	prefix     string // key prefix "agcache::<name>::"
 	serializer Serializer[T]
 	defaultTTL time.Duration
 	ttlSet     bool // whether defaultTTL was set via Option
@@ -26,7 +27,6 @@ func NewWithEngine[T any](engine Engine, opts ...Option[T]) ICache[T] {
 	c := &typedCache[T]{
 		engine:     engine,
 		serializer: DefaultSerializer[T](),
-		defaultTTL: 5 * time.Minute,
 	}
 	for _, o := range opts {
 		o(c)
@@ -37,14 +37,9 @@ func NewWithEngine[T any](engine Engine, opts ...Option[T]) ICache[T] {
 // Option configures a typedCache.
 type Option[T any] func(*typedCache[T])
 
-// WithEngine selects a specific engine implementation by registered name.
-// When omitted, the Manager's default engine is used.
-func WithEngine[T any](engineName string) Option[T] {
-	return func(c *typedCache[T]) { c.engineName = engineName }
-}
-
-// WithDefaultTTL overrides the default TTL used when Set is called.
-// Takes priority over the engine's DefaultTTLProvider. Negative TTL is rejected.
+// WithDefaultTTL overrides the namespace default TTL used by Set. When set,
+// Set delegates to the engine's TTLSetter (business per-cache default);
+// when omitted, Set uses the engine's internal default. Negative TTL is rejected.
 func WithDefaultTTL[T any](ttl time.Duration) Option[T] {
 	if ttl < 0 {
 		panic("agcache: WithDefaultTTL: ttl must not be negative")
@@ -64,7 +59,7 @@ func WithSerializer[T any](s Serializer[T]) Option[T] {
 // Returns ErrCacheMiss on miss; ErrBackend-wrapped error on backend failure.
 func (c *typedCache[T]) Get(ctx context.Context, key string) (val T, err error) {
 	defer c.recoverPanic(&err)
-	data, err := c.engine.Get(ctx, key)
+	data, err := c.engine.Get(ctx, c.prefix+key)
 	if err != nil {
 		var zero T
 		return zero, errBackend(err) // ErrCacheMiss passes through, others wrap ErrBackend
@@ -75,7 +70,7 @@ func (c *typedCache[T]) Get(ctx context.Context, key string) (val T, err error) 
 // TryGet implements ICache — relaxed read without a miss error.
 // (value, true, nil) on hit; (zero, false, nil) on miss; (zero, false, err) on backend failure.
 func (c *typedCache[T]) TryGet(ctx context.Context, key string) (T, bool, error) {
-	data, err := c.engine.Get(ctx, key)
+	data, err := c.engine.Get(ctx, c.prefix+key)
 	if err != nil {
 		if errors.Is(err, ErrCacheMiss) {
 			var zero T
@@ -98,7 +93,8 @@ func (c *typedCache[T]) TryGet(ctx context.Context, key string) (T, bool, error)
 func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader LoaderFunc[T]) (val T, err error) {
 	defer c.recoverPanic(&err)
 
-	data, err := c.engine.Get(ctx, key)
+	ekey := c.prefix + key // engine key (namespaced)
+	data, err := c.engine.Get(ctx, ekey)
 	if err == nil {
 		return c.unmarshal(data)
 	}
@@ -112,10 +108,10 @@ func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader Loader
 		val T
 		err error
 	}
-	res, _, _ := c.sf.Do(key, func() (any, error) {
+	res, _, _ := c.sf.Do(ekey, func() (any, error) {
 		// Double-check uses WithoutCancel so the first caller's cancellation
-		// cannot poison the check for concurrent waiters (robustness 2.1).
-		if data, err := c.engine.Get(context.WithoutCancel(ctx), key); err == nil {
+		// cannot poison the check for concurrent waiters.
+		if data, err := c.engine.Get(context.WithoutCancel(ctx), ekey); err == nil {
 			v, verr := c.unmarshal(data)
 			return result{v, verr}, nil
 		} else if !errors.Is(err, ErrCacheMiss) {
@@ -125,7 +121,6 @@ func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader Loader
 
 		// loader must NOT be cancelled by the first caller's ctx — use
 		// WithoutCancel so all concurrent waiters share one load.
-		// A loader panic is labelled separately from an engine panic (2.3).
 		v, lerr := func() (v T, err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -143,14 +138,16 @@ func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader Loader
 			return result{v, serr}, serr
 		}
 
-		if serr := c.engine.Set(context.WithoutCancel(ctx), key, data, c.defaultTTL); serr != nil {
-			// Cache write failure is a backend error (robustness 2.2).
-			// Wrap both the result.err (what callers read) and the Do return.
-			werr := errBackend(serr)
+		var setErr error
+		if c.ttlSet {
+			setErr = c.setWithTTL(context.WithoutCancel(ctx), ekey, data, c.defaultTTL)
+		} else {
+			setErr = c.engine.Set(context.WithoutCancel(ctx), ekey, data)
+		}
+		if setErr != nil {
+			werr := errBackend(setErr)
 			return result{v, werr}, werr
 		}
-		// Guarantee the loaded value is visible to subsequent reads
-		// (optional capability for async engines like Ristretto).
 		if s, ok := c.engine.(syncer); ok {
 			s.Sync()
 		}
@@ -162,6 +159,8 @@ func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader Loader
 }
 
 // Set implements ICache — writes using the namespace default TTL.
+// WithDefaultTTL set → delegates to the engine's TTLSetter with that default;
+// otherwise → engine.Set (engine internal default).
 // Note: Set is asynchronous for async-write engines (visibility is not
 // immediately guaranteed); use GetOrElse for read-through semantics.
 func (c *typedCache[T]) Set(ctx context.Context, key string, value T) (err error) {
@@ -172,7 +171,32 @@ func (c *typedCache[T]) Set(ctx context.Context, key string, value T) (err error
 		return err
 	}
 
-	return errBackend(c.engine.Set(ctx, key, data, c.defaultTTL))
+	ekey := c.prefix + key
+	if c.ttlSet {
+		return errBackend(c.setWithTTL(ctx, ekey, data, c.defaultTTL))
+	}
+	return errBackend(c.engine.Set(ctx, ekey, data))
+}
+
+// SetWithTTL implements ICache — single-entry explicit TTL (highest priority).
+// Probes the engine's TTLSetter; engines without it treat this as Set.
+func (c *typedCache[T]) SetWithTTL(ctx context.Context, key string, value T, ttl time.Duration) (err error) {
+	defer c.recoverPanic(&err)
+
+	data, err := c.serializer.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	return errBackend(c.setWithTTL(ctx, c.prefix+key, data, ttl))
+}
+
+// setWithTTL probes TTLSetter; engines without it fall back to Set (ignore ttl).
+func (c *typedCache[T]) setWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if s, ok := c.engine.(TTLSetter); ok {
+		return s.SetWithTTL(ctx, key, value, ttl)
+	}
+	return c.engine.Set(ctx, key, value)
 }
 
 // Del implements ICache — uses BulkDelEngine when available, else loops.
@@ -181,10 +205,14 @@ func (c *typedCache[T]) Del(ctx context.Context, keys ...string) error {
 		return nil
 	}
 	if b, ok := c.engine.(BulkDelEngine); ok {
-		return errBackend(b.DelMany(ctx, keys...))
+		ekeys := make([]string, len(keys))
+		for i, k := range keys {
+			ekeys[i] = c.prefix + k
+		}
+		return errBackend(b.DelMany(ctx, ekeys...))
 	}
 	for _, key := range keys {
-		if err := c.engine.Del(ctx, key); err != nil {
+		if err := c.engine.Del(ctx, c.prefix+key); err != nil {
 			return errBackend(err)
 		}
 	}
@@ -193,7 +221,7 @@ func (c *typedCache[T]) Del(ctx context.Context, keys ...string) error {
 
 // Clear implements ICache — clears all entries of this standalone instance.
 func (c *typedCache[T]) Clear(ctx context.Context) error {
-	return errBackend(c.engine.Clear(ctx))
+	return errBackend(c.engine.Clear(ctx, c.prefix))
 }
 
 // closeEngine closes the underlying engine (used by Manager.Close).
@@ -213,7 +241,6 @@ func (c *typedCache[T]) unmarshal(data []byte) (T, error) {
 }
 
 // recoverPanic catches panics from engine calls and converts them to ErrBackend.
-// Loader panics are labelled separately inside GetOrElse.
 func (c *typedCache[T]) recoverPanic(err *error) {
 	if r := recover(); r != nil {
 		*err = errBackend(fmt.Errorf("engine panic: %v", r))

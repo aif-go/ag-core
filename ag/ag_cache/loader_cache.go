@@ -2,6 +2,7 @@ package ag_cache
 
 import (
 	"context"
+	"time"
 )
 
 // LoaderCache binds a default loader to a cache, so Get becomes read-through
@@ -34,6 +35,11 @@ func (c *LoaderCache[T]) GetOrElse(ctx context.Context, key string, loader Loade
 // Set forwards.
 func (c *LoaderCache[T]) Set(ctx context.Context, key string, value T) error {
 	return c.inner.Set(ctx, key, value)
+}
+
+// SetWithTTL forwards — single-entry explicit TTL.
+func (c *LoaderCache[T]) SetWithTTL(ctx context.Context, key string, value T, ttl time.Duration) error {
+	return c.inner.SetWithTTL(ctx, key, value, ttl)
 }
 
 // Del forwards.

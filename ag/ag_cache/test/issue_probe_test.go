@@ -19,11 +19,18 @@ type setFailEngine struct {
 	fail error
 }
 
-func (e *setFailEngine) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+func (e *setFailEngine) Set(ctx context.Context, key string, value []byte) error {
 	if e.fail != nil {
 		return e.fail
 	}
-	return e.MockEngine.Set(ctx, key, value, ttl)
+	return e.MockEngine.Set(ctx, key, value)
+}
+
+func (e *setFailEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if e.fail != nil {
+		return e.fail
+	}
+	return e.MockEngine.SetWithTTL(ctx, key, value, ttl)
 }
 
 // ISSUE-P1（v1 review 已识别，另开任务）：GetOrElse 中引擎 Set 失败时错误未包装为 ErrBackend。
@@ -103,7 +110,7 @@ func TestProbe_ErrBackend_PreservesContext(t *testing.T) {
 // 这是当前实现的一个生命周期边界：替换默认实例时旧实例未显式关闭。
 func TestProbe_SetDefaultReplace_Orphan(t *testing.T) {
 	stop := startFx(t, nil)
-	ag_cache.New[string]("orphan", func(ctx context.Context, key string) (string, error) { return "x", nil })
+	ag_cache.GetCacheWithLoader[string](dflt(), "orphan", func(ctx context.Context, key string) (string, error) { return "x", nil })
 	stop() // 关闭当前默认 manager（含 orphan 所在实例）
 
 	// startFx 内部已 CloseAll 清空 default manager；此处验证再访问会 panic（防误用）
@@ -112,7 +119,7 @@ func TestProbe_SetDefaultReplace_Orphan(t *testing.T) {
 			t.Logf("OK: 默认 manager 关闭后访问 panic（防误用）: %v", r)
 		}
 	}()
-	ag_cache.Get[string]("whatever")
+	ag_cache.GetCache[string](dflt(), "whatever")
 	t.Log("注意：之前 SetDefault 替换的旧 manager 实例若未被显式 Close，会成为孤儿（生命周期边界，需业务层约定）")
 }
 
@@ -122,13 +129,13 @@ func TestProbe_SameNameDifferentType(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	ag_cache.New[string]("dup", func(ctx context.Context, key string) (string, error) { return "s", nil }).Get(ctx, "k")
+	ag_cache.GetCacheWithLoader[string](dflt(), "dup", func(ctx context.Context, key string) (string, error) { return "s", nil }).Get(ctx, "k")
 	defer func() {
 		if r := recover(); r != nil {
 			t.Logf("OK: 同名不同类型 panic（契约生效）: %v", r)
 		}
 	}()
-	ag_cache.New[int]("dup", func(ctx context.Context, key string) (int, error) { return 1, nil }).Get(ctx, "k")
+	ag_cache.GetCacheWithLoader[int](dflt(), "dup", func(ctx context.Context, key string) (int, error) { return 1, nil }).Get(ctx, "k")
 }
 
 // 观察：特殊字符 key 可正常读写（无 URL escaping，业务需自行约定 key 格式）。
@@ -138,7 +145,7 @@ func TestProbe_WeirdKeyCharacters(t *testing.T) {
 	ctx := context.Background()
 
 	weird := "u:1|host:port?x=1&y=2#frag"
-	c := ag_cache.New[string]("weird", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "weird", func(ctx context.Context, key string) (string, error) {
 		return "v-" + url.QueryEscape(key), nil
 	})
 	if v, err := c.Get(ctx, weird); err != nil || v == "" {
@@ -155,7 +162,7 @@ func TestProbe_WeirdKeyCharacters(t *testing.T) {
 func TestProbe_GlobalRegistry_FixedByFirstAssembly(t *testing.T) {
 	// 阶段1：首次装配注册引擎工厂（配置 A：默认 TTL）
 	stop1 := startFx(t, nil)
-	c1 := ag_cache.Get[string]("load")
+	c1 := ag_cache.GetCache[string](dflt(), "load")
 	c1.Set(context.Background(), "k", "v")
 	stop1()
 
@@ -163,7 +170,7 @@ func TestProbe_GlobalRegistry_FixedByFirstAssembly(t *testing.T) {
 	stop2 := startFx(t, map[string]any{"agcache.ristretto.defaultttl": "1s"})
 	defer stop2()
 	dbCalls := 0
-	users := ag_cache.New[*User]("users", func(ctx context.Context, key string) (*User, error) {
+	users := ag_cache.GetCacheWithLoader[*User](dflt(), "users", func(ctx context.Context, key string) (*User, error) {
 		dbCalls++
 		return &User{ID: key}, nil
 	})
@@ -186,7 +193,7 @@ func TestProbe_SetDroppedBufferFull(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	c := ag_cache.New[string]("probe-buffer", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "probe-buffer", func(ctx context.Context, key string) (string, error) {
 		return "v", nil
 	})
 	var dropped int

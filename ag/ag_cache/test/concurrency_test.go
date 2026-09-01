@@ -19,7 +19,7 @@ func TestConcurrency_Singleflight(t *testing.T) {
 	ctx := context.Background()
 
 	var loads atomic.Int32
-	c := ag_cache.New[string]("svc", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "svc", func(ctx context.Context, key string) (string, error) {
 		loads.Add(1)
 		time.Sleep(80 * time.Millisecond)
 		return "loaded:" + key, nil
@@ -59,7 +59,7 @@ func TestConcurrency_HighVolumeStability(t *testing.T) {
 	defer stop()
 	ctx := context.Background()
 
-	c := ag_cache.Get[string]("load")
+	c := ag_cache.GetCache[string](dflt(), "load")
 	for i := 0; i < 50; i++ { // warm
 		c.Set(ctx, fmt.Sprintf("k-%d", i), fmt.Sprintf("v-%d", i))
 	}
@@ -110,7 +110,7 @@ func TestConcurrency_DeleteThenConcurrentReload(t *testing.T) {
 	ctx := context.Background()
 
 	var loads atomic.Int32
-	c := ag_cache.New[string]("svc", func(ctx context.Context, key string) (string, error) {
+	c := ag_cache.GetCacheWithLoader[string](dflt(), "svc", func(ctx context.Context, key string) (string, error) {
 		loads.Add(1)
 		return "reloaded", nil
 	})

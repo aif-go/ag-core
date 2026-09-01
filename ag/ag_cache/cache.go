@@ -7,6 +7,7 @@ package ag_cache
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 // Sentinel errors for cache operations.
@@ -39,8 +40,13 @@ type ICache[T any] interface {
 	GetOrElse(ctx context.Context, key string, loader LoaderFunc[T]) (T, error)
 
 	// Set writes a value. The TTL is the namespace default (WithDefaultTTL or the
-	// engine's DefaultTTLProvider); the business interface does not expose TTL.
+	// engine's internal default); the business interface does not expose TTL here.
 	Set(ctx context.Context, key string, value T) error
+
+	// SetWithTTL writes a value with an explicit per-entry TTL (highest priority
+	// in the TTL chain: SetWithTTL > WithDefaultTTL > engine internal default).
+	// ttl=0 means never expire. Engines without TTLSetter treat it as Set.
+	SetWithTTL(ctx context.Context, key string, value T, ttl time.Duration) error
 	Del(ctx context.Context, keys ...string) error
 	Clear(ctx context.Context) error
 }

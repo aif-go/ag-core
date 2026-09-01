@@ -31,12 +31,17 @@ func (c RistrettoConfig) String() string {
 // ristrettoEngine implements ag_cache.Engine backed by a single Ristretto instance.
 // Each instance is standalone — no shared state, no key index.
 type ristrettoEngine struct {
-	cache *ristretto.Cache[string, []byte]
+	cache      *ristretto.Cache[string, []byte]
+	defaultTTL time.Duration // engine internal default TTL (config defaultTtl)
 }
 
 // NewRistrettoEngine creates a local engine from config.
 // Zero values fall back to defaults (MaxCost) or derivation (NumCounters).
 func NewRistrettoEngine(cfg RistrettoConfig) (ag_cache.Engine, error) {
+	return newRistrettoEngine(cfg, 0)
+}
+
+func newRistrettoEngine(cfg RistrettoConfig, defaultTTL time.Duration) (ag_cache.Engine, error) {
 	if cfg.MaxCost <= 0 {
 		cfg = DefaultRistrettoConfig()
 	}
@@ -53,7 +58,7 @@ func NewRistrettoEngine(cfg RistrettoConfig) (ag_cache.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ristrettoEngine{cache: cache}, nil
+	return &ristrettoEngine{cache: cache, defaultTTL: defaultTTL}, nil
 }
 
 // Get returns (data, nil) on hit, (nil, ag_cache.ErrCacheMiss) on miss.
@@ -65,9 +70,19 @@ func (e *ristrettoEngine) Get(ctx context.Context, key string) ([]byte, error) {
 	return v, nil
 }
 
+// Set uses the engine internal default TTL.
 // Set is asynchronous (no Wait). Cost is computed internally from the value
 // byte length — the generic SPI carries no cost concept.
-func (e *ristrettoEngine) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+func (e *ristrettoEngine) Set(ctx context.Context, key string, value []byte) error {
+	return e.setWithTTL(key, value, e.defaultTTL)
+}
+
+// SetWithTTL implements ag_cache.TTLSetter — explicit per-entry TTL.
+func (e *ristrettoEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	return e.setWithTTL(key, value, ttl)
+}
+
+func (e *ristrettoEngine) setWithTTL(key string, value []byte, ttl time.Duration) error {
 	cost := int64(len(value))
 	if cost < 1 {
 		cost = 1
@@ -88,8 +103,8 @@ func (e *ristrettoEngine) Del(ctx context.Context, key string) error {
 	return nil
 }
 
-// Clear implements ag_cache.Engine.
-func (e *ristrettoEngine) Clear(ctx context.Context) error {
+// Clear implements ag_cache.Engine — clears this standalone instance, ignores prefix.
+func (e *ristrettoEngine) Clear(ctx context.Context, prefix string) error {
 	e.cache.Clear()
 	return nil
 }
@@ -115,15 +130,11 @@ type agristrettoFactory struct {
 // Name returns the registered engine name.
 func (f agristrettoFactory) Name() string { return "ristretto" }
 
-// Create builds an engine from the factory-held config.
-func (f agristrettoFactory) Create() (ag_cache.Engine, error) {
-	return NewRistrettoEngine(f.cfg)
+// Create builds an engine from the factory-held config, seeding the engine's
+// internal default TTL from the engine-declared value. name is a namespace
+// context (agristretto ignores it — every cache name gets a fresh instance).
+func (f agristrettoFactory) Create(name string) (ag_cache.Engine, error) {
+	return newRistrettoEngine(f.cfg, f.ttl)
 }
 
-// DefaultTTL returns the engine-declared default TTL (ag_cache.DefaultTTLProvider).
-func (f agristrettoFactory) DefaultTTL() time.Duration { return f.ttl }
-
-var (
-	_ ag_cache.EngineFactory      = agristrettoFactory{}
-	_ ag_cache.DefaultTTLProvider = agristrettoFactory{}
-)
+var _ ag_cache.EngineFactory = agristrettoFactory{}

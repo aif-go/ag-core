@@ -2,6 +2,7 @@ package ag_cache
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/fx"
 )
@@ -14,14 +15,28 @@ type EngineFactoryParams struct {
 }
 
 // NewAgCacheManager builds a Manager from the contributed engine factories and
-// the core assembly config. Registration is idempotent.
+// the core assembly config: fill the factory map, select the default engine via
+// config, and fail fast if the default engine is not registered.
 func NewAgCacheManager(p EngineFactoryParams, props *AgCacheProperties) (*Manager, error) {
-	for _, f := range p.Factories {
-		if !EngineRegistered(f.Name()) {
-			RegisterEngine(f)
-		}
+	m, err := NewManager(props)
+	if err != nil {
+		return nil, err
 	}
-	return NewManager(props)
+	for _, f := range p.Factories {
+		m.SetEngineFactory(f.Name(), f)
+	}
+	if f := m.EngineFactory(m.DefaultEngine()); f == nil {
+		return nil, fmt.Errorf("agcache: engine %q not registered (modules: %v)", m.DefaultEngine(), factoryNames(p.Factories))
+	}
+	return m, nil
+}
+
+func factoryNames(fs []EngineFactory) []string {
+	names := make([]string, 0, len(fs))
+	for _, f := range fs {
+		names = append(names, f.Name())
+	}
+	return names
 }
 
 // registerHooks sets the default manager (so package-level New/Get work)

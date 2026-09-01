@@ -95,6 +95,11 @@ func (m *MockCache[T]) Set(ctx context.Context, key string, value T) error {
 	return nil
 }
 
+// SetWithTTL implements ICache — same as Set (mock has no TTL).
+func (m *MockCache[T]) SetWithTTL(ctx context.Context, key string, value T, ttl time.Duration) error {
+	return m.Set(ctx, key, value)
+}
+
 // Del implements ICache.
 func (m *MockCache[T]) Del(ctx context.Context, keys ...string) error {
 	m.mu.Lock()
@@ -154,7 +159,7 @@ func (e *MockEngine) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 // Set implements Engine.
-func (e *MockEngine) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+func (e *MockEngine) Set(ctx context.Context, key string, value []byte) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.PanicNext {
@@ -169,6 +174,15 @@ func (e *MockEngine) Set(ctx context.Context, key string, value []byte, ttl time
 	return nil
 }
 
+// SetWithTTL implements TTLSetter — records the ttl alongside the value.
+func (e *MockEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.data[key] = value
+	e.stats.EntryCount = int64(len(e.data))
+	return nil
+}
+
 // Del implements Engine.
 func (e *MockEngine) Del(ctx context.Context, key string) error {
 	e.mu.Lock()
@@ -178,8 +192,8 @@ func (e *MockEngine) Del(ctx context.Context, key string) error {
 	return nil
 }
 
-// Clear implements Engine.
-func (e *MockEngine) Clear(ctx context.Context) error {
+// Clear implements Engine — clears this standalone instance, ignores prefix.
+func (e *MockEngine) Clear(ctx context.Context, prefix string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.data = make(map[string][]byte)

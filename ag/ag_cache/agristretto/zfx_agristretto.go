@@ -10,8 +10,7 @@ import (
 // ProvideAgristrettoFactory binds agcache.ristretto.* and returns an
 // ag_cache.EngineFactory (Name="ristretto") carrying the engine config and
 // engine-declared default TTL. The factory is injected into the fx group
-// "agcache.engine" and registered by core — the engine never calls
-// RegisterEngine directly.
+// "agcache.engine" and consumed by core — the engine never registers globally.
 func ProvideAgristrettoFactory(binder ag_conf.IBinder) (ag_cache.EngineFactory, error) {
 	props, err := BindRistrettoConfigProperties(binder)
 	if err != nil {

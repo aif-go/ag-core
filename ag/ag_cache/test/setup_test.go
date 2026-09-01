@@ -42,3 +42,12 @@ func startFx(t *testing.T, yaml map[string]any) (stop func()) {
 		ag_cache.CloseAll() // clear default manager to avoid cross-test leakage
 	}
 }
+
+// dflt returns the default manager (set by startFx's SetDefault).
+func dflt() *ag_cache.Manager {
+	m := ag_cache.DefaultManager()
+	if m == nil {
+		panic("no default manager")
+	}
+	return m
+}
