@@ -71,7 +71,7 @@ func TestParseTTL(t *testing.T) {
 		want time.Duration
 		err  bool
 	}{
-		{"", 5 * time.Minute, false}, // 未设置 → 默认 5min（与 core 兜底一致）
+		{"", 0, false}, // 未设置 → 默认 0（永不过期）
 		{"0", 0, false},              // 永不过期
 		{"60s", 60 * time.Second, false},
 		{"abc", 0, true},

@@ -1,7 +1,7 @@
-// Package ag_cache provides a generic local cache abstraction for ag-core.
-// Business code uses ICache[T] / AdminCache[T] with zero framework concepts;
+// Package ag_cache provides a generic cache abstraction for ag-core.
+// Business code uses ICache[T] with zero framework concepts;
 // engine implementations live in sub-packages (e.g. agristretto) and are
-// registered via EngineFactory through fx group injection.
+// contributed via EngineFactory through fx group injection.
 package ag_cache
 
 import (

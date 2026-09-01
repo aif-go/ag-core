@@ -200,7 +200,9 @@ func (c *typedCache[T]) setWithTTL(ctx context.Context, key string, value []byte
 }
 
 // Del implements ICache — uses BulkDelEngine when available, else loops.
-func (c *typedCache[T]) Del(ctx context.Context, keys ...string) error {
+func (c *typedCache[T]) Del(ctx context.Context, keys ...string) (err error) {
+	defer c.recoverPanic(&err)
+
 	if len(keys) == 0 {
 		return nil
 	}
@@ -220,7 +222,9 @@ func (c *typedCache[T]) Del(ctx context.Context, keys ...string) error {
 }
 
 // Clear implements ICache — clears all entries of this standalone instance.
-func (c *typedCache[T]) Clear(ctx context.Context) error {
+func (c *typedCache[T]) Clear(ctx context.Context) (err error) {
+	defer c.recoverPanic(&err)
+
 	return errBackend(c.engine.Clear(ctx, c.prefix))
 }
 

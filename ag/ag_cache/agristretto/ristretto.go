@@ -120,8 +120,7 @@ var _ ag_cache.Engine = (*ristrettoEngine)(nil)
 // ──────── Engine factory ────────
 
 // agristrettoFactory implements ag_cache.EngineFactory and holds the engine
-// config plus the engine-declared default TTL (self-contained, Create takes
-// no parameters).
+// config plus the engine-declared default TTL (self-contained).
 type agristrettoFactory struct {
 	cfg RistrettoConfig
 	ttl time.Duration

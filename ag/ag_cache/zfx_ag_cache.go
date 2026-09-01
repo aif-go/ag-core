@@ -39,7 +39,7 @@ func factoryNames(fs []EngineFactory) []string {
 	return names
 }
 
-// registerHooks sets the default manager (so package-level New/Get work)
+// registerHooks sets the default manager (so DefaultManager() works at runtime)
 // and registers the OnStop hook: just Close (stats are not tracked in v3).
 func registerHooks(lc fx.Lifecycle, m *Manager) {
 	SetDefault(m)

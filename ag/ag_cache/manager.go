@@ -83,7 +83,7 @@ type engineCloser interface{ closeEngine() }
 
 var defaultManager atomic.Pointer[Manager]
 
-// SetDefault replaces the default manager used by package-level New/Get.
+// SetDefault replaces the default manager used by DefaultManager().
 // Typically called from an Fx Invoke (or test setup). Thread-safe.
 func SetDefault(m *Manager) {
 	defaultManager.Store(m)

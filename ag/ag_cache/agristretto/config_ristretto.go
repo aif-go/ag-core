@@ -19,8 +19,8 @@ type RistrettoConfigProperties struct {
 	MaxCost int64
 	// NumCounters is the counter count (0 = derived from MaxCost).
 	NumCounters int64
-	// DefaultTTL is the engine-declared default TTL: ""→default 5min (same as core fallback);
-	// "0"→never expire; "60s"→explicit.
+	// DefaultTTL is the engine's default TTL: ""→default 0 (never expire);
+	// "60s"→explicit. "0" is the same as "" (never expire).
 	DefaultTTL string
 }
 
@@ -41,11 +41,11 @@ func BindRistrettoConfigProperties(binder ag_conf.IBinder) (*RistrettoConfigProp
 }
 
 // parseTTL converts the DefaultTTL string to a duration.
-// "" → 5min (engine default, matches core fallback); "0" → 0 (never expire);
-// "60s" → 60s. Invalid strings error.
+// "" or "0" → 0 (never expire, the engine default); "60s" → 60s.
+// Invalid strings error.
 func parseTTL(s string) (time.Duration, error) {
 	if s == "" {
-		return 5 * time.Minute, nil // TODO 是否默认不超时？
+		return 0, nil
 	}
 	d, err := time.ParseDuration(s)
 	if err != nil {

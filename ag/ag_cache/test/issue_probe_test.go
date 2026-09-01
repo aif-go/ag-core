@@ -157,8 +157,9 @@ func TestProbe_WeirdKeyCharacters(t *testing.T) {
 
 // ISSUE-P4（集成测试发现）：NewAgCacheManager 的幂等注册在"同一进程多次 Fx 装配不同引擎配置"时，
 // 后续工厂因 EngineRegistered==true 被跳过，导致后装配的 app 静默复用首个 app 的引擎配置。
-// 现象：阶段1 用 nil yaml（默认 5min TTL）注册后，阶段2 用 1s TTL 装配，实际 TTL 仍为 5min。
+// 现象：阶段1 用 nil yaml（默认 0 TTL）注册后，阶段2 用 1s TTL 装配，实际 TTL 仍为 0。
 // 影响：同进程多 app / 测试 / 配置热更时，引擎配置（TTL/MaxCost）互相污染。
+// 注：全局注册表已删除（改 fx group 注入），本测试验证每次装配独立生效。
 func TestProbe_GlobalRegistry_FixedByFirstAssembly(t *testing.T) {
 	// 阶段1：首次装配注册引擎工厂（配置 A：默认 TTL）
 	stop1 := startFx(t, nil)
@@ -181,7 +182,7 @@ func TestProbe_GlobalRegistry_FixedByFirstAssembly(t *testing.T) {
 	if dbCalls == 2 {
 		t.Logf("OK: 阶段2 引擎配置(1s TTL)生效，TTL 过期后重载")
 	} else {
-		t.Logf("[ISSUE-P4] 阶段2 引擎配置未生效：TTL 仍为首个装配的默认(5min)，dbCalls=%d（引擎注册表被首次装配固化）", dbCalls)
+		t.Logf("[ISSUE-P4] 阶段2 引擎配置未生效：TTL 仍为首个装配的默认(0)，dbCalls=%d（引擎配置被首次装配固化）", dbCalls)
 	}
 }
 
