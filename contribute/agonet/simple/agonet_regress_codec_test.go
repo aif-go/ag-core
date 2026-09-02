@@ -1,13 +1,10 @@
-//go:build agonet_regress
-
 package simple
 
 // 回归测试（white-box, package simple）：F 根因组（协议/编解码正确性，simple 包部分）。
 // 对应跟踪清单：agonet-问题总报告与跟踪.md -> F2（commit 4d1491a4 快照）。
-// TDD 红-绿语义：断言"正确行为"，缺陷未修复时【预期失败(红)】，修复后【通过(绿)】自动验证。
-// 正确行为：body 长度超出长度域容量时应 panic 报错（与字符串版 str_encoder 的 >fieldLen 检查一致），
-//           而非静默截断长度域值。
-// 运行：go test -race -tags agonet_regress ./simple/ -run TestF2 -v
+// 修复后已转绿，移出 agonet_regress tag，纳入默认构建。
+// 正确行为：body 长度超出长度域容量时应 panic 报错（与字符串版 str_encoder 的 >fieldLen 检查一致）。
+// 运行：go test ./contribute/agonet/simple/ -run TestF2 -v
 
 import (
 	"encoding/binary"

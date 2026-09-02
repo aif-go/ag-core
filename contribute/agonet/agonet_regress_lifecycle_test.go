@@ -1,12 +1,10 @@
-//go:build agonet_regress
-
 package agonet
 
 // 回归测试（white-box, package agonet）：G/C 根因组（生命周期/连接所有权）。
 // 对应跟踪清单：agonet-问题总报告与跟踪.md -> G3 / G4 / C6（commit 4d1491a4 快照）。
-// TDD 红-绿语义：断言"正确行为"，缺陷未修复时【预期失败(红)】，修复后【通过(绿)】自动验证。
+// 修复后已转绿，移出 agonet_regress tag，纳入默认构建。
 // 本文件同时定义公共测试桩 mockNetConn/dummyAddr，供同包 F1（agonet_regress_codec_test.go）共享。
-// 运行：go test -race -tags agonet_regress . -run 'TestG3|TestG4|TestC6' -v
+// 运行：go test ./contribute/agonet/ -run 'TestG3|TestG4|TestC6' -v
 
 import (
 	"net"

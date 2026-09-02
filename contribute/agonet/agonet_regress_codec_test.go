@@ -1,12 +1,10 @@
-//go:build agonet_regress
-
 package agonet
 
 // 回归测试（white-box, package agonet）：F 根因组（协议/编解码正确性，根包部分）。
 // 对应跟踪清单：agonet-问题总报告与跟踪.md -> F1（commit 4d1491a4 快照）。
-// TDD 红-绿语义：断言"正确行为"，缺陷未修复时【预期失败(红)】，修复后【通过(绿)】自动验证。
+// 修复后已转绿，移出 agonet_regress tag，纳入默认构建。
 // 注意：mockNetConn/dummyAddr 桩定义在 agonet_regress_lifecycle_test.go（同包共享）。
-// 运行：go test -race -tags agonet_regress . -run 'TestF1' -v
+// 运行：go test ./contribute/agonet/ -run 'TestF1' -v
 
 import (
 	"testing"

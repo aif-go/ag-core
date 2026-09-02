@@ -67,6 +67,9 @@ func (lb *baseLoadBalancer) len() int {
 
 // next returns the eligible event-loop based on Round-Robin algorithm.
 func (lb *roundRobinLoadBalancer) next(_ net.Addr) (el *eventloop) {
+	if lb.size == 0 {
+		return nil // 未注册任何 eventloop（客户端未 Start），避免 %0 除零
+	}
 	el = lb.eventLoops[lb.nextIndex%uint64(lb.size)]
 	lb.nextIndex++
 	return
@@ -75,6 +78,9 @@ func (lb *roundRobinLoadBalancer) next(_ net.Addr) (el *eventloop) {
 // ================================= Implementation of Least-Connections load-balancer =================================
 
 func (lb *leastConnectionsLoadBalancer) next(_ net.Addr) (el *eventloop) {
+	if lb.size == 0 {
+		return nil // 未注册任何 eventloop（客户端未 Start），避免 eventLoops[0] 越界
+	}
 	el = lb.eventLoops[0]
 	minN := el.countConn()
 	for _, v := range lb.eventLoops[1:] {

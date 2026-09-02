@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 var (
@@ -166,6 +167,15 @@ func unpackFieldLength(byteOrder binary.ByteOrder, fieldLen int, buff []byte) (f
 }
 
 func packFieldLength(byteOrder binary.ByteOrder, fieldLen int, dataLen int64) []byte {
+	// 校验长度是否超出长度域容量，超限直接 panic（由 simple 层异常链恢复并关闭连接），
+	// 避免静默截断长度域值导致对端解析错位/永久半包。
+	if fieldLen == 1 && dataLen > math.MaxUint8 {
+		utils.Assert(fmt.Errorf("frame length %d exceeds fieldLen=1 capacity", dataLen))
+	} else if fieldLen == 2 && dataLen > math.MaxUint16 {
+		utils.Assert(fmt.Errorf("frame length %d exceeds fieldLen=2 capacity", dataLen))
+	} else if fieldLen == 4 && dataLen > math.MaxUint32 {
+		utils.Assert(fmt.Errorf("frame length %d exceeds fieldLen=4 capacity", dataLen))
+	}
 	lengthBuff := make([]byte, fieldLen)
 	switch fieldLen {
 	case 1:

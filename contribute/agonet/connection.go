@@ -95,6 +95,10 @@ func (c *conn) resetBuffer() {
 
 // Read implements io.Reader.
 func (c *conn) Read(p []byte) (n int, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		// 连接已关闭(release 归还缓冲池)：返回 ErrClosed，避免 nil 解引用 panic
+		return 0, net.ErrClosed
+	}
 	if c.inboundBuffer.IsEmpty() {
 		n = copy(p, c.buffer.B)
 		c.buffer.B = c.buffer.B[n:]
@@ -115,6 +119,9 @@ func (c *conn) Read(p []byte) (n int, err error) {
 
 // WriteTo implements io.WriterTo.
 func (c *conn) WriteTo(w io.Writer) (n int64, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return 0, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// return c.rawReader.WriteTo(w)
 
 	if !c.inboundBuffer.IsEmpty() {
@@ -131,6 +138,14 @@ func (c *conn) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (c *conn) Next(n int) (buf []byte, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return nil, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
+	if n <= 0 {
+		// 空 body 帧（msgLength==0）场景：返回空帧且不消费缓冲，
+		// 避免把整个 inbound 缓冲当作一帧吞掉导致后续粘包帧失步。
+		return []byte{}, nil
+	}
 	// inBufferLen := c.inboundBuffer.Length()
 	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
@@ -151,6 +166,9 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 }
 
 func (c *conn) Peek(n int) (buf []byte, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return nil, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// inBufferLen := c.inboundBuffer.Length()
 	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
