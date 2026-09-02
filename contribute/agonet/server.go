@@ -34,6 +34,11 @@ func NewServer(handler EventHandler, config *ServerConfig) (Server, error) {
 }
 
 func NewServerWithOptions(handler EventHandler, addr []string, opts *Options) (Server, error) {
+	// 配置自洽校验：Type 声明与 config 对应，错误在构造期暴露（fail-fast）
+	if err := opts.ValidateServer(); err != nil {
+		return nil, err
+	}
+
 	ser := &server{
 		addrs:        addr,
 		opts:         opts,
@@ -56,6 +61,9 @@ func (s *server) Start() error {
 }
 
 func (s *server) Stop() error {
+	if s.eng == nil {
+		return nil // 未启动则幂等返回，避免 nil 解引用 panic
+	}
 	s.eng.shutdown(nil)
 	return nil
 }

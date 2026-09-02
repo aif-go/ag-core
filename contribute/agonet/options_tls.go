@@ -68,6 +68,11 @@ func WithAgClientTLSConfig(secCfg *SecurityConfig) Option {
 			cliType = secCfg.Type
 		}
 
+		if cliType == TLSTYPE_TLS_TLCP {
+			// tls_tlcp 仅服务端有效；客户端归一化为 TLS（服务端 tls_tlcp 必然支持 TLS）。
+			cliType = TLSType_TLS
+		}
+
 		if cliType != TLSType_TLS && cliType != TLSType_TLCP {
 			// 客户端只有TLS和TLCP类型
 			return nil

@@ -39,7 +39,9 @@ func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
 
 	// 配置TLS
 	secCfg := config.Config.Security
-	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET && secCfg.Type != TLSTYPE_TLS_TLCP {
+	// 注意：Type=tls_tlcp 也必须进入客户端 TLS 配置分支，
+	// 由 WithAgClientTLSConfig 内部将 tls_tlcp 归一化为客户端可用的 TLS/TLCP（见 options_tls.go）。
+	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET {
 		err := ExtendOptions(opts, WithAgClientTLSConfig(&secCfg))
 		if err != nil {
 			return nil, err
@@ -50,6 +52,10 @@ func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
 }
 
 func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
+	// 配置自洽校验：对 CliTLSType() fallback 解析后的类型校验（保留客户端复用服务端配置的用法）
+	if err := opts.ValidateClient(); err != nil {
+		return nil, err
+	}
 	cli := &client{
 		eventHandler: handler,
 	}
@@ -164,6 +170,10 @@ func (cli *client) Enroll(nc net.Conn) (gc Conn, err error) {
 
 func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	el := cli.eng.eventLoops.next(nil)
+	if el == nil {
+		// 客户端未 Start（eventloops 为空）时 next 返回 nil，返回明确错误而非越界 panic
+		return nil, aerrors.ErrInvalidNetConn
+	}
 	connOpened := make(chan struct{})
 
 	// 不支持的协议判断，支持tpc4、tls、tlcp 等

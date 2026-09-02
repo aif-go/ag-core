@@ -2,11 +2,13 @@ package agonet
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"time"
 
 	// "github.com/tjfoc/gmsm/gmtls"
 
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"gitee.com/Trisia/gotlcp/tlcp"
 )
 
@@ -76,6 +78,55 @@ func (opt *Options) CliTLCPConfig() *tlcp.Config {
 		return opt.CLI_TLCPConfig
 	}
 	return opt.TLCPConfig
+}
+
+// ValidateServer 校验服务端配置自洽：TLSType 声明与对应 config 必须匹配。
+// 在 NewServerWithOptions 构造入口调用，配置错误 fail-fast，避免启动后静默明文/协议错配。
+func (opt *Options) ValidateServer() error {
+	switch opt.TLSType {
+	case TLSType_UNSET, TLSType_NONE:
+		return nil // 未声明安全类型：明文监听合法
+	case TLSType_TLS:
+		if opt.TLSConfig == nil {
+			return aerrors.ErrTLSConfigIsNil
+		}
+	case TLSType_TLCP:
+		if opt.TLCPConfig == nil {
+			return aerrors.ErrTLCPConfigIsNil
+		}
+	case TLSTYPE_TLS_TLCP:
+		if opt.TLSConfig == nil || opt.TLCPConfig == nil {
+			return fmt.Errorf("agonet: tls_tlcp requires both TLSConfig and TLCPConfig")
+		}
+	default:
+		return fmt.Errorf("agonet: unknown TLSType %q", opt.TLSType)
+	}
+	return nil
+}
+
+// ValidateClient 校验客户端配置自洽：对 CliTLSType() fallback 解析后的类型校验。
+// 必须用 getter（而非裸 CLI_* 字段）以保留"客户端复用服务端配置"的用法：
+// 手工 Options{TLSType: tls} 共用配置场景，CLI_* 为空时 fallback 借服务端字段。
+func (opt *Options) ValidateClient() error {
+	switch t := opt.CliTLSType(); t {
+	case TLSType_UNSET, TLSType_NONE:
+		return nil // 明文是客户端合法默认
+	case TLSTYPE_TLS_TLCP:
+		// tls_tlcp 仅服务端有效；客户端 fallback 到它时 DialContext 无对应分支会静默明文。
+		// 客户端须显式 CliType=tls/tlcp（或由 WithAgClientTLSConfig 归一化）。
+		return fmt.Errorf("agonet: tls_tlcp invalid for client, set CliType to tls or tlcp")
+	case TLSType_TLS:
+		if opt.CliTLSConfig() == nil {
+			return aerrors.ErrTLSConfigIsNil
+		}
+	case TLSType_TLCP:
+		if opt.CliTLCPConfig() == nil {
+			return aerrors.ErrTLCPConfigIsNil
+		}
+	default:
+		return fmt.Errorf("agonet: unknown TLSType %q", t)
+	}
+	return nil
 }
 
 type KeepAlive struct {
