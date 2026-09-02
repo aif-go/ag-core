@@ -214,6 +214,9 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 }
 
 func (c *conn) Discard(n int) (int, error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return 0, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// discarded, err = c.rawReader.Discard(n)
 	// return
 	if len(c.cache) > 0 {

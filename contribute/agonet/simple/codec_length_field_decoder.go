@@ -97,6 +97,8 @@ func (l *lengthFieldDecoder) doDecode(reader agonet.Reader) ([]any, error) {
 	}
 
 	// 解析长度域的数值，获取报文长度
+	// 按 offset 切出长度域：lengthBuff 为 Peek(lengthFieldEndOffset) 结果，长度域在 [offset:endOffset]
+	lengthBuff = lengthBuff[l.lengthFieldOffset:lengthFieldEndOffset]
 	frameLength := unpackFieldLength(l.byteOrder, l.lengthFieldLength, lengthBuff)
 
 	if frameLength < 0 {
