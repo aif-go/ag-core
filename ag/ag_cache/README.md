@@ -78,12 +78,24 @@ app := fx.New(fx.Module("app",
 ```yaml
 agcache:                    # core：选默认引擎（config 选默认）
   defaultEngine: ristretto
-  ristretto:                # 引擎自己的配置（agcache.ristretto.*）
-    maxCost: 104857600      # 100MB
-    numCounters: 0          # 0=按 MaxCost 推导
-    defaultTtl: 60s         # 引擎内部默认 TTL：""=默认0(永不过期)；"60s"=显式
+  ristretto:                # 引擎配置：default（全局限量）+ namespaces（per-name 覆盖）
+    default:
+      maxCost: 104857600    # 内容预算（字节），缺省 100MB；空缓存不占，多 name 按写入叠加
+      numCounters: 131072   # TinyLFU 频率 sketch（淘汰精度，非容量上限）；缺省 100K 档
+      bufferItems: 64
+      defaultTtl: 60s       # 引擎默认 TTL：缺省/0=永不过期；"60s"=60 秒；非法字符串装配期报错
+    namespaces:             # per-name 覆盖（非零覆盖继承 default）——特殊大缓存用
+      users:
+        maxCost: 1073741824      # 大热缓存：只覆盖需要的字段，其余继承 default
+        numCounters: 8388608     # 10 万+ key 场景显式调大（配 2 的幂）
+      params:
+        defaultTtl: 30s
 ```
 
+> **默认值设计**：`numCounters` 默认 100K 档（sketch ~0.26MB/实例）——多数缓存 name（参数/配置/枚举，key 有限）永不淘汰，小 sketch 足够且省预分配内存；NumCounters 只影响淘汰精度、不影响容量（MaxCost 定）与正确性。特殊大缓存（接口热缓存，10 万+ key）用 `namespaces` per-name 覆盖。
+>
+> **启动校验**：配置在装配期预解析校验——`default` 与**所有** `namespaces` 条目逐一校验（非法 TTL/负值 → fx 启动失败，含 name 定位），配置错误启动即死，非运行时 panic。
+>
 > 多引擎组合：加 `redis.FxAgCacheRedisMode` → `defaultEngine: redis` 即切，Manager 零改动。默认引擎未注册 → 装配 fail-fast。
 
 ### 3. 业务代码（构造注入 Manager，绑定一次）
@@ -244,6 +256,7 @@ var FxMyCacheEngineMode = fx.Module("ag_cache.mycache",
 ```
 
 - 每 `Create(name)` 返回**独立实例**（agristretto 每 name 独立 Ristretto），隔离天然
+- agristretto 工厂 `Create(name)` 查 per-name 配置：`namespaces.<name>` 命中用其覆盖配置，未命中用 `default`（YAML 见上）
 - 实例复用与生命周期归 `Manager`（懒建复用，`Manager.Close` 统一关）
 - key 前缀 `agcache::<name>::` 由 `typedCache` 拼装，`Engine` 零 name 概念
 

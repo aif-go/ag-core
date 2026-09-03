@@ -13,7 +13,7 @@ import (
 // 构造真实引擎 + core 缓存（bench 关注核心读/写路径）
 func benchCache(b *testing.B) ag_cache.ICache[string] {
 	b.Helper()
-	e, err := agristretto.NewRistrettoEngine(agristretto.RistrettoConfig{MaxCost: 1 << 30})
+	e, err := agristretto.NewRistrettoEngine(agristretto.RistrettoOptions{MaxCost: 1 << 30})
 	if err != nil {
 		b.Fatal(err)
 	}

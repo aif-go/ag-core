@@ -29,7 +29,7 @@ func BenchmarkRistrettoAsyncSet(b *testing.B) {
 
 // engine.Set（独立实例，无 Wait，无索引）—— 当前实现的写性能
 func BenchmarkEngineSet(b *testing.B) {
-	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoConfig{MaxCost: 1 << 30})
+	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoOptions{MaxCost: 1 << 30})
 	defer e.Close()
 	ctx := b.Context()
 	cache := ag_cache.NewWithEngine[string](e)
@@ -42,7 +42,7 @@ func BenchmarkEngineSet(b *testing.B) {
 
 // GetOrElse miss → loader → Set（写路径完整链路）
 func BenchmarkGetOrElse_Miss(b *testing.B) {
-	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoConfig{MaxCost: 1 << 30})
+	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoOptions{MaxCost: 1 << 30})
 	defer e.Close()
 	ctx := b.Context()
 	cache := ag_cache.NewWithEngine[string](e)
@@ -58,7 +58,7 @@ func BenchmarkGetOrElse_Miss(b *testing.B) {
 
 // GetOrElse 命中路径
 func BenchmarkGetOrElse_Hit(b *testing.B) {
-	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoConfig{MaxCost: 1 << 30})
+	e, _ := agristretto.NewRistrettoEngine(agristretto.RistrettoOptions{MaxCost: 1 << 30})
 	defer e.Close()
 	ctx := b.Context()
 	cache := ag_cache.NewWithEngine[string](e)

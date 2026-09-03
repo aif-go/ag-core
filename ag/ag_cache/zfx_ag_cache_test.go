@@ -95,9 +95,14 @@ func TestEngineModel_FailFastUnknownDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BindAgCacheProperties: %v", err)
 	}
-	factory, err := agristretto.ProvideAgristrettoFactory(binder)
+	// 模拟 FxAgCacheRistrettoMode 装配：BindRistrettoConfig + NewAgristrettoFactory。
+	cfg, err := agristretto.BindRistrettoConfig(binder)
 	if err != nil {
-		t.Fatalf("ProvideAgristrettoFactory: %v", err)
+		t.Fatalf("BindRistrettoConfig: %v", err)
+	}
+	factory, err := agristretto.NewAgristrettoFactory(cfg)
+	if err != nil {
+		t.Fatalf("NewAgristrettoFactory: %v", err)
 	}
 	// 直接调 NewAgCacheManager：group 有 ristretto 但 defaultEngine=no-such → fail-fast
 	_, err = ag_cache.NewAgCacheManager(ag_cache.EngineFactoryParams{

@@ -11,54 +11,66 @@ import (
 	"github.com/dgraph-io/ristretto/v2"
 )
 
-// RistrettoConfig 是引擎自身的配置。MaxCost 在这里——
-// 内存管理是引擎的责任。
-type RistrettoConfig struct {
-	MaxCost     int64
-	NumCounters int64
+// RistrettoOptions 是运行时层——实际创建 Ristretto 实例的完整参数（已解析）。
+type RistrettoOptions struct {
+	MaxCost     int64         // 内存预算（字节）
+	NumCounters int64         // TinyLFU 频率 sketch 大小
+	BufferItems int64         // Ristretto 读缓冲环大小
+	DefaultTTL  time.Duration // 引擎默认 TTL（0=永不过期）
 }
 
-// DefaultRistrettoConfig 返回 100MB / 10M-counter 的默认配置。
-func DefaultRistrettoConfig() RistrettoConfig {
-	return RistrettoConfig{MaxCost: 100_000_000, NumCounters: 10_000_000}
+// Validate 校验 Options 非负性。导出供手动构造 Options 的场景显式校验。
+func (o RistrettoOptions) Validate() error {
+	if o.MaxCost < 0 {
+		return fmt.Errorf("agcache: MaxCost must be >= 0, got %d", o.MaxCost)
+	}
+	if o.NumCounters < 0 {
+		return fmt.Errorf("agcache: NumCounters must be >= 0, got %d", o.NumCounters)
+	}
+	if o.BufferItems < 0 {
+		return fmt.Errorf("agcache: BufferItems must be >= 0, got %d", o.BufferItems)
+	}
+	return nil
 }
 
 // String 实现 fmt.Stringer。
-func (c RistrettoConfig) String() string {
-	return fmt.Sprintf("RistrettoConfig{MaxCost=%d, NumCounters=%d}", c.MaxCost, c.NumCounters)
+func (o RistrettoOptions) String() string {
+	return fmt.Sprintf("RistrettoOptions{MaxCost=%d, NumCounters=%d, BufferItems=%d, DefaultTTL=%v}", o.MaxCost, o.NumCounters, o.BufferItems, o.DefaultTTL)
 }
 
 // ristrettoEngine 实现由单个 Ristretto 实例支撑的 ag_cache.Engine。
 // 每个实例独立——无共享状态、无 key 索引。
 type ristrettoEngine struct {
 	cache      *ristretto.Cache[string, []byte]
-	defaultTTL time.Duration // 引擎内部默认 TTL（配置 defaultTtl）
+	defaultTTL time.Duration // 引擎内部默认 TTL
 }
 
-// NewRistrettoEngine 从配置创建本地引擎。
-// 零值回退到默认（MaxCost）或推导（NumCounters）。
-func NewRistrettoEngine(cfg RistrettoConfig) (ag_cache.Engine, error) {
-	return newRistrettoEngine(cfg, 0)
-}
-
-func newRistrettoEngine(cfg RistrettoConfig, defaultTTL time.Duration) (ag_cache.Engine, error) {
-	if cfg.MaxCost <= 0 {
-		cfg = DefaultRistrettoConfig()
+// NewRistrettoEngine 从已解析 Options 创建本地引擎。
+// 先 Validate（负值报错），再做零值兜底（0→默认/固定值，非 MaxCost 推导）。
+func NewRistrettoEngine(opts RistrettoOptions) (ag_cache.Engine, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
 	}
-	if cfg.NumCounters <= 0 {
-		cfg.NumCounters = cfg.MaxCost * 10 / 100
+	if opts.MaxCost <= 0 {
+		opts.MaxCost = defaultMaxCost
+	}
+	if opts.NumCounters <= 0 {
+		opts.NumCounters = defaultNumCounters
+	}
+	if opts.BufferItems <= 0 {
+		opts.BufferItems = defaultBufferItems
 	}
 
 	cache, err := ristretto.NewCache[string, []byte](&ristretto.Config[string, []byte]{
-		NumCounters: cfg.NumCounters,
-		MaxCost:     cfg.MaxCost,
-		BufferItems: 64,
+		NumCounters: opts.NumCounters,
+		MaxCost:     opts.MaxCost,
+		BufferItems: opts.BufferItems,
 		Metrics:     false, // v3: Stats 后置，无统计消费，关闭 Metrics 省开销
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &ristrettoEngine{cache: cache, defaultTTL: defaultTTL}, nil
+	return &ristrettoEngine{cache: cache, defaultTTL: opts.DefaultTTL}, nil
 }
 
 // Get 命中返回 (data, nil)，未命中返回 (nil, ag_cache.ErrCacheMiss)。
@@ -119,21 +131,57 @@ var _ ag_cache.Engine = (*ristrettoEngine)(nil)
 
 // ──────── Engine factory ────────
 
-// agristrettoFactory 实现 ag_cache.EngineFactory，持有引擎配置
-// 与引擎声明的默认 TTL（自包含）。
+// agristrettoFactory 实现 ag_cache.EngineFactory。
+// 装配期预解析全部配置（Default + 所有 Namespaces）缓存进 map；
+// Create(name) 运行期纯查表（未命中用全局默认 ""）。
 type agristrettoFactory struct {
-	cfg RistrettoConfig
-	ttl time.Duration
+	cfg  RistrettoConfigs
+	opts map[string]RistrettoOptions // "" = 全局默认 + 每 per-name
+}
+
+// NewAgristrettoFactory 由绑定容器构造工厂。
+// 启动期预解析校验：Default + 所有 Namespaces 逐一 ToOptions + Validate，
+// 任一非法（含永不使用的 name）→ 返回 error（fail-fast，含 name 定位）。
+func NewAgristrettoFactory(cfg *RistrettoConfigs) (ag_cache.EngineFactory, error) {
+	if cfg == nil {
+		cfg = DefaultRistrettoConfigs()
+	}
+	opts := make(map[string]RistrettoOptions, 1+len(cfg.Namespaces))
+
+	def, err := cfg.Default.ToOptions()
+	if err != nil {
+		return nil, err
+	}
+	if err := def.Validate(); err != nil {
+		return nil, err
+	}
+	opts[""] = def
+
+	for name, nc := range cfg.Namespaces {
+		merged := mergeConfig(cfg.Default, nc)
+		o, err := merged.ToOptions()
+		if err != nil {
+			return nil, fmt.Errorf("agcache: namespace %q: %w", name, err)
+		}
+		if err := o.Validate(); err != nil {
+			return nil, fmt.Errorf("agcache: namespace %q: %w", name, err)
+		}
+		opts[name] = o
+	}
+	return agristrettoFactory{cfg: *cfg, opts: opts}, nil
 }
 
 // Name 返回注册的引擎名。
 func (f agristrettoFactory) Name() string { return "ristretto" }
 
-// Create 从工厂持有的配置构建引擎，用引擎声明的默认值
-// 播种引擎内部默认 TTL。name 是 namespace 上下文
-// （agristretto 忽略——每个缓存名获取全新实例）。
+// Create 查预解析 map 构建引擎：命中 name 用该配置，未命中用全局默认。
+// 每个 name 独立实例。运行期零解析零报错。
 func (f agristrettoFactory) Create(name string) (ag_cache.Engine, error) {
-	return newRistrettoEngine(f.cfg, f.ttl)
+	o, ok := f.opts[name]
+	if !ok {
+		o = f.opts[""]
+	}
+	return NewRistrettoEngine(o)
 }
 
 var _ ag_cache.EngineFactory = agristrettoFactory{}

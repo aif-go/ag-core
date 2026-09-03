@@ -1,35 +1,19 @@
 package agristretto
 
 import (
-	"github.com/aif-go/ag-core/ag/ag_cache"
-	"github.com/aif-go/ag-core/ag/ag_conf"
-
 	"go.uber.org/fx"
 )
 
-// ProvideAgristrettoFactory 绑定 agcache.ristretto.* 并返回
-// ag_cache.EngineFactory（Name="ristretto"），携带引擎配置与
-// 引擎声明的默认 TTL。工厂注入 fx group "agcache.engine" 并由 core 消费——
-// 引擎从不全局注册。
-func ProvideAgristrettoFactory(binder ag_conf.IBinder) (ag_cache.EngineFactory, error) {
-	props, err := BindRistrettoConfigProperties(binder)
-	if err != nil {
-		return nil, err
-	}
-	ttl, err := parseTTL(props.DefaultTTL)
-	if err != nil {
-		return nil, err
-	}
-	return agristrettoFactory{
-		cfg: RistrettoConfig{MaxCost: props.MaxCost, NumCounters: props.NumCounters},
-		ttl: ttl,
-	}, nil
-}
-
 // FxAgCacheRistrettoMode 将 Ristretto 引擎工厂贡献给 core 的
-// "agcache.engine" fx group。
+// "agcache.engine" fx group。依赖图自动装配：
+//
+//	IBinder ──BindRistrettoConfig──▶ *RistrettoConfigs ──NewAgristrettoFactory──▶ EngineFactory
+//
+// NewAgristrettoFactory 在装配期预解析校验全部配置（Default + 所有 Namespaces），
+// 任一非法 → 构造返回 error → fx 启动失败（配置错误启动即死，非运行时 panic）。
 var FxAgCacheRistrettoMode = fx.Module("ag_cache.agristretto",
 	fx.Provide(
-		fx.Annotate(ProvideAgristrettoFactory, fx.ResultTags(`group:"agcache.engine"`)),
+		BindRistrettoConfig, // 职责1：绑定容器
+		fx.Annotate(NewAgristrettoFactory, fx.ResultTags(`group:"agcache.engine"`)), // 职责2：构造+预解析
 	),
 )

@@ -10,20 +10,11 @@ import (
 	"github.com/aif-go/ag-core/ag/ag_cache"
 )
 
-func newTestEngine(t *testing.T, cfg RistrettoConfig) ag_cache.Engine {
+func newTestEngine(t *testing.T, opts RistrettoOptions) ag_cache.Engine {
 	t.Helper()
-	e, err := NewRistrettoEngine(cfg)
+	e, err := NewRistrettoEngine(opts)
 	if err != nil {
 		t.Fatalf("NewRistrettoEngine: %v", err)
-	}
-	return e
-}
-
-func newTestEngineTTL(t *testing.T, cfg RistrettoConfig, ttl time.Duration) ag_cache.Engine {
-	t.Helper()
-	e, err := newRistrettoEngine(cfg, ttl)
-	if err != nil {
-		t.Fatalf("newRistrettoEngine: %v", err)
 	}
 	return e
 }
@@ -40,7 +31,7 @@ func syncNow(t *testing.T, e ag_cache.Engine) {
 // ──────── 引擎内部默认 TTL（Engine.Set 无 ttl 参数）───────
 
 func TestEngine_InternalDefaultTTL(t *testing.T) {
-	e := newTestEngineTTL(t, RistrettoConfig{MaxCost: 1 << 20}, 100*time.Millisecond)
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20, DefaultTTL: 100 * time.Millisecond})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -59,7 +50,7 @@ func TestEngine_InternalDefaultTTL(t *testing.T) {
 // ──────── TTLSetter：显式 SetWithTTL ────────
 
 func TestEngine_SetWithTTL(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -80,7 +71,7 @@ func TestEngine_SetWithTTL(t *testing.T) {
 }
 
 func TestSet_ZeroTTL_NeverExpires(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -95,7 +86,7 @@ func TestSet_ZeroTTL_NeverExpires(t *testing.T) {
 // ──────── 淘汰 ────────
 
 func TestEviction(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1000})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1000})
 	defer e.Close()
 	ctx := context.Background()
 	val := make([]byte, 400) // cost 400 per key
@@ -119,7 +110,7 @@ func TestEviction(t *testing.T) {
 // ──────── 异步写 + syncer 可见性 ────────
 
 func TestSync_Visibility(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -137,7 +128,7 @@ func TestSync_Visibility(t *testing.T) {
 // ──────── Clear 忽略 prefix + 收完整 key ────────
 
 func TestClear_IgnoresPrefix(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -159,7 +150,7 @@ func TestClear_IgnoresPrefix(t *testing.T) {
 }
 
 func TestEngine_FullKey(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -174,9 +165,9 @@ func TestEngine_FullKey(t *testing.T) {
 // ──────── 工厂 ────────
 
 func TestFactory_CreateName(t *testing.T) {
-	f := agristrettoFactory{
-		cfg: RistrettoConfig{MaxCost: 1 << 20},
-		ttl: 30 * time.Second,
+	f, err := NewAgristrettoFactory(&RistrettoConfigs{Default: RistrettoConfig{MaxCost: 1 << 20}})
+	if err != nil {
+		t.Fatalf("NewAgristrettoFactory: %v", err)
 	}
 	if f.Name() != "ristretto" {
 		t.Fatalf("Name = %q, want ristretto", f.Name())
@@ -202,7 +193,7 @@ func TestFactory_CreateName(t *testing.T) {
 // ──────── Del：引擎级删除 ────────
 
 func TestDel(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -227,7 +218,7 @@ func TestDel(t *testing.T) {
 // ──────── 引擎默认 TTL=0（永不过期）───────
 
 func TestEngine_DefaultTTLZero_NeverExpires(t *testing.T) {
-	e := newTestEngine(t, RistrettoConfig{MaxCost: 1 << 20})
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
 	defer e.Close()
 	ctx := context.Background()
 
@@ -236,5 +227,113 @@ func TestEngine_DefaultTTLZero_NeverExpires(t *testing.T) {
 	syncNow(t, e)
 	if _, err := e.Get(ctx, "k"); err != nil {
 		t.Fatalf("immediate read should hit, got %v", err)
+	}
+}
+
+// ──────── RistrettoOptions 层 + Validate ────────
+
+func TestOptions_LayerCompile(t *testing.T) {
+	// RistrettoOptions 含 DefaultTTL time.Duration，Validate/NewRistrettoEngine 单参。
+	var o RistrettoOptions
+	o.MaxCost = 1
+	o.NumCounters = 1
+	o.BufferItems = 64
+	o.DefaultTTL = time.Minute
+	if err := o.Validate(); err != nil {
+		t.Fatalf("valid options should pass Validate: %v", err)
+	}
+}
+
+func TestOptions_Validate(t *testing.T) {
+	// 负值报错。
+	if err := (RistrettoOptions{MaxCost: -1}).Validate(); err == nil {
+		t.Fatal("negative MaxCost should fail Validate")
+	}
+	if err := (RistrettoOptions{NumCounters: -1}).Validate(); err == nil {
+		t.Fatal("negative NumCounters should fail Validate")
+	}
+	if err := (RistrettoOptions{BufferItems: -1}).Validate(); err == nil {
+		t.Fatal("negative BufferItems should fail Validate")
+	}
+
+	// NewRistrettoEngine 零值兜底：只给 MaxCost，NumCounters/BufferItems 用默认。
+	e, err := NewRistrettoEngine(RistrettoOptions{MaxCost: 1 << 20})
+	if err != nil {
+		t.Fatalf("NewRistrettoEngine zero-fallback should succeed: %v", err)
+	}
+	_ = e.Close()
+
+	// NewRistrettoEngine 负值报错。
+	if _, err := NewRistrettoEngine(RistrettoOptions{MaxCost: -1}); err == nil {
+		t.Fatal("NewRistrettoEngine negative MaxCost should error")
+	}
+}
+
+// ──────── 工厂 per-name（启动预解析）───────
+
+func TestFactory_Namespaces(t *testing.T) {
+	cfg := &RistrettoConfigs{
+		Default: RistrettoConfig{MaxCost: 100_000_000, NumCounters: 131_072, BufferItems: 64, DefaultTTL: "0"},
+		Namespaces: map[string]RistrettoConfig{
+			"users":  {MaxCost: 500_000_000},                      // 只覆盖 MaxCost
+			"params": {NumCounters: 8_388_608, DefaultTTL: "30s"}, // 覆盖 NumCounters + TTL
+		},
+	}
+	f, err := NewAgristrettoFactory(cfg)
+	if err != nil {
+		t.Fatalf("NewAgristrettoFactory: %v", err)
+	}
+	if f.Name() != "ristretto" {
+		t.Fatalf("Name = %q, want ristretto", f.Name())
+	}
+
+	// users：MaxCost 覆盖，其余继承 Default。
+	eu, err := f.Create("users")
+	if err != nil {
+		t.Fatalf("Create(users): %v", err)
+	}
+	eu.Close()
+	// 无法直接从 Engine 读配置；改用内部 opts map 验证（同包内）。
+	ff := f.(agristrettoFactory)
+	if got := ff.opts["users"].MaxCost; got != 500_000_000 {
+		t.Fatalf("users MaxCost = %d, want 500000000", got)
+	}
+	if got := ff.opts["users"].NumCounters; got != 131_072 {
+		t.Fatalf("users NumCounters = %d, want 131072 (inherit default)", got)
+	}
+
+	// params：NumCounters+TTL 覆盖。
+	if got := ff.opts["params"].NumCounters; got != 8_388_608 {
+		t.Fatalf("params NumCounters = %d, want 8388608", got)
+	}
+	if got := ff.opts["params"].DefaultTTL; got != 30*time.Second {
+		t.Fatalf("params DefaultTTL = %v, want 30s", got)
+	}
+
+	// 未命中 name → Create 用全局默认（"" 档），不报错。
+	en, err := f.Create("not-configured")
+	if err != nil {
+		t.Fatalf("Create(not-configured) should fall back to default: %v", err)
+	}
+	en.Close()
+}
+
+func TestFactory_NamespaceInvalid(t *testing.T) {
+	// per-name 非法 TTL → 构造报错（含 name 定位）。
+	_, err := NewAgristrettoFactory(&RistrettoConfigs{
+		Default:    RistrettoConfig{},
+		Namespaces: map[string]RistrettoConfig{"users": {DefaultTTL: "abc"}},
+	})
+	if err == nil {
+		t.Fatal("per-name invalid TTL should fail at factory construction")
+	}
+
+	// 永不使用的 name 非法 → 也启动期报错（非惰性）。
+	_, err = NewAgristrettoFactory(&RistrettoConfigs{
+		Default:    RistrettoConfig{},
+		Namespaces: map[string]RistrettoConfig{"never-used": {MaxCost: -1}},
+	})
+	if err == nil {
+		t.Fatal("unused per-name negative MaxCost should fail at construction (startup validation)")
 	}
 }
