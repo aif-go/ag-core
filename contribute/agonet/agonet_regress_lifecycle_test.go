@@ -25,6 +25,7 @@ type mockNetConn struct {
 
 func (m mockNetConn) LocalAddr() net.Addr  { return dummyAddr{} }
 func (m mockNetConn) RemoteAddr() net.Addr { return dummyAddr{} }
+func (m mockNetConn) Close() error         { return nil }
 
 // TestG3_DialBeforeStartShouldNotPanic 缺陷复现
 //

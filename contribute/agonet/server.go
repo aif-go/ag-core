@@ -86,12 +86,6 @@ func (s *server) run() error {
 		return err
 	}
 
-	defer func() {
-		for _, ln := range lns {
-			ln.close()
-		}
-	}()
-
 	// lns := make([]net.Listener, 0, len(listeners))
 	// for _, ln := range listeners {
 	// 	lns = append(lns, ln)
@@ -134,7 +128,10 @@ func (s *server) run() error {
 		return err
 	}
 
-	defer eng.stop(rootCtx, e) // 等待上下文取消，触发关闭操作
+	// 阻塞运行直到 Stop()（eng.shutdown → turnOff → ctx 取消）：
+	// 保持阻塞式启动语义（与 ag_app 的 `go srv.Start()` 用法配合）。
+	// 注意不能用 defer：defer 在 return 前执行，启动失败路径也会触发阻塞等待。
+	eng.stop(rootCtx, e)
 
 	return nil
 }
