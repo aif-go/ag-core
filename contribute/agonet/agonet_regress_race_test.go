@@ -1,12 +1,9 @@
-//go:build agonet_regress
-
 package agonet
 
-// 回归测试（white-box, package agonet）：并发竞态组（G1/G2，根包部分）。
-// 对应跟踪清单：agonet-问题总报告与跟踪.md -> G1 / G2（commit 4d1491a4 快照）。
-// 语义：期望"无 data race"。修复前 `go test -race -tags agonet_regress` 下被 race detector 判定 FAIL(红)；
-//       修复后（atomic）无 race 即 PASS(绿)。必须 -race 运行才有效。
-// 运行：go test -race -tags agonet_regress . -run 'TestG1|TestG2' -v
+// 并发竞态回归测试（white-box, package agonet）：G1/G2（根包部分）。
+// 对应跟踪清单：agonet-问题总报告与跟踪.md -> G1 / G2。
+// 语义：期望"无 data race"（链5 修复后转正，删 agonet_regress tag）。
+// 必须 -race 运行才有效：go test -race . -run 'TestG1|TestG2' -v
 
 import (
 	"sync"
@@ -52,7 +49,7 @@ func TestG2_EventLoopGoroutineIDShouldBeAtomic(t *testing.T) {
 	go func() { // 模拟 run() 写 goroutineId
 		defer wg.Done()
 		for i := 0; i < 50000; i++ {
-			el.goroutineId = int64(i)
+			el.goroutineId.Store(int64(i))
 		}
 	}()
 

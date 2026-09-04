@@ -122,8 +122,9 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 		ctx.FireInactive(ex)
 	})
 
+	// idleHandler 必须每连接创建（D2：有状态 handler 不可跨 pipeline 复用）——
+	// 工厂调用移入 pipelineInitializer 内，否则 AddLast 重复绑定会 panic。
 	// idleHandler := simple.IdleStateHandler(3, 0, 0, time.Second)
-	idleHandler := simple.IdleStateHandler(0, 0, 3, time.Second)
 
 	eventHandler := simple.EventHandlerFunc(func(ctx simple.EventContext, event any) {
 		if ie, ok := event.(simple.IdleStateEvent); ok {
@@ -139,6 +140,7 @@ func _simpleServerEventHandler() (agonet.EventHandler, error) {
 	})
 
 	pipelineInitializer := func(c simple.Channel) error {
+		idleHandler := simple.IdleStateHandler(0, 0, 3, time.Second) // D2：每连接 new 实例
 		c.Pipeline().
 			// AddLast(&echoHandler{}).
 			AddLast(

@@ -22,7 +22,7 @@ type eventloop struct {
 	connections  map[*conn]struct{} // TCP connection map: fd -> conn
 	eventHandler EventHandler       // user eventHandler
 
-	goroutineId int64
+	goroutineId atomic.Int64
 }
 
 func (el *eventloop) run() (err error) {
@@ -41,8 +41,8 @@ func (el *eventloop) run() (err error) {
 
 	// 获取协程id
 	id := goid.Get()
-	el.goroutineId = id
-	slog.Debug(fmt.Sprintf("event-loop(%d) is running, gid: %d", el.idx, el.goroutineId))
+	el.goroutineId.Store(id)
+	slog.Debug(fmt.Sprintf("event-loop(%d) is running, gid: %d", el.idx, el.goroutineId.Load()))
 
 	for i := range el.ch {
 		switch v := i.(type) {
@@ -200,7 +200,7 @@ func (el *eventloop) InEventLoop() bool {
 	// check goroutine id
 	cid := goid.Get()
 
-	return el.goroutineId == cid
+	return el.goroutineId.Load() == cid
 }
 
 // Execute executes the Runnable in the event-loop.
