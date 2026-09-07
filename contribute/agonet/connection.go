@@ -276,17 +276,17 @@ func (c *conn) AsyncWrite(buf []byte, cb AsyncCallback) error {
 		return err
 	}
 
-	var err error
-	select {
-	case c.loop.ch <- fn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		err = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- fn
-		})
+	// R2 三层降级链：① trySend（ch 空）→ 直接投成，零延迟
+	// ② ch 满 → 转池 send（等空位 / 引擎关闭丢弃，R3 ctx.Done → worker 归还）
+	// ③ Submit 失败（池满）→ 显式返回错误（A5 防线，不静默）
+	if !c.loop.trySend(fn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(fn)
+		}); err != nil {
+			return err
+		}
 	}
-
-	return err
+	return nil
 }
 
 // ReadFrom implements io.ReaderFrom.
@@ -325,13 +325,13 @@ func (c *conn) Close() (err error) {
 		return c.loop.close(c, nil)
 	}
 
-	select {
-	case c.loop.ch <- closeFn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		err = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- closeFn
-		})
+	// R2 三层降级链（同 AsyncWrite）：① trySend ② 转池 send（引擎关闭丢弃）③ 池满显式失败
+	if !c.loop.trySend(closeFn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(closeFn)
+		}); err != nil {
+			return err
+		}
 	}
 
 	return
@@ -354,13 +354,13 @@ func (c *conn) Wake(cb AsyncCallback) (rerr error) {
 		return
 	}
 
-	select {
-	case c.loop.ch <- wakeFn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		rerr = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- wakeFn
-		})
+	// R2 三层降级链（同 AsyncWrite）：① trySend ② 转池 send（引擎关闭丢弃）③ 池满显式失败
+	if !c.loop.trySend(wakeFn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(wakeFn)
+		}); err != nil {
+			return err
+		}
 	}
 
 	return

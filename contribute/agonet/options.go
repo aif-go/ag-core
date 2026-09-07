@@ -41,6 +41,10 @@ type Options struct {
 
 	LockOSThread bool
 
+	// MaxConn 连接上限（0 = 不限制，默认）。链1 R1 出池后 goroutine 数 = 连接数，
+	// 远程连接耗尽防护（应用层配额，非精确边界；超限连接静默拒绝，不触发 OnOpen/OnClose）。
+	MaxConn int32
+
 	// Ticker bool
 
 	KeepAlive KeepAlive

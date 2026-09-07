@@ -72,11 +72,24 @@ func (el *eventloop) run() (err error) {
 }
 
 func (el *eventloop) open(oc *openConn) error {
+	c := oc.c
+
+	// R6：连接上限前置检查（0 = 不限）。超限静默拒绝（护栏语义，Netty 社区
+	// channelActive 计数 + close 同款）：关 rawConn → 读 goroutine Read 返回 err 自然退出；
+	// 不注册、不触发 OnOpen/OnClose。
+	// cb 仍需调用——客户端 EnrollContext 的 connOpened 边界（open 不执行 → 否则 Dial 挂起）。
+	if el.eng.maxConns() > 0 && el.eng.totalConns() >= el.eng.maxConns() {
+		_ = c.rawConn.Close()
+		if oc.cb != nil {
+			oc.cb()
+		}
+		return nil
+	}
+
 	if oc.cb != nil {
 		defer oc.cb()
 	}
 
-	c := oc.c
 	el.connections[c] = struct{}{}
 	el.incConn(1)
 
@@ -203,6 +216,38 @@ func (el *eventloop) InEventLoop() bool {
 	return el.goroutineId.Load() == cid
 }
 
+// send 阻塞投递事件到事件循环：等待空位或引擎关闭信号。
+// 返回 false 表示引擎已关闭，投递被放弃（调用方应自行清理资源）。
+// R2/R3：统一投递抽象；复用 engine.concurrency.ctx（零新增 channel），R7=a 粒度已足够。
+// 注意：先做非阻塞 ctx 检查再进入阻塞 select——避免"ch 有空位 + ctx 已关"时 select 随机
+// 选中 ch 分支，把任务投进已退出的 loop（openConn 类任务将永不处理 → 调用方永久等待）。
+func (el *eventloop) send(v any) bool {
+	select {
+	case <-el.eng.concurrency.ctx.Done():
+		return false
+	default:
+	}
+	select {
+	case el.ch <- v:
+		return true
+	case <-el.eng.concurrency.ctx.Done():
+		return false
+	}
+}
+
+// trySend 非阻塞投递事件到事件循环。
+// 返回 false 表示通道已满，调用方应降级处理（如转池 send）。
+// 注意：不检查引擎关闭（非阻塞快速路径）——引擎关闭时若 ch 有空位仍会投成，
+// 由失败后的转池 send（ctx.Done 兜底）保证 worker 不滞留。
+func (el *eventloop) trySend(v any) bool {
+	select {
+	case el.ch <- v:
+		return true
+	default:
+		return false
+	}
+}
+
 // Execute executes the Runnable in the event-loop.
 // eg :
 //
@@ -219,8 +264,6 @@ func (el *eventloop) Execute(ctx context.Context, runnable Runnable) error {
 		return aerrors.ErrNilRunnable
 	}
 	return goroutine.DefaultWorkerPool.Submit(func() {
-		el.ch <- func() error {
-			return runnable.Run(ctx)
-		}
+		el.send(func() error { return runnable.Run(ctx) }) // R2：裸 el.ch <- → el.send（引擎关闭丢弃，worker 不滞留）
 	})
 }

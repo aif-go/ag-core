@@ -2,7 +2,6 @@ package agonet
 
 import (
 	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	// "github.com/tjfoc/gmsm/gmtls"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -197,23 +197,33 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 
 	c := newStreamConn(el, nc, ctx)
 
-	el.ch <- &openConn{c: c, cb: func() { close(connOpened) }}
+	if !el.send(&openConn{c: c, cb: func() { close(connOpened) }}) { // R2：openConn send 化
+		nc.Close()
+		close(connOpened) // 关键边界：open 不会执行 → cb 不会被调 → 防 Dial 永久挂起（A3）
+		return nil, aerrors.ErrEngineShutdown
+	}
 
-	goroutine.DefaultWorkerPool.Submit(func() {
-		var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
+	// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
+	// A7 触发链消失：不再有 Submit 失败 → 客户端永久挂起。
+	go func() {
+		var buffer [0x10000]byte // B2 另案（64KB 缓冲实为逃逸堆，非栈空间）
 		for {
 			// 监听连接读取数据
 			n, err := nc.Read(buffer[:])
 
 			if err != nil {
 				// 处理读取错误
-				el.ch <- &netErr{c, err}
+				el.send(&netErr{c, err}) // R2：错误路径 send 化
 				return
 			}
 			// 6. 触发连接读取事件
-			el.ch <- packTCPConn(c, buffer[:n])
+			tc2 := packTCPConn(c, buffer[:n])
+			if !el.send(tc2) { // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
+				bytebufferpool.Put(tc2.b)
+				return
+			}
 		}
-	})
+	}()
 	gc = c
 
 	<-connOpened

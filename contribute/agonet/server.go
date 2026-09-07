@@ -3,6 +3,7 @@ package agonet
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -52,6 +53,7 @@ type server struct {
 	// config       *ServerConfig
 	addrs        []string
 	opts         *Options
+	engMu        sync.Mutex // 保护 eng 的并发写读（run goroutine 赋值 vs Stop 随时调用）
 	eng          *engine
 	eventHandler EventHandler
 }
@@ -61,6 +63,8 @@ func (s *server) Start() error {
 }
 
 func (s *server) Stop() error {
+	s.engMu.Lock()
+	defer s.engMu.Unlock()
 	if s.eng == nil {
 		return nil // 未启动则幂等返回，避免 nil 解引用 panic
 	}
@@ -109,7 +113,9 @@ func (s *server) run() error {
 	// create event-loops
 	eng.eventLoops = new(roundRobinLoadBalancer)
 
+	s.engMu.Lock()
 	s.eng = &eng
+	s.engMu.Unlock()
 
 	e := Engine{
 		eng: &eng,

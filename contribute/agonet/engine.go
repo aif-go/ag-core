@@ -2,7 +2,6 @@ package agonet
 
 import (
 	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -46,6 +46,23 @@ type engine struct {
 
 func (eng *engine) isShutdown() bool {
 	return eng.inShutdown.Load()
+}
+
+// maxConns 连接上限（0 = 不限制）。
+func (eng *engine) maxConns() int32 {
+	return eng.opts.MaxConn
+}
+
+// totalConns 当前连接总数（各 loop 原子计数累加）。
+// 并发 open（多 loop 同时接入）时可能瞬时超限——护栏语义（配额非精确边界），与 Netty
+// 社区 channelActive 计数实现一致；open 前置检查在同一 loop 内串行，不会重复注册。
+func (eng *engine) totalConns() int32 {
+	var total int32
+	eng.eventLoops.iterate(func(_ int, el *eventloop) bool {
+		total += el.countConn()
+		return true
+	})
+	return total
 }
 
 // shutdown signals the engine to shut down.
@@ -151,28 +168,34 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 		oconn := &openConn{
 			c: c,
 		}
-		el.ch <- oconn
+		if !el.send(oconn) { // R2：accept 投递 send 化（引擎关闭可退，无挂死窗口；R4 跳满推迟）
+			tc.Close()
+			continue
+		}
 
-		// 启动 goroutine 处理单个客户端连接（支持多客户端并发）
-		err := goroutine.DefaultWorkerPool.Submit(func() {
-			var buffer [0x10000]byte
+		// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
+		// B1 触发链根除：池满 → Submit err → shutdown 整服关 不再可能由读路径触发。
+		// goroutine 数 = 连接数（fd 限制兜底；R6 MaxConn 应用层配额暂缓）。
+		go func() {
+			var buffer [0x10000]byte // B2 另案（本链不动）
 			for {
 				// 监听连接读取数据
 				n, err := tc.Read(buffer[:])
 
 				if err != nil {
 					// 处理读取错误
-					el.ch <- &netErr{c, err}
+					el.send(&netErr{c, err}) // R2：错误路径 send 化
 					return
 				}
 				// 触发连接读取事件
-				el.ch <- packTCPConn(c, buffer[:n])
+				tc2 := packTCPConn(c, buffer[:n])
+				if !el.send(tc2) { // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
+					bytebufferpool.Put(tc2.b)
+					return
+				}
 
 			}
-		})
-		if err != nil {
-			return err
-		}
+		}()
 	}
 }
 
