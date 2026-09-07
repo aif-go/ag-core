@@ -22,9 +22,12 @@ func TestFxAgCacheMode(t *testing.T) {
 		ag_cache.FxAgCacheMode,
 		agristretto.FxAgCacheRistrettoMode,
 		fx.Invoke(func(m *ag_cache.Manager) {
-			c := ag_cache.GetCacheWithLoader(m, "test", func(ctx context.Context, key string) (string, error) {
+			c, err := ag_cache.GetCacheWithLoader(m, "test", func(ctx context.Context, key string) (string, error) {
 				return "v", nil
 			})
+			if err != nil {
+				t.Fatalf("GetCacheWithLoader: %v", err)
+			}
 			v, err := c.Get(context.Background(), "k")
 			if err != nil {
 				t.Fatalf("Get: %v", err)
@@ -74,9 +77,12 @@ func TestEngineModel_GroupDefault(t *testing.T) {
 			if f := m.EngineFactory("ristretto"); f == nil {
 				t.Fatal("ristretto factory should be registered from fx group")
 			}
-			c := ag_cache.GetCacheWithLoader(m, "test", func(ctx context.Context, key string) (string, error) {
+			c, err := ag_cache.GetCacheWithLoader(m, "test", func(ctx context.Context, key string) (string, error) {
 				return "v", nil
 			})
+			if err != nil {
+				t.Fatalf("GetCacheWithLoader: %v", err)
+			}
 			v, err := c.Get(context.Background(), "k")
 			if err != nil {
 				t.Fatalf("Get: %v", err)

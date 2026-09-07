@@ -48,10 +48,16 @@ func TestUsage_Complete(t *testing.T) {
 		"u:1": {ID: "u:1", Name: "Alice"},
 		"u:2": {ID: "u:2", Name: "Bob"},
 	}}
-	users := usage.NewUserService(mgr, repo)
+	users, err := usage.NewUserService(mgr, repo)
+	if err != nil {
+		t.Fatalf("NewUserService: %v", err)
+	}
 
 	center := &usage.ParamCenter{Values: map[string]string{"host:port": "10.0.0.1:8080"}}
-	params := usage.NewParamService(mgr, center)
+	params, err := usage.NewParamService(mgr, center)
+	if err != nil {
+		t.Fatalf("NewParamService: %v", err)
+	}
 
 	// ── 4. 业务场景 ──
 

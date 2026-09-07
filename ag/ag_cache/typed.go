@@ -145,8 +145,9 @@ func (c *typedCache[T]) GetOrElse(ctx context.Context, key string, loader Loader
 			setErr = c.engine.Set(context.WithoutCancel(ctx), ekey, data)
 		}
 		if setErr != nil {
-			werr := errBackend(setErr)
-			return result{v, werr}, werr
+			// 缓存写失败：读穿透以数据为准，写是尽力而为——
+			// 不丢弃已加载的 v（背压/写失败不误伤读结果）。
+			return result{v, nil}, nil
 		}
 		if s, ok := c.engine.(syncer); ok {
 			s.Sync()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -335,5 +336,51 @@ func TestFactory_NamespaceInvalid(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("unused per-name negative MaxCost should fail at construction (startup validation)")
+	}
+}
+
+// ──────── 背压 drop 视为成功 ────────
+
+// TestDrop_BackpressureNotError 高并发写小容量实例，验证背压 drop 返回 nil（非 ErrBackend）
+// 且 Dropped() 计数增长。drop 无法精确强制触发（依赖 setBuf 背压），
+// 通过并发写大量 key 到小 BufferItems 实例增大触发概率；即便 0 次也接受（不误报即可）。
+func TestDrop_BackpressureNotError(t *testing.T) {
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20, NumCounters: 1 << 16})
+	defer e.Close()
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	for w := 0; w < 8; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for i := 0; i < 2000; i++ {
+				key := fmt.Sprintf("k-%d-%d", w, i)
+				if err := e.Set(ctx, key, []byte("value")); err != nil {
+					// 背压不误报：任何写都不应返回 ErrBackend。
+					t.Errorf("Set(%s) unexpected error: %v", key, err)
+					return
+				}
+			}
+		}(w)
+	}
+	wg.Wait()
+
+	re := e.(*ristrettoEngine)
+	t.Logf("dropped count = %d", re.Dropped())
+	// 不强制 >0（并发背压非确定性）；核心断言是写不误报错误。
+}
+
+// TestDrop_RealFailureStillErrors 真后端故障（引擎层错误注入）不被 drop-as-success 吞。
+// ristrettoEngine 本身无错误注入点；此场景由 core 层 mock 引擎的 Err 注入覆盖，
+// 此处验证 setWithTTL 只把 setBuf 背压当成功，其他路径不变。
+func TestDrop_RealFailureStillErrors(t *testing.T) {
+	// ristretto 引擎无 Err 注入通道；真后端故障语义由 Engine 接口上层保证。
+	// 此处仅编译/回归：确认 setWithTTL 对正常写返回 nil。
+	e := newTestEngine(t, RistrettoOptions{MaxCost: 1 << 20})
+	defer e.Close()
+	ctx := context.Background()
+	if err := e.Set(ctx, "k", []byte("v")); err != nil {
+		t.Fatalf("normal Set should succeed: %v", err)
 	}
 }

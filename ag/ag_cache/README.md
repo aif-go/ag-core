@@ -106,9 +106,14 @@ type UserService struct {
     repo  *UserRepo
 }
 
-// 构造时绑定一次（fx 注入 *Manager → 依赖拓扑保证 Manager 先建）
-func NewUserService(m *ag_cache.Manager, repo *UserRepo) *UserService {
-    return &UserService{repo: repo, users: ag_cache.GetCacheWithLoader(m, "users", repo.GetUser)}
+// 构造时绑定一次（fx 注入 *Manager → 依赖拓扑保证 Manager 先建）。
+// GetCacheWithLoader 返回 (缓存, error)：引擎创建失败显式上报（fx 装配 fail-fast），非 panic。
+func NewUserService(m *ag_cache.Manager, repo *UserRepo) (*UserService, error) {
+    users, err := ag_cache.GetCacheWithLoader(m, "users", repo.GetUser)
+    if err != nil {
+        return nil, err
+    }
+    return &UserService{repo: repo, users: users}, nil
 }
 
 func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
@@ -125,8 +130,9 @@ func (s *UserService) RefreshUser(ctx context.Context, id string) error {
 ag_cache.SetDefault(mgr)                // 装配时设置默认
 ...
 m := ag_cache.DefaultManager()          // 运行时获取
-users := ag_cache.GetCacheWithLoader[*User](m, "users", repo.GetUser)
-c := ag_cache.GetCache[string](m, "users")
+users, err := ag_cache.GetCacheWithLoader[*User](m, "users", repo.GetUser)   // (缓存, error)
+if err != nil { /* 引擎创建失败处理（降级/重试） */ }
+c, err := ag_cache.GetCache[string](m, "users")   // 纯读同样返回 error
 ```
 
 ## 五、ICache 方法
@@ -144,20 +150,24 @@ c := ag_cache.GetCache[string](m, "users")
 **错误契约**：
 - `errors.Is(err, ag_cache.ErrCacheMiss)` — miss，**唯一**触发 loader
 - `errors.Is(err, ag_cache.ErrBackend)` — 后端故障，**绝不**触发 loader（防缓存击穿）
+- `GetCache`/`GetCacheWithLoader` 返回 `(X, error)` — 引擎创建失败显式上报（非 panic），构造期可用 fx 传播实现启动 fail-fast
 
 > ⚠️ **Set 异步可见**（Ristretto 异步写）：`Set` 后立即 `Get` 同 key 可能 miss（微秒级窗口）。需要"写后立即可读"用 `GetOrElse`（内部 sync）或接受短窗口。
+> ⚠️ **写是尽力而为**：`GetOrElse` 读穿透中，缓存写失败不误伤返回值（loader 成功即以数据为准）；Ristretto 写背压（setBuf 满）不误报 ErrBackend。生产应显式配置 `defaultTtl`（默认永不过期）。
 
 ## 六、常用写法
 
+> 示例从简忽略 `GetCacheWithLoader` 返回的 error；生产代码应检查并处理（见"构造时绑定一次"完整示例）。
+
 ### 读缓存（推荐绑定 loader）
 ```go
-users := ag_cache.GetCacheWithLoader(m, "users", userRepo.GetUser)
+users, _ := ag_cache.GetCacheWithLoader(m, "users", userRepo.GetUser)
 u, err := users.Get(ctx, "u:1")           // 读穿透
 ```
 
 ### 纯读 / 存在性检查
 ```go
-c := ag_cache.GetCache[*User](m, "users") // 不绑 loader
+c, _ := ag_cache.GetCache[*User](m, "users") // 不绑 loader
 u, err := c.Get(ctx, "u:1")               // miss → ErrCacheMiss
 v, ok, err := c.TryGet(ctx, "u:1")         // miss → ok=false, 无 error
 ```
@@ -172,14 +182,18 @@ params.Clear(ctx)                                    // 参数变更 → 清空 
 
 ### TTL 覆盖（构造期）
 ```go
-params := ag_cache.GetCacheWithLoader(m, "params", paramCenter.Get,
+params, _ := ag_cache.GetCacheWithLoader(m, "params", paramCenter.Get,
     ag_cache.WithDefaultTTL(30*time.Second))   // 业务 per-cache 默认，经引擎 TTLSetter
 ```
 
 ### 多服务共享（显式 loader 包装）
 ```go
-func NewUserService(m *ag_cache.Manager) *UserService {
-    return &UserService{users: ag_cache.WithLoader(ag_cache.GetCache[*User](m, "users"), repo.GetUser)}
+func NewUserService(m *ag_cache.Manager) (*UserService, error) {
+    inner, err := ag_cache.GetCache[*User](m, "users")
+    if err != nil {
+        return nil, err
+    }
+    return &UserService{users: ag_cache.WithLoader(inner, repo.GetUser)}, nil
 }
 ```
 
@@ -187,7 +201,7 @@ func NewUserService(m *ag_cache.Manager) *UserService {
 
 ### 用户缓存（Cache-Aside）
 ```go
-users := ag_cache.GetCacheWithLoader(m, "users", userRepo.GetUser)
+users, _ := ag_cache.GetCacheWithLoader(m, "users", userRepo.GetUser)
 u, err := users.Get(ctx, "u:1")       // 缓存 60s（默认）
 // 用户更新/删除时失效：
 users.Del(ctx, "u:1")
@@ -195,7 +209,7 @@ users.Del(ctx, "u:1")
 
 ### 参数缓存（批量失效）
 ```go
-params := ag_cache.GetCacheWithLoader(m, "params", paramCenter.Get)
+params, _ := ag_cache.GetCacheWithLoader(m, "params", paramCenter.Get)
 p, err := params.Get(ctx, "host:port")
 // 参数系统更新 → 广播：
 params.Clear(ctx)                      // 只清 params，不影响 users
@@ -203,9 +217,9 @@ params.Clear(ctx)                      // 只清 params，不影响 users
 
 ### 负缓存（穿透防护，可选）
 ```go
-notExist := ag_cache.GetCacheWithLoader(m, "user-notexist",
+notExist, _ := ag_cache.GetCacheWithLoader(m, "user-notexist",
     func(ctx context.Context, key string) (bool, error) { return false, ag_cache.ErrCacheMiss })
-users := ag_cache.GetCacheWithLoader(m, "users", func(ctx context.Context, key string) (*User, error) {
+users, _ := ag_cache.GetCacheWithLoader(m, "users", func(ctx context.Context, key string) (*User, error) {
     if notFound(key) {
         notExist.Set(ctx, key, true)   // 记录"不存在"
         return nil, ag_cache.ErrCacheMiss

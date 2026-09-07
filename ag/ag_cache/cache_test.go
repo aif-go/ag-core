@@ -50,6 +50,16 @@ func strLoader(v string) ag_cache.LoaderFunc[string] {
 	return func(ctx context.Context, key string) (string, error) { return v, nil }
 }
 
+// mustCache 便捷获取 LoaderCache：测试中引擎 mock 正常，GetCacheWithLoader 的 err 应为 nil。
+func mustCache[T any](t *testing.T, m *ag_cache.Manager, name string, loader ag_cache.LoaderFunc[T], opts ...ag_cache.Option[T]) *ag_cache.LoaderCache[T] {
+	t.Helper()
+	c, err := ag_cache.GetCacheWithLoader(m, name, loader, opts...)
+	if err != nil {
+		t.Fatalf("GetCacheWithLoader(%s): %v", name, err)
+	}
+	return c
+}
+
 // dflt 返回默认 Manager（经 setupManager / SetDefault 设置）。
 func dflt() *ag_cache.Manager {
 	m := ag_cache.DefaultManager()
@@ -63,7 +73,7 @@ func dflt() *ag_cache.Manager {
 
 func TestGetOrElse_Basic(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	callCount := 0
@@ -95,7 +105,7 @@ func TestGetOrElse_Basic(t *testing.T) {
 
 func TestGet_PureRead(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.GetCache[string](dflt(), "users")
+	cache, _ := ag_cache.GetCache[string](dflt(), "users")
 	ctx := context.Background()
 
 	_, err := cache.Get(ctx, "missing")
@@ -106,7 +116,7 @@ func TestGet_PureRead(t *testing.T) {
 
 func TestSingleflight_LoaderCalledOnce(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	var mu sync.Mutex
@@ -146,7 +156,7 @@ func TestSerialization_StructType(t *testing.T) {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 	}
-	cache := ag_cache.GetCacheWithLoader[User](dflt(), "users", func(ctx context.Context, key string) (User, error) {
+	cache := mustCache[User](t, dflt(), "users", func(ctx context.Context, key string) (User, error) {
 		return User{Name: "Alice", Age: 30}, nil
 	})
 	ctx := context.Background()
@@ -170,8 +180,8 @@ func TestIndependentInstances_Isolation(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("user-value"))
-	params := ag_cache.GetCacheWithLoader[string](dflt(), "params", strLoader("param-value"))
+	users := mustCache[string](t, dflt(), "users", strLoader("user-value"))
+	params := mustCache[string](t, dflt(), "params", strLoader("param-value"))
 
 	if _, err := users.GetOrElse(ctx, "shared-key", func(ctx context.Context, key string) (string, error) {
 		return "user-value", nil
@@ -195,8 +205,8 @@ func TestClear_OnlyAffectsOwnInstance(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.GetCache[string](dflt(), "users")
-	params := ag_cache.GetCache[string](dflt(), "params")
+	users, _ := ag_cache.GetCache[string](dflt(), "users")
+	params, _ := ag_cache.GetCache[string](dflt(), "params")
 
 	users.GetOrElse(ctx, "u1", func(ctx context.Context, key string) (string, error) { return "U1", nil })
 	params.GetOrElse(ctx, "p1", func(ctx context.Context, key string) (string, error) { return "P1", nil })
@@ -282,7 +292,7 @@ func TestErrBackend_PanicRecovery(t *testing.T) {
 // P2-C: loader 不被第一个调用者的 ctx 取消（WithoutCancel）
 func TestLoader_NotCancelledByFirstCallerCtx(t *testing.T) {
 	setupManager(t)
-	cache := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
 
 	loaderCalled := false
 	loader := func(ctx context.Context, key string) (string, error) {
@@ -334,7 +344,7 @@ func TestLoaderCache_Get_ReadThrough(t *testing.T) {
 		callCount++
 		return "loaded-" + key, nil
 	}
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", loader)
+	users := mustCache[string](t, dflt(), "users", loader)
 
 	v, err := users.Get(ctx, "u:1")
 	if err != nil || v != "loaded-u:1" {
@@ -365,7 +375,7 @@ func TestLoaderCache_GetOrElse_CustomLoader(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) {
+	users := mustCache[string](t, dflt(), "users", func(ctx context.Context, key string) (string, error) {
 		return "default-loader", nil
 	})
 
@@ -382,7 +392,7 @@ func TestLoaderCache_TryGet_NoLoader(t *testing.T) {
 	ctx := context.Background()
 
 	callCount := 0
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", func(ctx context.Context, key string) (string, error) {
+	users := mustCache[string](t, dflt(), "users", func(ctx context.Context, key string) (string, error) {
 		callCount++
 		return "v", nil
 	})
@@ -406,7 +416,8 @@ func TestLoaderCache_WithLoader(t *testing.T) {
 	setupManager(t)
 	ctx := context.Background()
 
-	users := ag_cache.WithLoader(ag_cache.GetCache[string](dflt(), "users"), func(ctx context.Context, key string) (string, error) {
+	inner, _ := ag_cache.GetCache[string](dflt(), "users")
+	users := ag_cache.WithLoader(inner, func(ctx context.Context, key string) (string, error) {
 		return "from-loader", nil
 	})
 
@@ -451,7 +462,7 @@ func TestDefaultEngine_ConfigSelects(t *testing.T) {
 	defer ag_cache.CloseAll()
 	ctx := context.Background()
 
-	ag_cache.GetCacheWithLoader[string](dflt(), "a", strLoader("x")).Get(ctx, "k")
+	mustCache[string](t, dflt(), "a", strLoader("x")).Get(ctx, "k")
 	if count.creates.Load() != 1 {
 		t.Fatalf("config default engine should be counting, creates=%d", count.creates.Load())
 	}
@@ -477,7 +488,7 @@ func TestMockCache_AsTestDouble(t *testing.T) {
 
 func TestTryGet_Miss(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.GetCache[string](dflt(), "users")
+	c, _ := ag_cache.GetCache[string](dflt(), "users")
 	ctx := context.Background()
 
 	v, ok, err := c.TryGet(ctx, "missing")
@@ -488,7 +499,7 @@ func TestTryGet_Miss(t *testing.T) {
 
 func TestTryGet_Hit(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
+	c := mustCache[string](t, dflt(), "users", strLoader("v"))
 	ctx := context.Background()
 	c.GetOrElse(ctx, "k", strLoader("v"))
 
@@ -537,7 +548,7 @@ func TestDel_BulkDelEngine(t *testing.T) {
 
 func TestGetOrElse_DoubleCheck_WithoutCancel(t *testing.T) {
 	setupManager(t)
-	c := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("loaded"))
+	c := mustCache[string](t, dflt(), "users", strLoader("loaded"))
 	ctx := context.Background()
 
 	var mu sync.Mutex
@@ -605,19 +616,20 @@ func (e *setFailEngine) SetWithTTL(ctx context.Context, key string, value []byte
 	return e.MockEngine.SetWithTTL(ctx, key, value, ttl)
 }
 
-func TestGetOrElse_SetFailure_ErrBackend(t *testing.T) {
+func TestGetOrElse_SetFailure_ReturnsValue(t *testing.T) {
 	e := &setFailEngine{MockEngine: ag_cache.NewMockEngine(), fail: errors.New("persist: disk full")}
 	c := ag_cache.NewWithEngine[string](e)
 	ctx := context.Background()
 
-	_, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
+	// loader 成功但缓存写失败：读穿透以数据为准，返回 (v, nil)，不丢弃已加载数据。
+	v, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
 		return "loaded", nil
 	})
-	if err == nil {
-		t.Fatal("expected error")
+	if err != nil {
+		t.Fatalf("write failure should not surface as error, got %v", err)
 	}
-	if !errors.Is(err, ag_cache.ErrBackend) {
-		t.Fatalf("expected ErrBackend, got %v", err)
+	if v != "loaded" {
+		t.Fatalf("expected loaded value, got %q", v)
 	}
 }
 
@@ -695,7 +707,7 @@ func TestSetWithTTL_NoTTLSetter_FallsBackToSet(t *testing.T) {
 
 func TestLoaderCache_Del(t *testing.T) {
 	setupManager(t)
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
+	users := mustCache[string](t, dflt(), "users", strLoader("v"))
 	ctx := context.Background()
 
 	users.GetOrElse(ctx, "u:1", strLoader("v"))
@@ -718,8 +730,8 @@ func TestLoaderCache_Del(t *testing.T) {
 
 func TestLoaderCache_Clear(t *testing.T) {
 	setupManager(t)
-	users := ag_cache.GetCacheWithLoader[string](dflt(), "users", strLoader("v"))
-	params := ag_cache.GetCacheWithLoader[string](dflt(), "params", strLoader("p"))
+	users := mustCache[string](t, dflt(), "users", strLoader("v"))
+	params := mustCache[string](t, dflt(), "params", strLoader("p"))
 	ctx := context.Background()
 
 	users.GetOrElse(ctx, "u:1", strLoader("v"))

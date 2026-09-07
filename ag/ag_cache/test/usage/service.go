@@ -41,11 +41,15 @@ type UserService struct {
 }
 
 // NewUserService 构造业务服务：注入 *Manager，构造时用 GetCacheWithLoader 绑定缓存（读穿透）。
-func NewUserService(m *ag_cache.Manager, repo *UserRepo) *UserService {
+func NewUserService(m *ag_cache.Manager, repo *UserRepo) (*UserService, error) {
+	users, err := ag_cache.GetCacheWithLoader(m, "users", repo.GetUser)
+	if err != nil {
+		return nil, err
+	}
 	return &UserService{
 		repo:  repo,
-		users: ag_cache.GetCacheWithLoader(m, "users", repo.GetUser),
-	}
+		users: users,
+	}, nil
 }
 
 // GetUser 读缓存：miss → loader（repo.GetUser）→ 写缓存 → 返回（读穿透）。
@@ -94,11 +98,15 @@ type ParamService struct {
 }
 
 // NewParamService 构造参数服务：注入 *Manager，构造时绑定缓存。
-func NewParamService(m *ag_cache.Manager, center *ParamCenter) *ParamService {
+func NewParamService(m *ag_cache.Manager, center *ParamCenter) (*ParamService, error) {
+	params, err := ag_cache.GetCacheWithLoader(m, "params", center.Get)
+	if err != nil {
+		return nil, err
+	}
 	return &ParamService{
 		center: center,
-		params: ag_cache.GetCacheWithLoader(m, "params", center.Get),
-	}
+		params: params,
+	}, nil
 }
 
 // GetParam 读参数（读穿透）。

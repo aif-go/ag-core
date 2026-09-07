@@ -50,3 +50,13 @@ func dflt() *ag_cache.Manager {
 	}
 	return m
 }
+
+// mustCache 便捷获取 LoaderCache：测试中引擎正常，GetCacheWithLoader 的 err 应为 nil。
+func mustCache[T any](t *testing.T, m *ag_cache.Manager, name string, loader ag_cache.LoaderFunc[T], opts ...ag_cache.Option[T]) *ag_cache.LoaderCache[T] {
+	t.Helper()
+	c, err := ag_cache.GetCacheWithLoader(m, name, loader, opts...)
+	if err != nil {
+		t.Fatalf("GetCacheWithLoader(%s): %v", name, err)
+	}
+	return c
+}

@@ -92,15 +92,21 @@ func SetDefault(m *Manager) {
 // GetCacheWithLoader 返回绑定 loader 的 LoaderCache，底层是显式 Manager 的
 // 具名缓存实例。opts 可覆盖默认 TTL（WithDefaultTTL）或序列化器（WithSerializer）。
 // 缓存实例首次使用时懒创建，并按名复用。
-func GetCacheWithLoader[T any](m *Manager, name string, loader LoaderFunc[T], opts ...Option[T]) *LoaderCache[T] {
+// 返回 error 而非 panic：引擎未注册或引擎创建失败时显式上报。
+func GetCacheWithLoader[T any](m *Manager, name string, loader LoaderFunc[T], opts ...Option[T]) (*LoaderCache[T], error) {
 	if m == nil {
 		panic("agcache: nil Manager")
 	}
-	return &LoaderCache[T]{inner: getOrCreate[T](m, name, opts...), loader: loader}
+	inner, err := getOrCreate[T](m, name, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &LoaderCache[T]{inner: inner, loader: loader}, nil
 }
 
 // GetCache 从显式 Manager 返回具名缓存（纯读，无 loader）。
-func GetCache[T any](m *Manager, name string) ICache[T] {
+// 返回 error 而非 panic：引擎未注册或引擎创建失败时显式上报。
+func GetCache[T any](m *Manager, name string) (ICache[T], error) {
 	if m == nil {
 		panic("agcache: nil Manager")
 	}
@@ -127,11 +133,12 @@ func CloseAll() {
 // 引擎选择：config 默认引擎工厂 Create(name)。
 // TTL 优先级：WithDefaultTTL > 引擎内部默认。
 // 引擎创建发生在锁外；重取锁后双重检查。
-func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[T] {
+// 失败（引擎未注册/Create 失败）返回 error，不 panic。
+func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) (*typedCache[T], error) {
 	m.mu.Lock()
 	if c, ok := m.caches[name]; ok {
 		m.mu.Unlock()
-		return c.(*typedCache[T])
+		return c.(*typedCache[T]), nil
 	}
 	m.mu.Unlock()
 
@@ -148,12 +155,12 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 
 	f := m.EngineFactory(m.defaultEngine)
 	if f == nil {
-		panic(fmt.Sprintf("agcache: engine %q not registered", m.defaultEngine))
+		return nil, fmt.Errorf("agcache: engine %q not registered", m.defaultEngine)
 	}
 
 	engine, err := f.Create(name)
 	if err != nil {
-		panic(fmt.Sprintf("agcache: create engine for %q: %v", name, err))
+		return nil, fmt.Errorf("agcache: create engine for %q: %w", name, err)
 	}
 	c.engine = engine
 
@@ -161,8 +168,8 @@ func getOrCreate[T any](m *Manager, name string, opts ...Option[T]) *typedCache[
 	defer m.mu.Unlock()
 	if existing, ok := m.caches[name]; ok { // 另一 goroutine 赢得了竞争
 		_ = engine.Close()
-		return existing.(*typedCache[T])
+		return existing.(*typedCache[T]), nil
 	}
 	m.caches[name] = c
-	return c
+	return c, nil
 }

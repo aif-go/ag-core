@@ -5,6 +5,7 @@ package agristretto
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/aif-go/ag-core/ag/ag_cache"
@@ -43,6 +44,7 @@ func (o RistrettoOptions) String() string {
 type ristrettoEngine struct {
 	cache      *ristretto.Cache[string, []byte]
 	defaultTTL time.Duration // 引擎内部默认 TTL
+	dropped    atomic.Uint64 // 背压丢弃计数（setBuf 满，新 key 写入被 Ristretto drop）
 }
 
 // NewRistrettoEngine 从已解析 Options 创建本地引擎。
@@ -99,12 +101,16 @@ func (e *ristrettoEngine) setWithTTL(key string, value []byte, ttl time.Duration
 	if cost < 1 {
 		cost = 1
 	}
-	ok := e.cache.SetWithTTL(key, value, cost, ttl)
-	if !ok {
-		return fmt.Errorf("ristretto: set dropped (buffer full)")
+	if !e.cache.SetWithTTL(key, value, cost, ttl) {
+		// Ristretto setBuf 满时 drop 新 key 写入（背压，等同容量淘汰）：
+		// 视为成功而非 ErrBackend——避免写密集场景业务误判后端故障。
+		e.dropped.Add(1)
 	}
 	return nil
 }
+
+// Dropped 返回背压丢弃计数（setBuf 满被 drop 的写入次数），供可观测。
+func (e *ristrettoEngine) Dropped() uint64 { return e.dropped.Load() }
 
 // Sync 实现 ag_cache.syncer——阻塞直到待写写入对读可见。
 func (e *ristrettoEngine) Sync() { e.cache.Wait() }
