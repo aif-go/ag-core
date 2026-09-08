@@ -118,13 +118,10 @@ func TestIdle_HeartbeatKeepsAlive(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// 热身：立即同步写一次，确保 lastReadTime 已更新（timer 自 OnOpen 即计时，
-	// 避免 -race 下心跳 goroutine 启动延迟 > idle 阈值导致首触发误报）
-	if _, err := conn.Write([]byte("warmup")); err != nil {
-		t.Fatal(err)
-	}
-
-	// 心跳：每 400ms 发 1 字节（< 1s idle 阈值）→ 2.5 秒内不应触发任何 idle 事件
+	// 心跳：Dial 后立即启动（每 400ms 发 1 字节 < 1s idle 阈值），持续更新 lastReadTime。
+	// 首触发窗口：timer 自 OnOpen 起 1s 触发，检查 time.Since(lastReadTime) >= 1s——
+	// 单次热身写（OnOpen 后立即）因边界（1s-ε）不可靠，须用心跳流持续刷新；
+	// sleep 1.2s 跨过首触发窗口后再进观察窗，避免 -race 全量并行下的调度延迟误报。
 	// stop+defer 模式：任何退出路径（含 Fatal）都停心跳 goroutine，防测试结束后泄漏竞争
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -144,6 +141,7 @@ func TestIdle_HeartbeatKeepsAlive(t *testing.T) {
 		}
 	}()
 	defer func() { close(stop); <-done }()
+	time.Sleep(1200 * time.Millisecond) // 跨过首触发窗口（OnOpen+1s）
 
 	select {
 	case ev := <-events:
@@ -164,12 +162,8 @@ func TestIdle_ReaderIdleOnly(t *testing.T) {
 	}
 	defer conn.Close()
 
-	// 热身：立即同步写一次，确保 lastReadTime 已更新（同上，防首触发窗口误报）
-	if _, err := conn.Write([]byte("warmup")); err != nil {
-		t.Fatal(err)
-	}
-
-	// 持续写（1 秒内）→ READER_IDLE 不应触发（有读流量）
+	// 持续写（200ms tick < 1s idle 阈值）：Dial 后立即启动，持续刷新 lastReadTime；
+	// sleep 1.2s 跨过首触发窗口（OnOpen+1s 边界误报——单次热身写不可靠，须持续流）
 	// stopFn：正常路径第一阶段后显式停写（第二阶段需静默）；Fatal 路径 defer 兜底停
 	stop := make(chan struct{})
 	writeDone := make(chan struct{})
@@ -197,6 +191,7 @@ func TestIdle_ReaderIdleOnly(t *testing.T) {
 			}
 		}
 	}()
+	time.Sleep(1200 * time.Millisecond) // 跨过首触发窗口（OnOpen+1s）
 
 	select {
 	case ev := <-events:
