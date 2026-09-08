@@ -1,10 +1,10 @@
 package simple
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -131,7 +131,10 @@ func (c *channel) Close(err error) {
 func (c *channel) invokeMethod(fn func()) (err error) {
 	defer func() {
 		if err := recover(); nil != err && 0 == atomic.LoadInt32(&c.closed) {
-			c.pipeline.FireChannelException(AsException(err))
+			// D7：异常链防重入——重入被拒/异常处理器自身 panic → 强制关闭（防连接泄漏）
+			if !c.pipeline.TryFireException(AsException(err)) {
+				c.Close(AsException(err))
+			}
 		}
 	}()
 

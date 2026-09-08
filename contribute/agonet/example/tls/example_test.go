@@ -7,6 +7,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net"
 	"os"
 	"sync"
@@ -213,18 +214,24 @@ func TestTLS_PlainClientFails(t *testing.T) {
 
 	conn, err := cli.Dial("tcp", host)
 	if err != nil {
-		t.Fatal(err) // TCP 层可建立；TLS 握手失败在数据阶段
+		// Dial 即失败也符合预期——服务端 TLS 握手失败快速关连接，TCP 建立可能被 RST
+		// （时序竞态：三次握手 vs 服务端关闭的竞速，两种形态都是"明文连 TLS 失败"）
+		return
 	}
 	defer conn.Close()
 
 	if _, err := conn.Write([]byte("plaintext")); err != nil {
 		return // 写即失败也符合预期
 	}
-	// 服务端 TLS 握手失败 → 连接被关 → 读应出错
+	// 服务端 TLS 握手失败 → 连接被关 → 读应出错（deadline 超时 = 连接未关 = 红）
 	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	buf := make([]byte, 16)
 	for {
-		if _, err := conn.Read(buf); err != nil {
+		_, err := conn.Read(buf)
+		if err != nil {
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				t.Fatal("RED: plaintext conn survived TLS server (连接未被关闭)")
+			}
 			return // 连接被关（预期）
 		}
 	}

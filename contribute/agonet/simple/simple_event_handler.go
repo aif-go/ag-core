@@ -1,10 +1,10 @@
 package simple
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 )
 
@@ -133,8 +133,11 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 				return
 			}
 			slog.Error("OnTraffic failed", "err", err)
-			pipeline.FireChannelException(err)
-			// action = agonet.Close
+			// D7：异常链防重入——TryFireException 返回 false（重入被拒/异常处理器自身 panic）
+			// → 强制关闭连接（否则连接泄漏且异常源不消失）
+			if !pipeline.TryFireException(err) {
+				action = agonet.Close
+			}
 			return
 		}
 	}()
@@ -148,7 +151,11 @@ func (h *SimpleEventHandler) OnTraffic(conn agonet.Conn) (action agonet.Action) 
 
 	after := conn.InboundBuffered()
 	if after > 0 && after != before { // 判断数据被读取过，防止异常数据导致死循环
-		conn.Wake(nil) // eventloop中手动唤醒触发OnTraffic
+		// A8：Wake 失败不再静默——剩余数据由下次数据到达或连接关闭兜底（无泄漏），
+		// 日志记录使失败可见（低频：池满 Submit 失败）
+		if err := conn.Wake(nil); err != nil {
+			slog.Warn("wake failed, data will be drained on next traffic or close", "err", err)
+		}
 	}
 
 	return

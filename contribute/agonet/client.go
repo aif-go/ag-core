@@ -1,10 +1,10 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 	"net"
 
@@ -173,6 +173,13 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	if el == nil {
 		// 客户端未 Start（eventloops 为空）时 next 返回 nil，返回明确错误而非越界 panic
 		return nil, aerrors.ErrInvalidNetConn
+	}
+	// A4 守卫：当前 goroutine 就是目标 eventloop（handler 内同步 Dial）→ 投递无人处理 →
+	// 自死锁。快速失败：关闭已建立的 net.Conn（防泄漏），返回明确错误引导正确用法
+	//（业务 goroutine 调 Dial，或未来 DialFuture 异步 API）。
+	if el.InEventLoop() {
+		_ = nc.Close()
+		return nil, aerrors.ErrDialInEventLoop
 	}
 	connOpened := make(chan struct{})
 

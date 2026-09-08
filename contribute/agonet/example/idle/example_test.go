@@ -200,8 +200,9 @@ func TestIdle_ReaderIdleOnly(t *testing.T) {
 	}
 	stopFn() // 停写 → 静默观察
 
-	// 停写 → 1 秒内 READER_IDLE 触发
-	deadline := time.After(4 * time.Second)
+	// 停写 → READER_IDLE 触发（deadline 8s：容忍 -race + 高负载下 timer 回调链
+	// onTimeoutInEL → Execute → 池 worker → loop 的调度延迟，偶发 >4s）
+	deadline := time.After(8 * time.Second)
 	for {
 		select {
 		case ev := <-events:

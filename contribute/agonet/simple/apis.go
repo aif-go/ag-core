@@ -46,6 +46,9 @@ type (
 		FireChannelRead(message any)
 		FireChannelWrite(message any)
 		FireChannelException(ex error)
+		// TryFireException 防重入异常链触发（返回语义）：false = 重入被拒或异常链未正常
+		// 完成（异常处理器自身 panic）——调用方应强制关闭连接（D7）。
+		TryFireException(ex error) bool
 		FireChannelEvent(event any)
 	}
 )
