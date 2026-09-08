@@ -1,14 +1,15 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 	"net"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/errgroup"
@@ -63,6 +64,15 @@ func (eng *engine) totalConns() int32 {
 		return true
 	})
 	return total
+}
+
+// shutdownTimeout 优雅关闭 drain 超时（Options.ShutdownTimeout，0 = 默认 5s）。
+// A1 兜底：防慢 handler 无限拖延关闭；drain 超时后 loop 强制退出。
+func (eng *engine) shutdownTimeout() time.Duration {
+	if eng.opts.ShutdownTimeout <= 0 {
+		return 5 * time.Second
+	}
+	return eng.opts.ShutdownTimeout
 }
 
 // shutdown signals the engine to shut down.
@@ -168,7 +178,8 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 		oconn := &openConn{
 			c: c,
 		}
-		if !el.send(oconn) { // R2：accept 投递 send 化（引擎关闭可退，无挂死窗口；R4 跳满推迟）
+		if !el.sendNonBlocking(oconn) { // R4 跳满：ch 满或引擎关闭 → 快速失败（关连接继续 accept），
+			// accept 循环不被业务背压拖死（A1 残留收口）；引擎关闭时不滞留连接
 			tc.Close()
 			continue
 		}
@@ -201,8 +212,10 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 
 func (eng *engine) closeEventLoops() {
 	eng.eventLoops.iterate(func(i int, el *eventloop) bool {
-		// 每个eventloop发送关闭信号
-		el.ch <- aerrors.ErrEngineShutdown
+		// A1：loop 退出不再依赖 ch 信号（run 监听 ctx.Done + drain）——
+		// 裸投递 el.ch <- ErrEngineShutdown 在 ch 满时阻塞 → Stop 卡死。
+		// trySend 尽力兼容（失败无碍，loop 靠 ctx 退出）。
+		el.trySend(aerrors.ErrEngineShutdown)
 		return true
 	})
 	for _, ln := range eng.listeners {

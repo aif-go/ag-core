@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 )
 
@@ -44,8 +46,11 @@ func newTestEventLoop(h EventHandler) *eventloop {
 		opts:         &Options{},
 		eventHandler: h,
 		turnOff:      cancel,
+		concurrency: struct {
+			*errgroup.Group
+			ctx context.Context
+		}{ctx: ctx},
 	}
-	_ = ctx
 	return &eventloop{
 		ch:           make(chan any, 8),
 		idx:          0,

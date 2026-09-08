@@ -1,15 +1,16 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"log/slog"
 	"net"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/petermattis/goid"
 )
@@ -44,31 +45,65 @@ func (el *eventloop) run() (err error) {
 	el.goroutineId.Store(id)
 	slog.Debug(fmt.Sprintf("event-loop(%d) is running, gid: %d", el.idx, el.goroutineId.Load()))
 
-	for i := range el.ch {
-		switch v := i.(type) {
-		case error:
-			err = v
-		case *netErr:
-			err = el.close(v.c, v.err)
-		case *openConn:
-			err = el.open(v)
-		case *tcpConn:
-			err = el.read(unpackTCPConn(v))
-		case func() error:
-			err = v()
-		}
-
-		if errors.Is(err, aerrors.ErrEngineShutdown) {
-			// el.getLogger().Debugf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err)
-			slog.Debug(fmt.Sprintf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err))
-			break
-		} else if err != nil {
-			// el.getLogger().Debugf("event-loop(%d) got a nonlethal error: %v", el.idx, err)
-			slog.Debug(fmt.Sprintf("event-loop(%d) got a nonlethal error: %v", el.idx, err))
+	for {
+		select {
+		case i := <-el.ch:
+			err = el.handleEvent(i)
+			if errors.Is(err, aerrors.ErrEngineShutdown) {
+				// el.getLogger().Debugf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err)
+				slog.Debug(fmt.Sprintf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err))
+				return nil
+			} else if err != nil {
+				// el.getLogger().Debugf("event-loop(%d) got a nonlethal error: %v", el.idx, err)
+				slog.Debug(fmt.Sprintf("event-loop(%d) got a nonlethal error: %v", el.idx, err))
+			}
+		case <-el.eng.concurrency.ctx.Done():
+			// A1 优雅关闭：引擎关闭信号直达 loop（不依赖 ch 信号投递——裸投递在
+			// ch 满时阻塞 → Stop 卡死）。先完成在途（drain ch 存量），超时兜底。
+			slog.Debug(fmt.Sprintf("event-loop(%d) is draining on engine shutdown", el.idx))
+			el.drain()
+			return nil
 		}
 	}
+}
 
+// handleEvent 处理单个事件（run 与 drain 共用）。
+func (el *eventloop) handleEvent(v any) error {
+	switch i := v.(type) {
+	case error:
+		return i
+	case *netErr:
+		return el.close(i.c, i.err)
+	case *openConn:
+		return el.open(i)
+	case *tcpConn:
+		return el.read(unpackTCPConn(i))
+	case func() error:
+		return i()
+	}
 	return nil
+}
+
+// drain 引擎关闭时完成在途事件（ch 存量），超时兜底防慢 handler 无限 drain。
+// 读 goroutine 已停投（send 检查 ctx）→ ch 不再进新数据 → 消费到空即完成。
+// 超时后 drain goroutine 仍会消费完剩余（ch 清空自然退出），无泄漏。
+func (el *eventloop) drain() {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case v := <-el.ch:
+				el.handleEvent(v)
+			default:
+				return
+			}
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(el.eng.shutdownTimeout()):
+	}
 }
 
 func (el *eventloop) open(oc *openConn) error {
@@ -222,15 +257,31 @@ func (el *eventloop) InEventLoop() bool {
 // 注意：先做非阻塞 ctx 检查再进入阻塞 select——避免"ch 有空位 + ctx 已关"时 select 随机
 // 选中 ch 分支，把任务投进已退出的 loop（openConn 类任务将永不处理 → 调用方永久等待）。
 func (el *eventloop) send(v any) bool {
-	select {
-	case <-el.eng.concurrency.ctx.Done():
+	// 先查 ctx（非阻塞）再进入阻塞 select——避免"ch 有空位 + ctx 已关"时 select 随机
+	// 选中 ch 分支，把任务投进已退出的 loop（openConn 类任务将永不处理 → 调用方永久等待）。
+	// ctx.Err() 等价于非阻塞 select 查 Done（已取消返回非 nil），可读性更优。
+	if el.eng.concurrency.ctx.Err() != nil {
 		return false
-	default:
 	}
 	select {
 	case el.ch <- v:
 		return true
 	case <-el.eng.concurrency.ctx.Done():
+		return false
+	}
+}
+
+// sendNonBlocking 非阻塞投递：ch 满或引擎关闭 → false（调用方自行降级，如 accept 跳满）。
+// 与 trySend 的区别：trySend 不检查引擎关闭（投成进已退 loop 由 ctx 兜底方负责）；
+// sendNonBlocking 先查 ctx——accept 投递用此保证引擎关闭时快速失败、不滞留连接。
+func (el *eventloop) sendNonBlocking(v any) bool {
+	if el.eng.concurrency.ctx.Err() != nil {
+		return false
+	}
+	select {
+	case el.ch <- v:
+		return true
+	default:
 		return false
 	}
 }

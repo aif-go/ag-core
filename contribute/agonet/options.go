@@ -8,8 +8,8 @@ import (
 
 	// "github.com/tjfoc/gmsm/gmtls"
 
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 )
 
 // Option is a function that will set up option.
@@ -44,6 +44,10 @@ type Options struct {
 	// MaxConn 连接上限（0 = 不限制，默认）。链1 R1 出池后 goroutine 数 = 连接数，
 	// 远程连接耗尽防护（应用层配额，非精确边界；超限连接静默拒绝，不触发 OnOpen/OnClose）。
 	MaxConn int32
+
+	// ShutdownTimeout 优雅关闭 drain 超时（0 = 默认 5s）。A1：引擎关闭时在途事件
+	// （ch 存量）的处理上限，防慢 handler 无限拖延关闭；超时后 loop 强制退出。
+	ShutdownTimeout time.Duration
 
 	// Ticker bool
 
@@ -152,6 +156,9 @@ func BuildOptionsWithConfig(conf OptionsConfig) (*Options, error) {
 			Interval: time.Duration(conf.KeepAlive.Interval) * time.Second,
 			Count:    conf.KeepAlive.Count,
 		},
+		// 引擎级配置映射（链1/ A1 新增字段：Options 与 Config 配置面一致）
+		ShutdownTimeout: time.Duration(conf.Engine.ShutdownTimeout) * time.Second,
+		MaxConn:         conf.Engine.MaxConn,
 	}
 
 	return opts, nil
