@@ -48,6 +48,12 @@ type Options struct {
 	// ShutdownTimeout 优雅关闭 drain 超时（0 = 默认 5s）。A1：引擎关闭时在途事件
 	// （ch 存量）的处理上限，防慢 handler 无限拖延关闭；超时后 loop 强制退出。
 	ShutdownTimeout time.Duration
+	// ReadBufferMinSize 读缓冲最小容量（0 = 默认 4KB）：防池冷启动 cap=0 → 空 Read 忙等；
+	// 小包场景可调小省内存（地板——cap 只增不减，仅初始化生效）
+	ReadBufferMinSize int
+	// ReadBufferMaxSize 读缓冲扩展上限（0 = 默认 64KB）：满读扩展封顶（对端持续大流量
+	// → cap 无限翻倍 = 内存 DoS）；大帧服务可调大（段大小效率）、小包服务可调小（内存上界）
+	ReadBufferMaxSize int
 
 	// Ticker bool
 
@@ -159,6 +165,9 @@ func BuildOptionsWithConfig(conf OptionsConfig) (*Options, error) {
 		// 引擎级配置映射（链1/ A1 新增字段：Options 与 Config 配置面一致）
 		ShutdownTimeout: time.Duration(conf.Engine.ShutdownTimeout) * time.Second,
 		MaxConn:         conf.Engine.MaxConn,
+		// 读缓冲边界（0 = 默认 4096/65536——读循环解析）
+		ReadBufferMinSize: conf.Engine.ReadBufferMinSize,
+		ReadBufferMaxSize: conf.Engine.ReadBufferMaxSize,
 	}
 
 	return opts, nil

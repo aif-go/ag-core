@@ -1,13 +1,13 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/elastic"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/pool/byteslice"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"io"
 	"net"
 	"time"
+
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/elastic"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 
 	// "github.com/smallnest/ringbuffer"
 	"github.com/valyala/bytebufferpool"
@@ -72,6 +72,8 @@ func packTCPConn(c *conn, buf []byte) *tcpConn {
 
 func unpackTCPConn(tc *tcpConn) *conn {
 	if tc.c.buffer == nil { // the connection has been closed
+		// C3：连接已关闭（buffer 已释放）时到达的包——tc.b 必须归还防泄漏
+		bytebufferpool.Put(tc.b)
 		return nil
 	}
 	_, _ = tc.c.buffer.Write(tc.b.B)
@@ -154,14 +156,23 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 		n = totalLen
 	}
 	if c.inboundBuffer.IsEmpty() {
-		buf = c.buffer.B[:n]
+		// C4（Next 路径③）：零拷贝别名 → 独立副本。实测四态：① 连接存活期不 append
+		// 安全；② B[:n] 共享原 cap——调用方 append 双写竞争；③ 跨连接池复用悬空（T12 实锤）；
+		// ④ 内存保持。用 make 副本（全安全语义：同回调/跨事件/粘包多帧均不冲突——
+		// 池化归还实测破坏"同回调安全"（StickyPackets：帧1 fire 后 Put → 帧2 复用覆盖）；
+		// 性能代价 +95% 帧处理（基准实测）——正确性 > 性能，文档记录待优化
+		// （未来方向：业务自管缓冲 / 读取 API 演进）
+		buf = make([]byte, n)
+		copy(buf, c.buffer.B[:n])
 		c.buffer.B = c.buffer.B[n:]
 		return
 	}
 
-	// buf = make([]byte, n)
-	buf = byteslice.Get(n)
-	_, err = c.Read(buf)
+	// Next 跨界：make 副本 + 组合读（err 显式化——make 无归还义务）
+	buf = make([]byte, n)
+	if _, err = c.Read(buf); err != nil {
+		return
+	}
 	return
 }
 
@@ -179,7 +190,11 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 		n = totalLen
 	}
 	if c.inboundBuffer.IsEmpty() {
-		return c.buffer.B[:n], err
+		// C4（Peek 路径①）：零拷贝别名 → 独立副本（make——不消费，Reset 写指针回 0
+		// 后下包必覆盖；T12 跨连接实锤）
+		buf = make([]byte, n)
+		copy(buf, c.buffer.B[:n])
+		return
 	}
 
 	// ==================
@@ -195,9 +210,13 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 	// ==================
 	head, tail := c.inboundBuffer.Peek(n)
 	if len(head) == n {
-		return head, err
+		// C4（Peek 路径②）：ring 内部切片别名 → 独立副本（head 指向 ring 底层
+		// rb.buf——grow/池复用后悬空）
+		buf = make([]byte, n)
+		copy(buf, head)
+		return
 	}
-	buf = byteslice.Get(n)[:0]
+	buf = make([]byte, 0, n) // 路径③：跨缓冲拼接——make（C1：原 byteslice.Get 借出 → 去池化）
 	buf = append(buf, head...)
 	buf = append(buf, tail...)
 	// ==================
@@ -220,7 +239,7 @@ func (c *conn) Discard(n int) (int, error) {
 	// discarded, err = c.rawReader.Discard(n)
 	// return
 	if len(c.cache) > 0 {
-		byteslice.Put(c.cache)
+		// C5：cache 改 make 切片（无池归还义务）——原 byteslice.Put 删除
 		c.cache = nil
 	}
 
@@ -399,7 +418,7 @@ func (c *conn) release() {
 	}
 
 	if len(c.cache) > 0 {
-		byteslice.Put(c.cache)
+		// C5：cache 改 make 切片——release 亦无池归还义务
 		c.cache = nil
 	}
 

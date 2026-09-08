@@ -1,11 +1,11 @@
 package simple
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet"
-	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 	"io"
 	"math"
 )

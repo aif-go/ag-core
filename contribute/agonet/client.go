@@ -212,22 +212,31 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 
 	// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
 	// A7 触发链消失：不再有 Submit 失败 → 客户端永久挂起。
+	// B2-D：读缓冲池化（与 server 侧同构——bytebufferpool 连接级借用 + 最小 cap + 满读扩展）。
 	go func() {
-		var buffer [0x10000]byte // B2 另案（64KB 缓冲实为逃逸堆，非栈空间）
+		b := bytebufferpool.Get()
+		defer bytebufferpool.Put(b)
+		// 地板：cap 只增不减（满读扩展），for 外一次即可
+		readMin, readMax := resolveReadBufferSizes(cli.opts)
+		if cap(b.B) < readMin {
+			b.B = append(b.B, make([]byte, readMin)...)
+		}
 		for {
-			// 监听连接读取数据
-			n, err := nc.Read(buffer[:])
-
+			n, err := nc.Read(b.B[:cap(b.B)])
 			if err != nil {
 				// 处理读取错误
 				el.send(&netErr{c, err}) // R2：错误路径 send 化
 				return
 			}
 			// 6. 触发连接读取事件
-			tc2 := packTCPConn(c, buffer[:n])
+			tc2 := packTCPConn(c, b.B[:n])
 			if !el.send(tc2) { // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
 				bytebufferpool.Put(tc2.b)
 				return
+			}
+			// 满读 → 扩展（段大小自适应；封顶 readMax 防无界增长）
+			if n == cap(b.B) && cap(b.B) < readMax {
+				b.B = append(b.B, make([]byte, min(cap(b.B), readMax-cap(b.B)))...)
 			}
 		}
 	}()

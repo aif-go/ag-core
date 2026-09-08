@@ -1,10 +1,10 @@
 package simple
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet"
-	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 	"errors"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet"
+	"github.com/aif-go/ag-core/contribute/agonet/simple/utils"
 	"io"
 	"strconv"
 	"strings"

@@ -27,6 +27,12 @@ type EngineConfig struct {
 	ShutdownTimeout int
 	// MaxConn 连接上限（0=不限制）：超限连接静默拒绝（应用层配额，非精确边界）
 	MaxConn int32
+	// ReadBufferMinSize 读缓冲最小容量（字节，0=默认 4096）：防池冷启动 cap=0 忙等；
+	// 小包场景可调小省内存
+	ReadBufferMinSize int
+	// ReadBufferMaxSize 读缓冲扩展上限（字节，0=默认 65536）：满读扩展封顶（防无界
+	// 增长内存 DoS）；大帧服务可调大、小包服务可调小（内存上界）
+	ReadBufferMaxSize int
 }
 
 type KeepAliveConfig struct {
@@ -59,6 +65,9 @@ func DefaultCommonConfig() OptionsConfig {
 			ShutdownTimeout: 5,
 			// 连接上限：0 = 不限制（默认）
 			MaxConn: 0,
+			// ReadBufferMinSize/MaxSize 0 = 默认（4096/65536）——Options 侧解析
+			ReadBufferMinSize: 0,
+			ReadBufferMaxSize: 0,
 		},
 		KeepAlive: KeepAliveConfig{
 			Enable:   true,

@@ -58,29 +58,33 @@ func fillAndStop(t *testing.T, el *eventloop, stop func()) {
 	t.Helper()
 	var executed, fillOK atomic.Int32
 
-	// 填充 goroutine（模拟读 goroutine）：send 投递，ch 满后阻塞等空位；
-	// ctx 取消（引擎关闭）后 send 返回 false → 停投（与真实读 goroutine 行为一致）
+	// 填充 goroutine ×4（模拟多读 goroutine 背压）：单 goroutine 与 loop 消费竞速
+	// 不稳定（投递速度 ≈ 消费速度时 ch 永远不满——实测 fillOK≈executed 190 万，len=2）；
+	// 多填充投递速度 >> 消费 → ch 必满（填充阻塞在 send——背压真实成立）
 	stopFill := make(chan struct{})
 	defer close(stopFill)
-	go func() {
-		for {
-			select {
-			case <-stopFill:
-				return
-			default:
+	for i := 0; i < 4; i++ {
+		go func() {
+			for {
+				select {
+				case <-stopFill:
+					return
+				default:
+				}
+				if !el.send(func() error { executed.Add(1); return nil }) {
+					return // 引擎关闭：停投
+				}
+				fillOK.Add(1)
 			}
-			if !el.send(func() error { executed.Add(1); return nil }) {
-				return // 引擎关闭：停投
-			}
-			fillOK.Add(1)
-		}
-	}()
+		}()
+	}
 
-	// 等 ch 满（填充 goroutine 阻塞在 send）
-	deadline := time.Now().Add(3 * time.Second)
+	// 等 ch 满（填充 goroutine 阻塞在 send）——deadline 8s：-race 全量并行下
+	// 填充 goroutine 调度延迟可能 >3s（idle 第二阶段同款高负载容忍）
+	deadline := time.Now().Add(8 * time.Second)
 	for len(el.ch) < cap(el.ch) {
 		if time.Now().After(deadline) {
-			t.Fatal("fill timeout")
+			t.Fatalf("fill timeout: len=%d cap=%d fillOK=%d executed=%d", len(el.ch), cap(el.ch), fillOK.Load(), executed.Load())
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

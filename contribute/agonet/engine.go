@@ -15,6 +15,47 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// defaultMinReadSize 读缓冲最小容量默认值（Options.ReadBufferMinSize=0 时）：防池冷启动
+// cap=0 → tc.Read(空) → (0,nil) 忙等；小包场景 4KB 足够，大包靠满读扩展 + 池校准自适应。
+const defaultMinReadSize = 4096
+
+// defaultMaxReadSize 读缓冲扩展上限默认值（Options.ReadBufferMaxSize=0 时）：满读扩展不
+// 无界翻倍（对端持续大流量 → cap 无限增长 = 内存 DoS，与 F3 同族）；64KB = 原 [0x10000]byte
+// 段大小语义
+const defaultMaxReadSize = 64 * 1024
+
+// 读缓冲边界防呆钳制：min 下限 1KB（常见网络帧几百 B~几 KB——段至少装下一帧，
+// 更小 → 大包流 syscall 风暴；冷启动热身 1K→2K→…→64K 仅 6 次）；
+// max 上限 16MB（TCP 接收窗口物理上限量级——段 > 窗口永远满读不了，更大无意义且
+// 单连接读缓冲膨胀——OOM 风险）
+const (
+	minReadSizeFloor = 1024
+	maxReadSizeCeil  = 16 * 1024 * 1024
+)
+
+// resolveReadBufferSizes 解析读缓冲边界（Options → 实际值 + 防呆钳制）：
+// 0/负值 = 默认；正值经钳制（min ≥ 64、max ≤ 64MB、min ≤ max）修正明显不合理配置
+func resolveReadBufferSizes(opts *Options) (readMin, readMax int) {
+	readMin = defaultMinReadSize
+	readMax = defaultMaxReadSize
+	if opts.ReadBufferMinSize > 0 {
+		readMin = opts.ReadBufferMinSize
+	}
+	if opts.ReadBufferMaxSize > 0 {
+		readMax = opts.ReadBufferMaxSize
+	}
+	if readMin < minReadSizeFloor {
+		readMin = minReadSizeFloor
+	}
+	if readMax > maxReadSizeCeil {
+		readMax = maxReadSizeCeil
+	}
+	if readMin > readMax { // 钳制：min ≤ max
+		readMin = readMax
+	}
+	return
+}
+
 type Engine struct {
 	// eng is the internal engine struct.
 	eng *engine
@@ -187,24 +228,32 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 		// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
 		// B1 触发链根除：池满 → Submit err → shutdown 整服关 不再可能由读路径触发。
 		// goroutine 数 = 连接数（fd 限制兜底；R6 MaxConn 应用层配额暂缓）。
+		// B2-D：读缓冲池化（连接级借用 bytebufferpool——替代每连接 64KB 逃逸堆；
+		// 池共享 + 校准自适应 + 最小 cap 地板防忙等 + 满读扩展段大小自适应）。
 		go func() {
-			var buffer [0x10000]byte // B2 另案（本链不动）
+			b := bytebufferpool.Get()
+			defer bytebufferpool.Put(b) // 读 goroutine 退出（所有路径含 panic）归还
+			// 地板：cap 只增不减（满读扩展），for 外一次即可（循环内重复判断冗余）
+			readMin, readMax := resolveReadBufferSizes(el.eng.opts)
+			if cap(b.B) < readMin { // 防 cap=0 → tc.Read(空) → (0,nil) 忙等
+				b.B = append(b.B, make([]byte, readMin)...)
+			}
 			for {
-				// 监听连接读取数据
-				n, err := tc.Read(buffer[:])
-
+				n, err := tc.Read(b.B[:cap(b.B)])
 				if err != nil {
 					// 处理读取错误
 					el.send(&netErr{c, err}) // R2：错误路径 send 化
 					return
 				}
-				// 触发连接读取事件
-				tc2 := packTCPConn(c, buffer[:n])
-				if !el.send(tc2) { // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
+				tc2 := packTCPConn(c, b.B[:n]) // 数据拷入独立 tc.b（读缓冲不投递——归还点保持 loop 侧）
+				if !el.send(tc2) {             // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
 					bytebufferpool.Put(tc2.b)
 					return
 				}
-
+				// 满读 → 可能还有数据 → 扩展（段大小自适应；封顶 readMax 防无界增长——对端持续大流量 → cap 无限翻倍 = 内存 DoS）
+				if n == cap(b.B) && cap(b.B) < readMax {
+					b.B = append(b.B, make([]byte, min(cap(b.B), readMax-cap(b.B)))...)
+				}
 			}
 		}()
 	}
