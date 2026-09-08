@@ -54,6 +54,9 @@ type Options struct {
 	// ReadBufferMaxSize 读缓冲扩展上限（0 = 默认 64KB）：满读扩展封顶（对端持续大流量
 	// → cap 无限翻倍 = 内存 DoS）；大帧服务可调大（段大小效率）、小包服务可调小（内存上界）
 	ReadBufferMaxSize int
+	// InboundBufferLimit 入站滞留上限（字节，0 = 默认 16MB）：半包/慢速客户端滞留
+	// 超限 → 关闭连接（F3：防 inboundBuffer 无上限增长内存 DoS）
+	InboundBufferLimit int
 
 	// Ticker bool
 
@@ -165,9 +168,11 @@ func BuildOptionsWithConfig(conf OptionsConfig) (*Options, error) {
 		// 引擎级配置映射（链1/ A1 新增字段：Options 与 Config 配置面一致）
 		ShutdownTimeout: time.Duration(conf.Engine.ShutdownTimeout) * time.Second,
 		MaxConn:         conf.Engine.MaxConn,
-		// 读缓冲边界（0 = 默认 4096/65536——读循环解析）
+		// 读缓冲边界（0 = 默认 4096/65536——读循环解析 + 防呆钳制）
 		ReadBufferMinSize: conf.Engine.ReadBufferMinSize,
 		ReadBufferMaxSize: conf.Engine.ReadBufferMaxSize,
+		// F3 入站滞留上限（0 = 默认 16MB——el.read 解析 + 防呆下限 1MB）
+		InboundBufferLimit: conf.Engine.InboundBufferLimit,
 	}
 
 	return opts, nil

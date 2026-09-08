@@ -33,6 +33,9 @@ type EngineConfig struct {
 	// ReadBufferMaxSize 读缓冲扩展上限（字节，0=默认 65536）：满读扩展封顶（防无界
 	// 增长内存 DoS）；大帧服务可调大、小包服务可调小（内存上界）
 	ReadBufferMaxSize int
+	// InboundBufferLimit 入站滞留上限（字节，0=默认 16MB）：半包/慢速客户端滞留
+	// 超限 → 关闭连接（F3：防 inboundBuffer 无上限增长内存 DoS）
+	InboundBufferLimit int
 }
 
 type KeepAliveConfig struct {
@@ -68,6 +71,7 @@ func DefaultCommonConfig() OptionsConfig {
 			// ReadBufferMinSize/MaxSize 0 = 默认（4096/65536）——Options 侧解析
 			ReadBufferMinSize: 0,
 			ReadBufferMaxSize: 0,
+			InboundBufferLimit: 0, // 0 = 默认 16MB——Options 侧解析
 		},
 		KeepAlive: KeepAliveConfig{
 			Enable:   true,

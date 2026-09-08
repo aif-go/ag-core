@@ -138,6 +138,28 @@ func (el *eventloop) open(oc *openConn) error {
 	return el.handleAction(c, action)
 }
 
+// resolveInboundLimit 解析入站滞留上限（Options → 实际值 + 防呆钳制）：
+// 默认 16MB（正常滞留 = 半包帧 ≤ 解码器 maxFrameLength + 消费积压——16MB 为异常阈值）；
+// 下限 1MB（太小误杀正常业务——业务消费慢也累积滞留）
+func resolveInboundLimit(opts *Options) int {
+	limit := defaultInboundLimit // 16MB
+	if opts.InboundBufferLimit > 0 {
+		limit = opts.InboundBufferLimit
+	}
+	if limit < minInboundLimit { // 1MB
+		limit = minInboundLimit
+	}
+	return limit
+}
+
+const (
+	defaultInboundLimit = 16 * 1024 * 1024
+	minInboundLimit     = 1024 * 1024
+)
+
+// errInboundOverflow 入站滞留超限（F3：半包/慢速客户端——关闭连接释放内存）
+var errInboundOverflow = errors.New("inbound buffer overflow (F3)")
+
 func (el *eventloop) read(c *conn) error {
 	if _, ok := el.connections[c]; !ok {
 		return nil // ignore stale wakes.
@@ -150,6 +172,12 @@ func (el *eventloop) read(c *conn) error {
 		return el.close(c, nil)
 	case Shutdown:
 		return aerrors.ErrEngineShutdown
+	}
+
+	// F3：入站滞留超限（半包/慢速客户端——inboundBuffer 无上限增长内存 DoS）→ 关闭连接
+	// 滞留量 = inboundBuffer（跨包累积）+ buffer（当期未消费）——写前检查（防一次大写入超限）
+	if c.inboundBuffer.Buffered()+c.buffer.Len() > resolveInboundLimit(el.eng.opts) {
+		return el.close(c, errInboundOverflow)
 	}
 
 	// 剩余未处理的字节写入缓存
