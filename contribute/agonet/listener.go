@@ -83,16 +83,22 @@ func tlsIfNeed(l *listener, opts *Options) error {
 		return nil
 	}
 
-	if opts.TLSType == TLSType_NONE {
+	// 未声明安全类型：不包装，明文监听（合法默认）。
+	// 配置合法性（Type 与 config 对应）已由 Options.ValidateServer 在构造入口保证，
+	// 此处仅做包装决策 + 防御性兜底。
+	if opts.TLSType == TLSType_NONE || opts.TLSType == TLSType_UNSET {
 		return nil
 	}
 
 	tlscfg := opts.TLSConfig
 	tlcpcfg := opts.TLCPConfig
 
-	if tlscfg != nil || tlcpcfg != nil {
-		l.ln = pa.NewListener(l.ln, tlcpcfg, tlscfg)
+	if tlscfg == nil && tlcpcfg == nil {
+		// 防御：正常路径不会到达（ValidateServer 已拦截），仅防绕过构造器直接调用
+		return aerrors.ErrTLSConfigIsNil
 	}
+
+	l.ln = pa.NewListener(l.ln, tlcpcfg, tlscfg)
 
 	return nil
 }

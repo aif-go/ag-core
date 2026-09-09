@@ -1,17 +1,17 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 	"net"
 
 	// "github.com/tjfoc/gmsm/gmtls"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -39,7 +39,9 @@ func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
 
 	// 配置TLS
 	secCfg := config.Config.Security
-	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET && secCfg.Type != TLSTYPE_TLS_TLCP {
+	// 注意：Type=tls_tlcp 也必须进入客户端 TLS 配置分支，
+	// 由 WithAgClientTLSConfig 内部将 tls_tlcp 归一化为客户端可用的 TLS/TLCP（见 options_tls.go）。
+	if secCfg.Type != TLSType_NONE && secCfg.Type != TLSType_UNSET {
 		err := ExtendOptions(opts, WithAgClientTLSConfig(&secCfg))
 		if err != nil {
 			return nil, err
@@ -50,6 +52,10 @@ func NewClient(handler EventHandler, config *ClientConfig) (Client, error) {
 }
 
 func NewClientWithOptions(handler EventHandler, opts *Options) (Client, error) {
+	// 配置自洽校验：对 CliTLSType() fallback 解析后的类型校验（保留客户端复用服务端配置的用法）
+	if err := opts.ValidateClient(); err != nil {
+		return nil, err
+	}
 	cli := &client{
 		eventHandler: handler,
 	}
@@ -164,7 +170,18 @@ func (cli *client) Enroll(nc net.Conn) (gc Conn, err error) {
 
 func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	el := cli.eng.eventLoops.next(nil)
-	connOpened := make(chan struct{})
+	if el == nil {
+		// 客户端未 Start（eventloops 为空）时 next 返回 nil，返回明确错误而非越界 panic
+		return nil, aerrors.ErrInvalidNetConn
+	}
+	// A4 守卫：当前 goroutine 就是目标 eventloop（handler 内同步 Dial）→ 投递无人处理 →
+	// 自死锁。快速失败：关闭已建立的 net.Conn（防泄漏），返回明确错误引导正确用法
+	//（业务 goroutine 调 Dial，或未来 DialFuture 异步 API）。
+	if el.InEventLoop() {
+		_ = nc.Close()
+		return nil, aerrors.ErrDialInEventLoop
+	}
+	connOpened := make(chan error, 1) // 缓冲 1：loop 侧 cb 非阻塞；nil=成功，非 nil=拒绝/关闭/panic
 
 	// 不支持的协议判断，支持tpc4、tls、tlcp 等
 	// switch v := nc.(type) {
@@ -187,28 +204,59 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 
 	c := newStreamConn(el, nc, ctx)
 
-	el.ch <- &openConn{c: c, cb: func() { close(connOpened) }}
+	if !el.send(&openConn{c: c, cb: func(openErr error) { connOpened <- openErr }}) { // R2：openConn send 化
+		nc.Close()
+		connOpened <- aerrors.ErrEngineShutdown // 关键边界：open 不会执行 → cb 不会被调 → 主动通知防 Dial 永久挂起（A3）
+		return nil, aerrors.ErrEngineShutdown
+	}
 
-	goroutine.DefaultWorkerPool.Submit(func() {
-		var buffer [0x10000]byte // 64KB 栈空间，不使用堆内存
+	// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
+	// A7 触发链消失：不再有 Submit 失败 → 客户端永久挂起。
+	// B2-D：读缓冲池化（与 server 侧同构——bytebufferpool 连接级借用 + 最小 cap + 满读扩展）。
+	go func() {
+		b := bytebufferpool.Get()
+		defer bytebufferpool.Put(b)
+		// 地板：cap 只增不减（满读扩展），for 外一次即可
+		readMin, readMax := resolveReadBufferSizes(cli.opts)
+		if cap(b.B) < readMin {
+			b.B = append(b.B, make([]byte, readMin)...)
+		}
 		for {
-			// 监听连接读取数据
-			n, err := nc.Read(buffer[:])
-
+			n, err := nc.Read(b.B[:cap(b.B)])
 			if err != nil {
 				// 处理读取错误
-				el.ch <- &netErr{c, err}
+				el.send(&netErr{c, err}) // R2：错误路径 send 化
 				return
 			}
 			// 6. 触发连接读取事件
-			el.ch <- packTCPConn(c, buffer[:n])
+			tc2 := packTCPConn(c, b.B[:n])
+			if !el.send(tc2) { // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
+				bytebufferpool.Put(tc2.b)
+				return
+			}
+			// 满读 → 扩展（段大小自适应；封顶 readMax 防无界增长）
+			if n == cap(b.B) && cap(b.B) < readMax {
+				b.B = append(b.B, make([]byte, min(cap(b.B), readMax-cap(b.B)))...)
+			}
 		}
-	})
+	}()
 	gc = c
 
-	<-connOpened
+	// 双路等待：openConn 完成通知（成功/拒绝/panic）或引擎关闭。
+	// 关闭兜底（review 行内 P1 的残余竞态边界）：Stop 瞬间 send 可能竞态投递
+	// openConn 到已退出 loop（ch 滞留无人消费）——若无此兜底 <-connOpened 永久
+	// 阻塞 → Dial 挂起。
+	select {
+	case err = <-connOpened:
+		if err != nil {
+			return nil, err // 被拒（MaxConn）/引擎关闭/OnOpen panic——Dial 返回失败而非伪成功/挂起
+		}
+	case <-cli.eng.concurrency.ctx.Done():
+		_ = nc.Close()
+		return nil, aerrors.ErrEngineShutdown
+	}
 
-	return
+	return c, nil
 }
 
 func (cli *client) applyKeepAlive(nc net.Conn) error {

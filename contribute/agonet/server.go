@@ -3,6 +3,7 @@ package agonet
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -34,6 +35,11 @@ func NewServer(handler EventHandler, config *ServerConfig) (Server, error) {
 }
 
 func NewServerWithOptions(handler EventHandler, addr []string, opts *Options) (Server, error) {
+	// 配置自洽校验：Type 声明与 config 对应，错误在构造期暴露（fail-fast）
+	if err := opts.ValidateServer(); err != nil {
+		return nil, err
+	}
+
 	ser := &server{
 		addrs:        addr,
 		opts:         opts,
@@ -47,6 +53,7 @@ type server struct {
 	// config       *ServerConfig
 	addrs        []string
 	opts         *Options
+	engMu        sync.Mutex // 保护 eng 的并发写读（run goroutine 赋值 vs Stop 随时调用）
 	eng          *engine
 	eventHandler EventHandler
 }
@@ -56,6 +63,11 @@ func (s *server) Start() error {
 }
 
 func (s *server) Stop() error {
+	s.engMu.Lock()
+	defer s.engMu.Unlock()
+	if s.eng == nil {
+		return nil // 未启动则幂等返回，避免 nil 解引用 panic
+	}
 	s.eng.shutdown(nil)
 	return nil
 }
@@ -77,12 +89,6 @@ func (s *server) run() error {
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		for _, ln := range lns {
-			ln.close()
-		}
-	}()
 
 	// lns := make([]net.Listener, 0, len(listeners))
 	// for _, ln := range listeners {
@@ -107,16 +113,24 @@ func (s *server) run() error {
 	// create event-loops
 	eng.eventLoops = new(roundRobinLoadBalancer)
 
+	s.engMu.Lock()
 	s.eng = &eng
+	s.engMu.Unlock()
 
 	e := Engine{
 		eng: &eng,
 	}
 
-	switch eng.eventHandler.OnBoot(e) {
+	bootAction := eng.eventHandler.OnBoot(e)
+	switch bootAction {
 	case None:
-	case Close:
-	case Shutdown:
+	case Close, Shutdown:
+		// P2（review 修正）：提前退出释放监听端口（修复前 Close 匹配空 case 走不到
+		// 提前返回——继续 start 阻塞；Shutdown 提前返回但未关 listener——端口泄漏。
+		// 现两者共享 body：cleanup + return）
+		for _, ln := range eng.listeners {
+			ln.close()
+		}
 		return nil // 引导事件返回关闭或关闭引擎，直接返回
 	}
 
@@ -126,7 +140,10 @@ func (s *server) run() error {
 		return err
 	}
 
-	defer eng.stop(rootCtx, e) // 等待上下文取消，触发关闭操作
+	// 阻塞运行直到 Stop()（eng.shutdown → turnOff → ctx 取消）：
+	// 保持阻塞式启动语义（与 ag_app 的 `go srv.Start()` 用法配合）。
+	// 注意不能用 defer：defer 在 return 前执行，启动失败路径也会触发阻塞等待。
+	eng.stop(rootCtx, e)
 
 	return nil
 }

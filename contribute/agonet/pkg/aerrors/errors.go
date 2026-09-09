@@ -18,6 +18,10 @@ var (
 	// ErrUnsupportedProtocol occurs when trying to use protocol that is not supported.
 	// ErrUnsupportedProtocol = errors.New("agonet: only unix, tcp/tcp4/tcp6, udp/udp4/udp6 are supported")
 	ErrUnsupportedProtocol = errors.New("agonet: only unix, tcp/tcp4/tcp6, tlcp are supported")
+
+	// ErrDialInEventLoop occurs when Dial is called from within the target eventloop goroutine.
+	// A4 守卫：loop 内同步 Dial 会自死锁（openConn 投进自己收件箱无人处理），快速失败拒绝。
+	ErrDialInEventLoop = errors.New("agonet: Dial must not be called from within the event-loop goroutine (use a business goroutine)")
 	// ErrUnsupportedTCPProtocol occurs when trying to use an unsupported TCP protocol.
 	ErrUnsupportedTCPProtocol = errors.New("agonet: only tcp/tcp4/tcp6 are supported")
 	// ErrUnsupportedUDPProtocol occurs when trying to use an unsupported UDP protocol.
@@ -44,6 +48,10 @@ var (
 	ErrTLCPConfigIsNil = errors.New("agonet: TLCPConfig is nil")
 
 	ErrEventLoopQueueFull = errors.New("agonet: event-loop queue is full")
+
+	// ErrMaxConnRejected occurs when a new connection is rejected because the
+	// connection quota (Options.MaxConn) has been reached.
+	ErrMaxConnRejected = errors.New("agonet: max connection quota exceeded")
 
 	ErrUnknownAddStrategy = errors.New("agonet: unknown add strategy")
 

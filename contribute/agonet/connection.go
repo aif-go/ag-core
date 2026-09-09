@@ -1,13 +1,13 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/elastic"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/pool/byteslice"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"io"
 	"net"
 	"time"
+
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/buffer/elastic"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 
 	// "github.com/smallnest/ringbuffer"
 	"github.com/valyala/bytebufferpool"
@@ -26,7 +26,7 @@ type tcpConn struct {
 
 type openConn struct {
 	c  *conn
-	cb func()
+	cb func(error) // 连接打开结果通知（nil=成功；拒绝/关闭/panic=携带错误——client Enroll 据此返回）
 }
 
 type conn struct {
@@ -72,6 +72,8 @@ func packTCPConn(c *conn, buf []byte) *tcpConn {
 
 func unpackTCPConn(tc *tcpConn) *conn {
 	if tc.c.buffer == nil { // the connection has been closed
+		// C3：连接已关闭（buffer 已释放）时到达的包——tc.b 必须归还防泄漏
+		bytebufferpool.Put(tc.b)
 		return nil
 	}
 	_, _ = tc.c.buffer.Write(tc.b.B)
@@ -95,6 +97,10 @@ func (c *conn) resetBuffer() {
 
 // Read implements io.Reader.
 func (c *conn) Read(p []byte) (n int, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		// 连接已关闭(release 归还缓冲池)：返回 ErrClosed，避免 nil 解引用 panic
+		return 0, net.ErrClosed
+	}
 	if c.inboundBuffer.IsEmpty() {
 		n = copy(p, c.buffer.B)
 		c.buffer.B = c.buffer.B[n:]
@@ -115,6 +121,9 @@ func (c *conn) Read(p []byte) (n int, err error) {
 
 // WriteTo implements io.WriterTo.
 func (c *conn) WriteTo(w io.Writer) (n int64, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return 0, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// return c.rawReader.WriteTo(w)
 
 	if !c.inboundBuffer.IsEmpty() {
@@ -131,6 +140,14 @@ func (c *conn) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (c *conn) Next(n int) (buf []byte, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return nil, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
+	if n <= 0 {
+		// 空 body 帧（msgLength==0）场景：返回空帧且不消费缓冲，
+		// 避免把整个 inbound 缓冲当作一帧吞掉导致后续粘包帧失步。
+		return []byte{}, nil
+	}
 	// inBufferLen := c.inboundBuffer.Length()
 	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
@@ -139,18 +156,30 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 		n = totalLen
 	}
 	if c.inboundBuffer.IsEmpty() {
-		buf = c.buffer.B[:n]
+		// C4（Next 路径③）：零拷贝别名 → 独立副本。实测四态：① 连接存活期不 append
+		// 安全；② B[:n] 共享原 cap——调用方 append 双写竞争；③ 跨连接池复用悬空（T12 实锤）；
+		// ④ 内存保持。用 make 副本（全安全语义：同回调/跨事件/粘包多帧均不冲突——
+		// 池化归还实测破坏"同回调安全"（StickyPackets：帧1 fire 后 Put → 帧2 复用覆盖）；
+		// 性能代价 +95% 帧处理（基准实测）——正确性 > 性能，文档记录待优化
+		// （未来方向：业务自管缓冲 / 读取 API 演进）
+		buf = make([]byte, n)
+		copy(buf, c.buffer.B[:n])
 		c.buffer.B = c.buffer.B[n:]
 		return
 	}
 
-	// buf = make([]byte, n)
-	buf = byteslice.Get(n)
-	_, err = c.Read(buf)
+	// Next 跨界：make 副本 + 组合读（err 显式化——make 无归还义务）
+	buf = make([]byte, n)
+	if _, err = c.Read(buf); err != nil {
+		return
+	}
 	return
 }
 
 func (c *conn) Peek(n int) (buf []byte, err error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return nil, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// inBufferLen := c.inboundBuffer.Length()
 	inBufferLen := c.inboundBuffer.Buffered()
 	if totalLen := inBufferLen + c.buffer.Len(); n > totalLen {
@@ -161,7 +190,11 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 		n = totalLen
 	}
 	if c.inboundBuffer.IsEmpty() {
-		return c.buffer.B[:n], err
+		// C4（Peek 路径①）：零拷贝别名 → 独立副本（make——不消费，Reset 写指针回 0
+		// 后下包必覆盖；T12 跨连接实锤）
+		buf = make([]byte, n)
+		copy(buf, c.buffer.B[:n])
+		return
 	}
 
 	// ==================
@@ -177,9 +210,13 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 	// ==================
 	head, tail := c.inboundBuffer.Peek(n)
 	if len(head) == n {
-		return head, err
+		// C4（Peek 路径②）：ring 内部切片别名 → 独立副本（head 指向 ring 底层
+		// rb.buf——grow/池复用后悬空）
+		buf = make([]byte, n)
+		copy(buf, head)
+		return
 	}
-	buf = byteslice.Get(n)[:0]
+	buf = make([]byte, 0, n) // 路径③：跨缓冲拼接——make（C1：原 byteslice.Get 借出 → 去池化）
 	buf = append(buf, head...)
 	buf = append(buf, tail...)
 	// ==================
@@ -196,10 +233,13 @@ func (c *conn) Peek(n int) (buf []byte, err error) {
 }
 
 func (c *conn) Discard(n int) (int, error) {
+	if c.rawConn == nil || c.buffer == nil {
+		return 0, net.ErrClosed // 连接已关闭：ErrClosed 而非 panic
+	}
 	// discarded, err = c.rawReader.Discard(n)
 	// return
 	if len(c.cache) > 0 {
-		byteslice.Put(c.cache)
+		// C5：cache 改 make 切片（无池归还义务）——原 byteslice.Put 删除
 		c.cache = nil
 	}
 
@@ -255,17 +295,17 @@ func (c *conn) AsyncWrite(buf []byte, cb AsyncCallback) error {
 		return err
 	}
 
-	var err error
-	select {
-	case c.loop.ch <- fn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		err = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- fn
-		})
+	// R2 三层降级链：① trySend（ch 空）→ 直接投成，零延迟
+	// ② ch 满 → 转池 send（等空位 / 引擎关闭丢弃，R3 ctx.Done → worker 归还）
+	// ③ Submit 失败（池满）→ 显式返回错误（A5 防线，不静默）
+	if !c.loop.trySend(fn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(fn)
+		}); err != nil {
+			return err
+		}
 	}
-
-	return err
+	return nil
 }
 
 // ReadFrom implements io.ReaderFrom.
@@ -304,13 +344,13 @@ func (c *conn) Close() (err error) {
 		return c.loop.close(c, nil)
 	}
 
-	select {
-	case c.loop.ch <- closeFn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		err = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- closeFn
-		})
+	// R2 三层降级链（同 AsyncWrite）：① trySend ② 转池 send（引擎关闭丢弃）③ 池满显式失败
+	if !c.loop.trySend(closeFn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(closeFn)
+		}); err != nil {
+			return err
+		}
 	}
 
 	return
@@ -333,13 +373,13 @@ func (c *conn) Wake(cb AsyncCallback) (rerr error) {
 		return
 	}
 
-	select {
-	case c.loop.ch <- wakeFn:
-	default:
-		// If the event-loop channel is full, asynchronize this operation to avoid blocking the eventloop.
-		rerr = goroutine.DefaultWorkerPool.Submit(func() {
-			c.loop.ch <- wakeFn
-		})
+	// R2 三层降级链（同 AsyncWrite）：① trySend ② 转池 send（引擎关闭丢弃）③ 池满显式失败
+	if !c.loop.trySend(wakeFn) {
+		if err := goroutine.DefaultWorkerPool.Submit(func() {
+			c.loop.send(wakeFn)
+		}); err != nil {
+			return err
+		}
 	}
 
 	return
@@ -378,7 +418,7 @@ func (c *conn) release() {
 	}
 
 	if len(c.cache) > 0 {
-		byteslice.Put(c.cache)
+		// C5：cache 改 make 切片——release 亦无池归还义务
 		c.cache = nil
 	}
 

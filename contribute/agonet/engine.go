@@ -1,18 +1,60 @@
 package agonet
 
 import (
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 	"log/slog"
 	"net"
 	"strings"
 	"sync/atomic"
+	"time"
 
+	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/errgroup"
 )
+
+// defaultMinReadSize 读缓冲最小容量默认值（Options.ReadBufferMinSize=0 时）：防池冷启动
+// cap=0 → tc.Read(空) → (0,nil) 忙等；小包场景 4KB 足够，大包靠满读扩展 + 池校准自适应。
+const defaultMinReadSize = 4096
+
+// defaultMaxReadSize 读缓冲扩展上限默认值（Options.ReadBufferMaxSize=0 时）：满读扩展不
+// 无界翻倍（对端持续大流量 → cap 无限增长 = 内存 DoS，与 F3 同族）；64KB = 原 [0x10000]byte
+// 段大小语义
+const defaultMaxReadSize = 64 * 1024
+
+// 读缓冲边界防呆钳制：min 下限 1KB（常见网络帧几百 B~几 KB——段至少装下一帧，
+// 更小 → 大包流 syscall 风暴；冷启动热身 1K→2K→…→64K 仅 6 次）；
+// max 上限 16MB（TCP 接收窗口物理上限量级——段 > 窗口永远满读不了，更大无意义且
+// 单连接读缓冲膨胀——OOM 风险）
+const (
+	minReadSizeFloor = 1024
+	maxReadSizeCeil  = 16 * 1024 * 1024
+)
+
+// resolveReadBufferSizes 解析读缓冲边界（Options → 实际值 + 防呆钳制）：
+// 0/负值 = 默认；正值经钳制（min ≥ 64、max ≤ 64MB、min ≤ max）修正明显不合理配置
+func resolveReadBufferSizes(opts *Options) (readMin, readMax int) {
+	readMin = defaultMinReadSize
+	readMax = defaultMaxReadSize
+	if opts.ReadBufferMinSize > 0 {
+		readMin = opts.ReadBufferMinSize
+	}
+	if opts.ReadBufferMaxSize > 0 {
+		readMax = opts.ReadBufferMaxSize
+	}
+	if readMin < minReadSizeFloor {
+		readMin = minReadSizeFloor
+	}
+	if readMax > maxReadSizeCeil {
+		readMax = maxReadSizeCeil
+	}
+	if readMin > readMax { // 钳制：min ≤ max
+		readMin = readMax
+	}
+	return
+}
 
 type Engine struct {
 	// eng is the internal engine struct.
@@ -35,6 +77,7 @@ type engine struct {
 	beingShutdown atomic.Bool
 	turnOff       context.CancelFunc
 	eventHandler  EventHandler
+	totalConn     int32 // R6 全局连接配额（原子——open Add 判断/close 递减；与 per-loop connCount 职责分离）
 	concurrency   struct {
 		*errgroup.Group
 
@@ -46,6 +89,20 @@ type engine struct {
 
 func (eng *engine) isShutdown() bool {
 	return eng.inShutdown.Load()
+}
+
+// maxConns 连接上限（0 = 不限制）。
+func (eng *engine) maxConns() int32 {
+	return eng.opts.MaxConn
+}
+
+// shutdownTimeout 优雅关闭 drain 超时（Options.ShutdownTimeout，0 = 默认 5s）。
+// A1 兜底：防慢 handler 无限拖延关闭；drain 超时后 loop 强制退出。
+func (eng *engine) shutdownTimeout() time.Duration {
+	if eng.opts.ShutdownTimeout <= 0 {
+		return 5 * time.Second
+	}
+	return eng.opts.ShutdownTimeout
 }
 
 // shutdown signals the engine to shut down.
@@ -151,35 +208,52 @@ func (eng *engine) listenStream(listener net.Listener) (err error) {
 		oconn := &openConn{
 			c: c,
 		}
-		el.ch <- oconn
+		if !el.sendNonBlocking(oconn) { // R4 跳满：ch 满或引擎关闭 → 快速失败（关连接继续 accept），
+			// accept 循环不被业务背压拖死（A1 残留收口）；引擎关闭时不滞留连接
+			tc.Close()
+			continue
+		}
 
-		// 启动 goroutine 处理单个客户端连接（支持多客户端并发）
-		err := goroutine.DefaultWorkerPool.Submit(func() {
-			var buffer [0x10000]byte
+		// R1：读 goroutine 出池（原生 goroutine，不再占全局池）。
+		// B1 触发链根除：池满 → Submit err → shutdown 整服关 不再可能由读路径触发。
+		// goroutine 数 = 连接数（fd 限制兜底；R6 MaxConn 应用层配额暂缓）。
+		// B2-D：读缓冲池化（连接级借用 bytebufferpool——替代每连接 64KB 逃逸堆；
+		// 池共享 + 校准自适应 + 最小 cap 地板防忙等 + 满读扩展段大小自适应）。
+		go func() {
+			b := bytebufferpool.Get()
+			defer bytebufferpool.Put(b) // 读 goroutine 退出（所有路径含 panic）归还
+			// 地板：cap 只增不减（满读扩展），for 外一次即可（循环内重复判断冗余）
+			readMin, readMax := resolveReadBufferSizes(el.eng.opts)
+			if cap(b.B) < readMin { // 防 cap=0 → tc.Read(空) → (0,nil) 忙等
+				b.B = append(b.B, make([]byte, readMin)...)
+			}
 			for {
-				// 监听连接读取数据
-				n, err := tc.Read(buffer[:])
-
+				n, err := tc.Read(b.B[:cap(b.B)])
 				if err != nil {
 					// 处理读取错误
-					el.ch <- &netErr{c, err}
+					el.send(&netErr{c, err}) // R2：错误路径 send 化
 					return
 				}
-				// 触发连接读取事件
-				el.ch <- packTCPConn(c, buffer[:n])
-
+				tc2 := packTCPConn(c, b.B[:n]) // 数据拷入独立 tc.b（读缓冲不投递——归还点保持 loop 侧）
+				if !el.send(tc2) {             // R2：数据路径 send 化，引擎关闭时归还 ByteBuffer
+					bytebufferpool.Put(tc2.b)
+					return
+				}
+				// 满读 → 可能还有数据 → 扩展（段大小自适应；封顶 readMax 防无界增长——对端持续大流量 → cap 无限翻倍 = 内存 DoS）
+				if n == cap(b.B) && cap(b.B) < readMax {
+					b.B = append(b.B, make([]byte, min(cap(b.B), readMax-cap(b.B)))...)
+				}
 			}
-		})
-		if err != nil {
-			return err
-		}
+		}()
 	}
 }
 
 func (eng *engine) closeEventLoops() {
 	eng.eventLoops.iterate(func(i int, el *eventloop) bool {
-		// 每个eventloop发送关闭信号
-		el.ch <- aerrors.ErrEngineShutdown
+		// A1：loop 退出不再依赖 ch 信号（run 监听 ctx.Done + drain）——
+		// 裸投递 el.ch <- ErrEngineShutdown 在 ch 满时阻塞 → Stop 卡死。
+		// trySend 尽力兼容（失败无碍，loop 靠 ctx 退出）。
+		el.trySend(aerrors.ErrEngineShutdown)
 		return true
 	})
 	for _, ln := range eng.listeners {

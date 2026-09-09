@@ -2,12 +2,14 @@ package agonet
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"time"
 
 	// "github.com/tjfoc/gmsm/gmtls"
 
 	"gitee.com/Trisia/gotlcp/tlcp"
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
 )
 
 // Option is a function that will set up option.
@@ -38,6 +40,25 @@ type Options struct {
 	NumEventLoop int
 
 	LockOSThread bool
+
+	// MaxConn 连接上限（0 = 不限制，默认）。链1 R1 出池后 goroutine 数 = 连接数，
+	// 远程连接耗尽防护（应用层配额，非精确边界；超限连接静默拒绝，不触发 OnOpen/OnClose）。
+	MaxConn int32
+
+	// ShutdownTimeout 优雅关闭 drain 超时（0 = 默认 5s）。A1：引擎关闭时在途事件
+	// （ch 存量）的处理上限，防慢 handler 无限拖延关闭；超时后剩余队列丢弃（强关）+ loop 强制退出。
+	// 注意：限制的是【队列 drain 时长】——不限制【正在执行的 handler】（loop 单线程——
+	// handler 永久阻塞则 loop 无法回到事件循环——模型固有，Netty 同款；handler 不得阻塞）。
+	ShutdownTimeout time.Duration
+	// ReadBufferMinSize 读缓冲最小容量（0 = 默认 4KB）：防池冷启动 cap=0 → 空 Read 忙等；
+	// 小包场景可调小省内存（地板——cap 只增不减，仅初始化生效）
+	ReadBufferMinSize int
+	// ReadBufferMaxSize 读缓冲扩展上限（0 = 默认 64KB）：满读扩展封顶（对端持续大流量
+	// → cap 无限翻倍 = 内存 DoS）；大帧服务可调大（段大小效率）、小包服务可调小（内存上界）
+	ReadBufferMaxSize int
+	// InboundBufferLimit 入站滞留上限（字节，0 = 默认 16MB）：半包/慢速客户端滞留
+	// 超限 → 关闭连接（F3：防 inboundBuffer 无上限增长内存 DoS）
+	InboundBufferLimit int
 
 	// Ticker bool
 
@@ -78,6 +99,55 @@ func (opt *Options) CliTLCPConfig() *tlcp.Config {
 	return opt.TLCPConfig
 }
 
+// ValidateServer 校验服务端配置自洽：TLSType 声明与对应 config 必须匹配。
+// 在 NewServerWithOptions 构造入口调用，配置错误 fail-fast，避免启动后静默明文/协议错配。
+func (opt *Options) ValidateServer() error {
+	switch opt.TLSType {
+	case TLSType_UNSET, TLSType_NONE:
+		return nil // 未声明安全类型：明文监听合法
+	case TLSType_TLS:
+		if opt.TLSConfig == nil {
+			return aerrors.ErrTLSConfigIsNil
+		}
+	case TLSType_TLCP:
+		if opt.TLCPConfig == nil {
+			return aerrors.ErrTLCPConfigIsNil
+		}
+	case TLSTYPE_TLS_TLCP:
+		if opt.TLSConfig == nil || opt.TLCPConfig == nil {
+			return fmt.Errorf("agonet: tls_tlcp requires both TLSConfig and TLCPConfig")
+		}
+	default:
+		return fmt.Errorf("agonet: unknown TLSType %q", opt.TLSType)
+	}
+	return nil
+}
+
+// ValidateClient 校验客户端配置自洽：对 CliTLSType() fallback 解析后的类型校验。
+// 必须用 getter（而非裸 CLI_* 字段）以保留"客户端复用服务端配置"的用法：
+// 手工 Options{TLSType: tls} 共用配置场景，CLI_* 为空时 fallback 借服务端字段。
+func (opt *Options) ValidateClient() error {
+	switch t := opt.CliTLSType(); t {
+	case TLSType_UNSET, TLSType_NONE:
+		return nil // 明文是客户端合法默认
+	case TLSTYPE_TLS_TLCP:
+		// tls_tlcp 仅服务端有效；客户端 fallback 到它时 DialContext 无对应分支会静默明文。
+		// 客户端须显式 CliType=tls/tlcp（或由 WithAgClientTLSConfig 归一化）。
+		return fmt.Errorf("agonet: tls_tlcp invalid for client, set CliType to tls or tlcp")
+	case TLSType_TLS:
+		if opt.CliTLSConfig() == nil {
+			return aerrors.ErrTLSConfigIsNil
+		}
+	case TLSType_TLCP:
+		if opt.CliTLCPConfig() == nil {
+			return aerrors.ErrTLCPConfigIsNil
+		}
+	default:
+		return fmt.Errorf("agonet: unknown TLSType %q", t)
+	}
+	return nil
+}
+
 type KeepAlive struct {
 	Enable   bool
 	Idle     time.Duration
@@ -97,6 +167,14 @@ func BuildOptionsWithConfig(conf OptionsConfig) (*Options, error) {
 			Interval: time.Duration(conf.KeepAlive.Interval) * time.Second,
 			Count:    conf.KeepAlive.Count,
 		},
+		// 引擎级配置映射（链1/ A1 新增字段：Options 与 Config 配置面一致）
+		ShutdownTimeout: time.Duration(conf.Engine.ShutdownTimeout) * time.Second,
+		MaxConn:         conf.Engine.MaxConn,
+		// 读缓冲边界（0 = 默认 4096/65536——读循环解析 + 防呆钳制）
+		ReadBufferMinSize: conf.Engine.ReadBufferMinSize,
+		ReadBufferMaxSize: conf.Engine.ReadBufferMaxSize,
+		// F3 入站滞留上限（0 = 默认 16MB——el.read 解析 + 防呆下限 1MB）
+		InboundBufferLimit: conf.Engine.InboundBufferLimit,
 	}
 
 	return opts, nil

@@ -1,5 +1,7 @@
 package simple
 
+import "sync/atomic"
+
 var (
 	_ HandlerContext   = (*handlerContext)(nil)
 	_ ActiveContext    = (*handlerContext)(nil)
@@ -13,8 +15,8 @@ var (
 // handlerContext impl HandlerContext
 type handlerContext struct {
 	pipeline Pipeline
-	prev     *handlerContext
-	next     *handlerContext
+	prev     atomic.Pointer[handlerContext] // D1：原子指针，跨 goroutine 读写安全
+	next     atomic.Pointer[handlerContext]
 
 	handler Handler
 
@@ -30,9 +32,9 @@ func newHandlerContext(p Pipeline, handler Handler, prev, next *handlerContext) 
 	hc := &handlerContext{
 		pipeline: p,
 		handler:  handler,
-		prev:     prev,
-		next:     next,
 	}
+	hc.prev.Store(prev)
+	hc.next.Store(next)
 
 	hc.cast2Inbound, _ = handler.(InboundHandler)
 	hc.cast2Outbound, _ = handler.(OutboundHandler)
@@ -45,11 +47,11 @@ func newHandlerContext(p Pipeline, handler Handler, prev, next *handlerContext) 
 }
 
 func (hc *handlerContext) prevContext() *handlerContext {
-	return hc.prev
+	return hc.prev.Load()
 }
 
 func (hc *handlerContext) nextContext() *handlerContext {
-	return hc.next
+	return hc.next.Load()
 }
 
 // Channel impl HandlerContext

@@ -2,6 +2,7 @@ package agonet
 
 import (
 	"net"
+	"sync/atomic"
 )
 
 type (
@@ -67,14 +68,21 @@ func (lb *baseLoadBalancer) len() int {
 
 // next returns the eligible event-loop based on Round-Robin algorithm.
 func (lb *roundRobinLoadBalancer) next(_ net.Addr) (el *eventloop) {
-	el = lb.eventLoops[lb.nextIndex%uint64(lb.size)]
-	lb.nextIndex++
+	if lb.size == 0 {
+		return nil // 未注册任何 eventloop（客户端未 Start），避免 %0 除零
+	}
+	// G1 修复：nextIndex 原子自增，取旧值取模（多 accept goroutine 并发调用无 race）
+	old := atomic.AddUint64(&lb.nextIndex, 1) - 1
+	el = lb.eventLoops[old%uint64(lb.size)]
 	return
 }
 
 // ================================= Implementation of Least-Connections load-balancer =================================
 
 func (lb *leastConnectionsLoadBalancer) next(_ net.Addr) (el *eventloop) {
+	if lb.size == 0 {
+		return nil // 未注册任何 eventloop（客户端未 Start），避免 eventLoops[0] 越界
+	}
 	el = lb.eventLoops[0]
 	minN := el.countConn()
 	for _, v := range lb.eventLoops[1:] {

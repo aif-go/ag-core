@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 )
 
@@ -59,10 +60,7 @@ func IdleStateHandler(readerIdleTime int64, writerIdleTime int64, allIdleTime in
 
 // idleHandler
 type idleHandler struct {
-	// mutex sync.RWMutex
-	// state int
-
-	// idleTime time.Duration
+	UnshareableHandlerBase // D2：有状态 handler，不可跨 pipeline 复用（AddLast 重复绑定 panic）
 
 	readerIdleTime time.Duration
 	writerIdleTime time.Duration
@@ -79,7 +77,7 @@ type idleHandler struct {
 	writTimer *time.Timer
 	allTimer  *time.Timer
 
-	handlerCtx HandlerContext
+	handlerCtx atomic.Pointer[handlerContext] // D2：timer goroutine 只做原子读（Load），状态归属 eventloop；nil 为合法零值
 }
 
 func (r *idleHandler) HandleActive(ctx ActiveContext) {
@@ -89,7 +87,7 @@ func (r *idleHandler) HandleActive(ctx ActiveContext) {
 }
 
 func (r *idleHandler) HandleInactive(ctx InactiveContext, ex error) {
-	r.handlerCtx = nil
+	r.handlerCtx.Store(nil)
 	if r.readTimer != nil {
 		r.readTimer.Stop()
 		r.readTimer = nil
@@ -133,11 +131,28 @@ func (r *idleHandler) HandleWrite(ctx OutboundContext, message any) {
 	}
 }
 
+// onTimeoutInEL timer 回调（timer goroutine）：只做原子读 + Execute 投递，不触碰可变状态。
+// 全部 idle 检查逻辑（判 nil/选 idlefunc/超时判断/Trigger）在 eventloop 内执行（checkIdle）。
+// D2：消除 timer goroutine 与 eventloop 的状态跨线程读写竞态，无需加锁。
 func (r *idleHandler) onTimeoutInEL(state IdleState) {
-	if r.handlerCtx == nil {
+	hc := r.handlerCtx.Load()
+	if hc == nil {
 		return
 	}
 
+	runnable := agonet.RunnableFunc(func(_ context.Context) error {
+		r.checkIdle(state)
+		return nil
+	})
+
+	err := hc.Channel().EventLoop().Execute(context.Background(), runnable)
+	if nil != err {
+		hc.Channel().Pipeline().FireChannelException(AsException(err))
+	}
+}
+
+// checkIdle eventloop 内执行：选择 idle 检查函数并执行（原 onTimeoutInEL 主体）。
+func (r *idleHandler) checkIdle(state IdleState) {
 	var idlefunc func()
 
 	switch state {
@@ -161,31 +176,17 @@ func (r *idleHandler) onTimeoutInEL(state IdleState) {
 		return
 	}
 
-	runnable := agonet.RunnableFunc(func(_ context.Context) error {
-		idlefunc()
-		return nil
-	})
-
-	// run onRead in eventloop
-	// 该方法执行不在eventloop中, 需要判断状态
-	if r.handlerCtx == nil {
-		return
-	}
-
-	err := r.handlerCtx.Channel().EventLoop().Execute(context.Background(), runnable)
-	if nil != err {
-		r.handlerCtx.Channel().Pipeline().FireChannelException(AsException(err))
-	}
+	idlefunc()
 }
 
 func (r *idleHandler) onReadTimeout() {
-	if r.handlerCtx == nil || r.readTimer == nil {
+	if r.handlerCtx.Load() == nil || r.readTimer == nil {
 		return
 	}
 
 	// check if the idle time expires.
 	expired := time.Since(r.lastReadTime) >= r.readerIdleTime
-	ctx := r.handlerCtx
+	ctx := r.handlerCtx.Load()
 
 	if expired && ctx != nil {
 		firstReadIdleEvent := r.firstReadIdleEvent
@@ -211,13 +212,13 @@ func (r *idleHandler) onReadTimeout() {
 }
 
 func (r *idleHandler) onWriteTimeout() {
-	if r.handlerCtx == nil || r.writTimer == nil {
+	if r.handlerCtx.Load() == nil || r.writTimer == nil {
 		return
 	}
 
 	// check if the idle time expires.
 	expired := time.Since(r.lastWritTime) >= r.writerIdleTime
-	ctx := r.handlerCtx
+	ctx := r.handlerCtx.Load()
 
 	if expired && ctx != nil {
 		firstWriterIdleEvent := r.firstWriterIdleEvent
@@ -243,13 +244,13 @@ func (r *idleHandler) onWriteTimeout() {
 }
 
 func (r *idleHandler) onAllTimeout() {
-	if r.handlerCtx == nil || r.allTimer == nil {
+	if r.handlerCtx.Load() == nil || r.allTimer == nil {
 		return
 	}
 
 	// check if the idle time expires.
 	expired := time.Since(r.lastReadTime) >= r.allIdleTime && time.Since(r.lastWritTime) >= r.allIdleTime
-	ctx := r.handlerCtx
+	ctx := r.handlerCtx.Load()
 
 	if expired && ctx != nil {
 		firstAllIdleEvent := r.firstAllIdleEvent
@@ -278,8 +279,10 @@ func (r *idleHandler) onAllTimeout() {
 func (r *idleHandler) initialize(ctx HandlerContext) {
 
 	// cache context.
-	r.handlerCtx = ctx
-
+	// 框架内 HandleActive 恒传 *handlerContext（FireActive 传播链），双值断言防御外部自定义 context。
+	if hc, ok := ctx.(*handlerContext); ok {
+		r.handlerCtx.Store(hc)
+	}
 	now := time.Now()
 
 	r.lastReadTime = now
