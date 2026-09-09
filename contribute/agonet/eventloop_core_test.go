@@ -223,3 +223,31 @@ func TestEngine_Shutdown_MarksFlags(t *testing.T) {
 		t.Fatal("turnOff (context cancel) not invoked")
 	}
 }
+
+// TestDrain_IsolatesPanicEvent drain 路径事件 panic 隔离（与 run/safeHandle 对称）。
+// 关闭路径（run 的 ctx.Done 分支 → drain）与正常路径消费同一 ch，事件集合相同——
+// func() error 用户回调 panic 不得逃逸（逃逸会击穿 run() 的无 recover defer → 引擎 goroutine）。
+// 修复前：drain 裸 handleEvent → panic 逃逸（红态）；修复后：drain 走 safeHandle → 记录 + 继续处理后续事件。
+func TestDrain_IsolatesPanicEvent(t *testing.T) {
+	el := newTestEventLoop(&trackHandler{})
+
+	var ran atomic.Int32
+	el.ch <- func() error { panic("drain-panic") }
+	el.ch <- func() error { ran.Store(1); return nil }
+
+	panicked := false
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				panicked = true
+			}
+		}()
+		el.drain()
+	}()
+	if panicked {
+		t.Fatal("panic escaped drain; drain must isolate event panics like run/safeHandle")
+	}
+	if ran.Load() != 1 {
+		t.Fatal("subsequent event not processed after panic; drain must continue like run()")
+	}
+}

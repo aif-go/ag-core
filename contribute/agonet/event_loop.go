@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
-	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 	"log/slog"
 	"net"
 	"runtime"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
+
+	"github.com/aif-go/ag-core/contribute/agonet/pkg/aerrors"
+	goroutine "github.com/aif-go/ag-core/contribute/agonet/pkg/pool/goroutline"
 
 	"github.com/petermattis/goid"
 )
@@ -24,6 +26,19 @@ type eventloop struct {
 	eventHandler EventHandler       // user eventHandler
 
 	goroutineId atomic.Int64
+}
+
+// safeHandle 包装事件处理（D6 层 2：func/写等无连接上下文的事件——panic 记录 + 返回
+// 非致命错误——loop 继续；连接事件已由 read 层 recover 覆盖）
+func (el *eventloop) safeHandle(i any) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("event-loop panic recovered", "event", fmt.Sprintf("%T", i),
+				"panic", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("panic recovered: %v", r)
+		}
+	}()
+	return el.handleEvent(i)
 }
 
 func (el *eventloop) run() (err error) {
@@ -48,14 +63,14 @@ func (el *eventloop) run() (err error) {
 	for {
 		select {
 		case i := <-el.ch:
-			err = el.handleEvent(i)
+			err = el.safeHandle(i) // D6：panic 隔离（记录——loop 继续）
 			if errors.Is(err, aerrors.ErrEngineShutdown) {
 				// el.getLogger().Debugf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err)
-				slog.Debug(fmt.Sprintf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err))
+				slog.Error(fmt.Sprintf("event-loop(%d) is exiting in terms of the demand from user, %v", el.idx, err))
 				return nil
 			} else if err != nil {
 				// el.getLogger().Debugf("event-loop(%d) got a nonlethal error: %v", el.idx, err)
-				slog.Debug(fmt.Sprintf("event-loop(%d) got a nonlethal error: %v", el.idx, err))
+				slog.Error(fmt.Sprintf("event-loop(%d) got a nonlethal error: %v", el.idx, err))
 			}
 		case <-el.eng.concurrency.ctx.Done():
 			// A1 优雅关闭：引擎关闭信号直达 loop（不依赖 ch 信号投递——裸投递在
@@ -94,7 +109,7 @@ func (el *eventloop) drain() {
 	for {
 		select {
 		case v := <-el.ch:
-			el.handleEvent(v)
+			el.safeHandle(v) // D6 对称：run 与 drain 消费同一 ch——panic 隔离（记录 + 继续），逃逸会击穿 run() 无 recover defer
 		default:
 			return // 队列空——优雅完成
 		}
@@ -163,7 +178,18 @@ const (
 // errInboundOverflow 入站滞留超限（F3：半包/慢速客户端——关闭连接释放内存）
 var errInboundOverflow = errors.New("inbound buffer overflow (F3)")
 
-func (el *eventloop) read(c *conn) error {
+// read 处理连接读事件（OnTraffic 调度 + 滞留写入）。
+// D6：read 层 recover——handler panic 隔离（记录 + 关闭肇事连接——panic 时连接
+// 处于半状态：buffer 半消费/缓存脏——留着后续事件会基于脏状态错误处理——必须关闭）。
+// 修复前无 recover——handler panic 传播到进程——整服崩溃（T19 红态实证）。
+func (el *eventloop) read(c *conn) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("read panic recovered (conn closed)", "remote", c.rawConn.RemoteAddr(),
+				"panic", r, "stack", string(debug.Stack()))
+			err = el.close(c, fmt.Errorf("panic in handler: %v", r))
+		}
+	}()
 	if _, ok := el.connections[c]; !ok {
 		return nil // ignore stale wakes.
 	}
@@ -184,7 +210,7 @@ func (el *eventloop) read(c *conn) error {
 	}
 
 	// 剩余未处理的字节写入缓存
-	_, err := c.inboundBuffer.Write(c.buffer.B) // FIXME elastic.RingBuffer 自动实现扩容
+	_, err = c.inboundBuffer.Write(c.buffer.B) // FIXME elastic.RingBuffer 自动实现扩容
 
 	if err != nil {
 		// return el.close(c, err)
