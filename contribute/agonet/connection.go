@@ -26,7 +26,7 @@ type tcpConn struct {
 
 type openConn struct {
 	c  *conn
-	cb func()
+	cb func(error) // 连接打开结果通知（nil=成功；拒绝/关闭/panic=携带错误——client Enroll 据此返回）
 }
 
 type conn struct {

@@ -49,6 +49,10 @@ var (
 
 	ErrEventLoopQueueFull = errors.New("agonet: event-loop queue is full")
 
+	// ErrMaxConnRejected occurs when a new connection is rejected because the
+	// connection quota (Options.MaxConn) has been reached.
+	ErrMaxConnRejected = errors.New("agonet: max connection quota exceeded")
+
 	ErrUnknownAddStrategy = errors.New("agonet: unknown add strategy")
 
 	ErrIncompletePacket = errors.New("agonet: incomplete packet")

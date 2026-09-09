@@ -181,7 +181,7 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 		_ = nc.Close()
 		return nil, aerrors.ErrDialInEventLoop
 	}
-	connOpened := make(chan struct{})
+	connOpened := make(chan error, 1) // 缓冲 1：loop 侧 cb 非阻塞；nil=成功，非 nil=拒绝/关闭/panic
 
 	// 不支持的协议判断，支持tpc4、tls、tlcp 等
 	// switch v := nc.(type) {
@@ -204,9 +204,9 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 
 	c := newStreamConn(el, nc, ctx)
 
-	if !el.send(&openConn{c: c, cb: func() { close(connOpened) }}) { // R2：openConn send 化
+	if !el.send(&openConn{c: c, cb: func(openErr error) { connOpened <- openErr }}) { // R2：openConn send 化
 		nc.Close()
-		close(connOpened) // 关键边界：open 不会执行 → cb 不会被调 → 防 Dial 永久挂起（A3）
+		connOpened <- aerrors.ErrEngineShutdown // 关键边界：open 不会执行 → cb 不会被调 → 主动通知防 Dial 永久挂起（A3）
 		return nil, aerrors.ErrEngineShutdown
 	}
 
@@ -242,9 +242,21 @@ func (cli *client) EnrollContext(nc net.Conn, ctx any) (gc Conn, err error) {
 	}()
 	gc = c
 
-	<-connOpened
+	// 双路等待：openConn 完成通知（成功/拒绝/panic）或引擎关闭。
+	// 关闭兜底（review 行内 P1 的残余竞态边界）：Stop 瞬间 send 可能竞态投递
+	// openConn 到已退出 loop（ch 滞留无人消费）——若无此兜底 <-connOpened 永久
+	// 阻塞 → Dial 挂起。
+	select {
+	case err = <-connOpened:
+		if err != nil {
+			return nil, err // 被拒（MaxConn）/引擎关闭/OnOpen panic——Dial 返回失败而非伪成功/挂起
+		}
+	case <-cli.eng.concurrency.ctx.Done():
+		_ = nc.Close()
+		return nil, aerrors.ErrEngineShutdown
+	}
 
-	return
+	return c, nil
 }
 
 func (cli *client) applyKeepAlive(nc net.Conn) error {

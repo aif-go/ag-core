@@ -114,7 +114,28 @@ func (el *eventloop) drain() {
 			return // 队列空——优雅完成
 		}
 		if time.Now().After(deadline) {
-			return // 超时——丢弃剩余（强关语义——ShutdownTimeout 生效）
+			el.rejectRemaining() // review 修正：超时丢弃剩余——openConn 必须完成通知 + 关连接（防 Dial 永久挂起）
+			return               // 超时——丢弃剩余（强关语义——ShutdownTimeout 生效）
+		}
+	}
+}
+
+// rejectRemaining 强关超时后的剩余队列：openConn 未处理 → 关 rawConn + cb(ErrEngineShutdown)
+// 完成通知（防 client EnrollContext 的 connOpened 永久等待——Stop 已返回但 Dial 挂起）；
+// 其余事件类型（netErr/tcpConn/func）无外部等待者，直接丢弃。
+func (el *eventloop) rejectRemaining() {
+	for {
+		select {
+		case v := <-el.ch:
+			if oc, ok := v.(*openConn); ok {
+				_ = oc.c.rawConn.Close()
+				oc.c.release()
+				if oc.cb != nil {
+					oc.cb(aerrors.ErrEngineShutdown)
+				}
+			}
+		default:
+			return
 		}
 	}
 }
@@ -132,19 +153,32 @@ func (el *eventloop) open(oc *openConn) error {
 		if cur := atomic.AddInt32(&el.eng.totalConn, 1); cur > el.eng.maxConns() {
 			atomic.AddInt32(&el.eng.totalConn, -1) // 超限回滚
 			_ = c.rawConn.Close()
+			c.release() // review 修正：释放被拒连接的缓冲资源
 			if oc.cb != nil {
-				oc.cb()
+				oc.cb(aerrors.ErrMaxConnRejected) // review 修正：拒绝必须携带错误（防 client 把配额拒绝当连接成功）
 			}
 			return nil
 		}
 	}
 
+	var openErr error
 	if oc.cb != nil {
-		defer oc.cb()
+		defer func() { oc.cb(openErr) }() // 成功 nil；panic 时携带错误（Dial 返回失败而非伪成功）
 	}
 
 	el.connections[c] = struct{}{}
 	el.incConn(1)
+
+	// OnOpen panic → 关闭肇事连接（对齐 read() 的 D6 语义——半初始化连接不可信），
+	// 经 close() 对称回收配额/注册/缓冲；cb 收到错误
+	defer func() {
+		if r := recover(); r != nil {
+			openErr = fmt.Errorf("panic in OnOpen: %v", r)
+			slog.Error("OnOpen panic recovered (conn closed)", "remote", c.rawConn.RemoteAddr(),
+				"panic", r, "stack", string(debug.Stack()))
+			_ = el.close(c, openErr)
+		}
+	}()
 
 	out, action := el.eventHandler.OnOpen(c)
 	if out != nil {
@@ -231,7 +265,7 @@ func (el *eventloop) wake(c *conn) error {
 	return el.handleAction(c, action)
 }
 
-func (el *eventloop) close(c *conn, err error) error {
+func (el *eventloop) close(c *conn, err error) (retErr error) {
 	_, ok := el.connections[c]
 	if c.rawConn == nil || !ok {
 		return nil // ignore stale wakes.
@@ -241,14 +275,25 @@ func (el *eventloop) close(c *conn, err error) error {
 	el.incConn(-1)
 	atomic.AddInt32(&el.eng.totalConn, -1) // R6 全局配额递减（与 open Add 判断对称）
 
-	action := el.eventHandler.OnClose(c, err)
+	// 资源收尾兜底：OnClose/handleAction 抛 panic 也保证 rawConn 关闭 + 缓冲归还
+	//（review 修正：修复前 OnClose panic 中断后续 rawConn.Close/release——fd/缓冲泄漏——
+	// 且连接已出 map，run defer 不再兜底）
+	defer func() {
+		_ = c.rawConn.Close()
+		c.release()
+	}()
 
-	err = c.rawConn.Close()
-
-	c.release()
-	if err != nil {
-		return fmt.Errorf("failed to close connection=%s in event-loop(%d): %v", c.remoteAddr, el.idx, err)
-	}
+	// OnClose 单独 recover：panic 记录 + 继续资源释放（对齐 read() 的 D6 隔离语义）
+	action := Action(None)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("OnClose panic recovered (conn closed)", "remote", c.rawConn.RemoteAddr(),
+					"panic", r, "stack", string(debug.Stack()))
+			}
+		}()
+		action = el.eventHandler.OnClose(c, err)
+	}()
 
 	return el.handleAction(c, action)
 }
