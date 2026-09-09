@@ -84,25 +84,23 @@ func (el *eventloop) handleEvent(v any) error {
 	return nil
 }
 
-// drain 引擎关闭时完成在途事件（ch 存量），超时兜底防慢 handler 无限 drain。
-// 读 goroutine 已停投（send 检查 ctx）→ ch 不再进新数据 → 消费到空即完成。
-// 超时后 drain goroutine 仍会消费完剩余（ch 清空自然退出），无泄漏。
+// drain 同步处理队列在途事件（loop goroutine 内调用——run 主循环已退出，loop 空闲——
+// 自身处理天然无并发消费者）；队列空返回（优雅完成）或超时返回（丢弃剩余——强关）。
+// P1（review 修正）：同步化替代原 goroutine 版——修复前超时只让外层返回、内部 goroutine
+// 继续 handleEvent，与 run 的 defer 清理并发（破坏单线程所有权 + use-after-free）。
+// 边界：deadline 检查在每事件间——正在执行的 handler 无法打断（模型固有——文档化）。
 func (el *eventloop) drain() {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for {
-			select {
-			case v := <-el.ch:
-				el.handleEvent(v)
-			default:
-				return
-			}
+	deadline := time.Now().Add(el.eng.shutdownTimeout())
+	for {
+		select {
+		case v := <-el.ch:
+			el.handleEvent(v)
+		default:
+			return // 队列空——优雅完成
 		}
-	}()
-	select {
-	case <-done:
-	case <-time.After(el.eng.shutdownTimeout()):
+		if time.Now().After(deadline) {
+			return // 超时——丢弃剩余（强关语义——ShutdownTimeout 生效）
+		}
 	}
 }
 
@@ -113,12 +111,17 @@ func (el *eventloop) open(oc *openConn) error {
 	// channelActive 计数 + close 同款）：关 rawConn → 读 goroutine Read 返回 err 自然退出；
 	// 不注册、不触发 OnOpen/OnClose。
 	// cb 仍需调用——客户端 EnrollContext 的 connOpened 边界（open 不执行 → 否则 Dial 挂起）。
-	if el.eng.maxConns() > 0 && el.eng.totalConns() >= el.eng.maxConns() {
-		_ = c.rawConn.Close()
-		if oc.cb != nil {
-			oc.cb()
+	// P1（review 修正）：全局原子配额——Add(+1) 后判断（检查与递增原子合一——
+	// 修复前 totalConns() 读时求和 + incConn 分离，多 loop 并发 open 竞态超限）
+	if el.eng.maxConns() > 0 {
+		if cur := atomic.AddInt32(&el.eng.totalConn, 1); cur > el.eng.maxConns() {
+			atomic.AddInt32(&el.eng.totalConn, -1) // 超限回滚
+			_ = c.rawConn.Close()
+			if oc.cb != nil {
+				oc.cb()
+			}
+			return nil
 		}
-		return nil
 	}
 
 	if oc.cb != nil {
@@ -210,6 +213,7 @@ func (el *eventloop) close(c *conn, err error) error {
 
 	delete(el.connections, c)
 	el.incConn(-1)
+	atomic.AddInt32(&el.eng.totalConn, -1) // R6 全局配额递减（与 open Add 判断对称）
 
 	action := el.eventHandler.OnClose(c, err)
 

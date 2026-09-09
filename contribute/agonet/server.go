@@ -121,10 +121,16 @@ func (s *server) run() error {
 		eng: &eng,
 	}
 
-	switch eng.eventHandler.OnBoot(e) {
+	bootAction := eng.eventHandler.OnBoot(e)
+	switch bootAction {
 	case None:
-	case Close:
-	case Shutdown:
+	case Close, Shutdown:
+		// P2（review 修正）：提前退出释放监听端口（修复前 Close 匹配空 case 走不到
+		// 提前返回——继续 start 阻塞；Shutdown 提前返回但未关 listener——端口泄漏。
+		// 现两者共享 body：cleanup + return）
+		for _, ln := range eng.listeners {
+			ln.close()
+		}
 		return nil // 引导事件返回关闭或关闭引擎，直接返回
 	}
 

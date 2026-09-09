@@ -46,7 +46,9 @@ type Options struct {
 	MaxConn int32
 
 	// ShutdownTimeout 优雅关闭 drain 超时（0 = 默认 5s）。A1：引擎关闭时在途事件
-	// （ch 存量）的处理上限，防慢 handler 无限拖延关闭；超时后 loop 强制退出。
+	// （ch 存量）的处理上限，防慢 handler 无限拖延关闭；超时后剩余队列丢弃（强关）+ loop 强制退出。
+	// 注意：限制的是【队列 drain 时长】——不限制【正在执行的 handler】（loop 单线程——
+	// handler 永久阻塞则 loop 无法回到事件循环——模型固有，Netty 同款；handler 不得阻塞）。
 	ShutdownTimeout time.Duration
 	// ReadBufferMinSize 读缓冲最小容量（0 = 默认 4KB）：防池冷启动 cap=0 → 空 Read 忙等；
 	// 小包场景可调小省内存（地板——cap 只增不减，仅初始化生效）

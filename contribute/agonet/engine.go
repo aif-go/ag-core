@@ -77,6 +77,7 @@ type engine struct {
 	beingShutdown atomic.Bool
 	turnOff       context.CancelFunc
 	eventHandler  EventHandler
+	totalConn     int32 // R6 全局连接配额（原子——open Add 判断/close 递减；与 per-loop connCount 职责分离）
 	concurrency   struct {
 		*errgroup.Group
 
@@ -93,18 +94,6 @@ func (eng *engine) isShutdown() bool {
 // maxConns 连接上限（0 = 不限制）。
 func (eng *engine) maxConns() int32 {
 	return eng.opts.MaxConn
-}
-
-// totalConns 当前连接总数（各 loop 原子计数累加）。
-// 并发 open（多 loop 同时接入）时可能瞬时超限——护栏语义（配额非精确边界），与 Netty
-// 社区 channelActive 计数实现一致；open 前置检查在同一 loop 内串行，不会重复注册。
-func (eng *engine) totalConns() int32 {
-	var total int32
-	eng.eventLoops.iterate(func(_ int, el *eventloop) bool {
-		total += el.countConn()
-		return true
-	})
-	return total
 }
 
 // shutdownTimeout 优雅关闭 drain 超时（Options.ShutdownTimeout，0 = 默认 5s）。
