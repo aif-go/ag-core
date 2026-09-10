@@ -5,6 +5,7 @@ go 1.24.8
 require (
 	github.com/cloudwego/kitex v0.15.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+	github.com/dgraph-io/ristretto/v2 v2.4.2
 	github.com/gin-gonic/gin v1.10.1
 	github.com/magiconair/properties v1.8.10
 	github.com/mitchellh/mapstructure v1.5.0
@@ -25,8 +26,9 @@ require (
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 )
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20251222181119-0a764e51fe1b

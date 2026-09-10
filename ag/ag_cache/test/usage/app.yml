@@ -1,0 +1,10 @@
+# 完整实践用法示例配置（真实 app.yml 加载路径）
+# 配置结构：default（全局限量）+ namespaces（per-name 覆盖，非零覆盖继承）
+agcache:
+  defaultEngine: ristretto
+  ristretto:
+    default:
+      maxCost: 104857600      # 100MB 内容预算
+      numCounters: 131072     # 2^17 = 100K 档（sketch ~0.26MB/实例）
+      bufferItems: 64
+      defaultTtl: 60s         # 引擎默认 TTL：缺省/0=永不过期；"60s"=60 秒

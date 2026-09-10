@@ -1,0 +1,862 @@
+package ag_cache_test
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/aif-go/ag-core/ag/ag_cache"
+)
+
+// ──────── helpers ────────
+
+// mockEngineFactory 注册 "mock" 引擎，供 core 层测试使用（无需 Ristretto）。
+type mockEngineFactory struct{}
+
+func (mockEngineFactory) Name() string { return "mock" }
+func (mockEngineFactory) Create(name string) (ag_cache.Engine, error) {
+	return ag_cache.NewMockEngine(), nil
+}
+
+// countingFactory 注册 "counting" 引擎并统计 Create 调用次数。
+type countingFactory struct {
+	creates atomic.Int32
+}
+
+func (f *countingFactory) Name() string { return "counting" }
+func (f *countingFactory) Create(name string) (ag_cache.Engine, error) {
+	f.creates.Add(1)
+	return ag_cache.NewMockEngine(), nil
+}
+
+// setupManager 设置默认 Manager（由 mock 引擎支撑）。
+func setupManager(t *testing.T) {
+	t.Helper()
+	props := ag_cache.DefaultAgCacheProperties()
+	props.DefaultEngine = "mock"
+	m, err := ag_cache.NewManager(props)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	m.SetEngineFactory("mock", mockEngineFactory{})
+	ag_cache.SetDefault(m)
+	t.Cleanup(ag_cache.CloseAll)
+}
+
+func strLoader(v string) ag_cache.LoaderFunc[string] {
+	return func(ctx context.Context, key string) (string, error) { return v, nil }
+}
+
+// mustCache 便捷获取 LoaderCache：测试中引擎 mock 正常，GetCacheWithLoader 的 err 应为 nil。
+func mustCache[T any](t *testing.T, m *ag_cache.Manager, name string, loader ag_cache.LoaderFunc[T], opts ...ag_cache.Option[T]) *ag_cache.LoaderCache[T] {
+	t.Helper()
+	c, err := ag_cache.GetCacheWithLoader(m, name, loader, opts...)
+	if err != nil {
+		t.Fatalf("GetCacheWithLoader(%s): %v", name, err)
+	}
+	return c
+}
+
+// dflt 返回默认 Manager（经 setupManager / SetDefault 设置）。
+func dflt() *ag_cache.Manager {
+	m := ag_cache.DefaultManager()
+	if m == nil {
+		panic("no default manager")
+	}
+	return m
+}
+
+// ──────── POC 7: 基础语义回归 ────────
+
+func TestGetOrElse_Basic(t *testing.T) {
+	setupManager(t)
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
+	ctx := context.Background()
+
+	callCount := 0
+	loader := func(ctx context.Context, key string) (string, error) {
+		callCount++
+		return "loaded-" + key, nil
+	}
+	_ = loader
+
+	v, err := cache.GetOrElse(ctx, "key1", func(ctx context.Context, key string) (string, error) {
+		callCount++
+		return "loaded-" + key, nil
+	})
+	if err != nil || v != "loaded-key1" {
+		t.Fatalf("first call: v=%q err=%v", v, err)
+	}
+	if callCount != 1 {
+		t.Fatalf("loader called %d times, expected 1", callCount)
+	}
+
+	v, err = cache.Get(ctx, "key1")
+	if err != nil || v != "loaded-key1" {
+		t.Fatalf("hit read: v=%q err=%v", v, err)
+	}
+	if callCount != 1 {
+		t.Fatalf("loader called %d times after hit, expected 1", callCount)
+	}
+}
+
+func TestGet_PureRead(t *testing.T) {
+	setupManager(t)
+	cache, _ := ag_cache.GetCache[string](dflt(), "users")
+	ctx := context.Background()
+
+	_, err := cache.Get(ctx, "missing")
+	if !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("expected ErrCacheMiss, got %v", err)
+	}
+}
+
+func TestSingleflight_LoaderCalledOnce(t *testing.T) {
+	setupManager(t)
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
+	ctx := context.Background()
+
+	var mu sync.Mutex
+	callCount := 0
+	loader := func(ctx context.Context, key string) (string, error) {
+		mu.Lock()
+		callCount++
+		mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		return "loaded", nil
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, 10)
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, errs[idx] = cache.GetOrElse(ctx, "sf-key", loader)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, e := range errs {
+		if e != nil {
+			t.Fatalf("goroutine %d: %v", i, e)
+		}
+	}
+	if callCount != 1 {
+		t.Fatalf("loader called %d times, expected 1", callCount)
+	}
+}
+
+func TestSerialization_StructType(t *testing.T) {
+	setupManager(t)
+	type User struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+	cache := mustCache[User](t, dflt(), "users", func(ctx context.Context, key string) (User, error) {
+		return User{Name: "Alice", Age: 30}, nil
+	})
+	ctx := context.Background()
+
+	user := User{Name: "Alice", Age: 30}
+	if _, err := cache.GetOrElse(ctx, "u1", func(ctx context.Context, key string) (User, error) {
+		return user, nil
+	}); err != nil {
+		t.Fatalf("GetOrElse: %v", err)
+	}
+
+	v, ok, err := cache.TryGet(ctx, "u1")
+	if err != nil || !ok || v != user {
+		t.Fatalf("tryget: v=%+v ok=%v err=%v", v, ok, err)
+	}
+}
+
+// ──────── POC 2/3: 独立实例隔离与 Clear ────────
+
+func TestIndependentInstances_Isolation(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	users := mustCache[string](t, dflt(), "users", strLoader("user-value"))
+	params := mustCache[string](t, dflt(), "params", strLoader("param-value"))
+
+	if _, err := users.GetOrElse(ctx, "shared-key", func(ctx context.Context, key string) (string, error) {
+		return "user-value", nil
+	}); err != nil {
+		t.Fatalf("users load: %v", err)
+	}
+	if _, err := params.GetOrElse(ctx, "shared-key", func(ctx context.Context, key string) (string, error) {
+		return "param-value", nil
+	}); err != nil {
+		t.Fatalf("params load: %v", err)
+	}
+
+	uv, _ := users.Get(ctx, "shared-key")
+	pv, _ := params.Get(ctx, "shared-key")
+	if uv != "user-value" || pv != "param-value" {
+		t.Fatalf("isolation failed: users=%q params=%q", uv, pv)
+	}
+}
+
+func TestClear_OnlyAffectsOwnInstance(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	users, _ := ag_cache.GetCache[string](dflt(), "users")
+	params, _ := ag_cache.GetCache[string](dflt(), "params")
+
+	users.GetOrElse(ctx, "u1", func(ctx context.Context, key string) (string, error) { return "U1", nil })
+	params.GetOrElse(ctx, "p1", func(ctx context.Context, key string) (string, error) { return "P1", nil })
+
+	params.Clear(ctx)
+
+	_, errU := users.Get(ctx, "u1")
+	_, errP := params.Get(ctx, "p1")
+
+	if errU != nil {
+		t.Fatalf("users should be unaffected by params.Clear, got err=%v", errU)
+	}
+	if !errors.Is(errP, ag_cache.ErrCacheMiss) {
+		t.Fatalf("params should be cleared, got err=%v", errP)
+	}
+}
+
+// ──────── P0-2: Engine error 通道 ────────
+
+func TestBackendError_NotTreatedAsMiss(t *testing.T) {
+	engine := ag_cache.NewMockEngine()
+	engine.Err = errors.New("connection refused") // backend down
+	ctx := context.Background()
+
+	cache := ag_cache.NewWithEngine[string](engine)
+
+	_, err := cache.Get(ctx, "k")
+	if errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatal("backend error must NOT be treated as cache miss")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+
+	loaderCalled := false
+	_, err = cache.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
+		loaderCalled = true
+		return "loaded", nil
+	})
+	if loaderCalled {
+		t.Fatal("loader must NOT be called when backend is down (would storm the source)")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+func TestBackendError_RecoversWhenEngineHeals(t *testing.T) {
+	engine := ag_cache.NewMockEngine()
+	ctx := context.Background()
+	cache := ag_cache.NewWithEngine[string](engine)
+
+	engine.Err = errors.New("down")
+	if _, err := cache.Get(ctx, "k"); !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+
+	engine.Err = nil
+	_, err := cache.Get(ctx, "k")
+	if !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("after recovery, expected ErrCacheMiss, got %v", err)
+	}
+}
+
+func TestErrBackend_PanicRecovery(t *testing.T) {
+	engine := ag_cache.NewMockEngine()
+	ctx := context.Background()
+	cache := ag_cache.NewWithEngine[string](engine)
+
+	engine.PanicNext = true
+	_, err := cache.Get(ctx, "any-key")
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend after engine panic, got %v", err)
+	}
+
+	engine.PanicNext = true
+	err = cache.Set(ctx, "k", "v")
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("Set: expected ErrBackend, got %v", err)
+	}
+}
+
+// P2-C: loader 不被第一个调用者的 ctx 取消（WithoutCancel）
+func TestLoader_NotCancelledByFirstCallerCtx(t *testing.T) {
+	setupManager(t)
+	cache := mustCache[string](t, dflt(), "users", strLoader("loaded"))
+
+	loaderCalled := false
+	loader := func(ctx context.Context, key string) (string, error) {
+		loaderCalled = true
+		select {
+		case <-time.After(100 * time.Millisecond):
+			return "loaded", nil
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var wg sync.WaitGroup
+	errs := make([]error, 5)
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			if idx == 0 {
+				_, errs[idx] = cache.GetOrElse(ctx, "k", loader)
+			} else {
+				_, errs[idx] = cache.GetOrElse(context.Background(), "k", loader)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	for i, e := range errs {
+		if e != nil {
+			t.Fatalf("goroutine %d: loader should still run despite first caller's cancelled ctx, got %v", i, e)
+		}
+	}
+	if !loaderCalled {
+		t.Fatal("loader should have been called once")
+	}
+}
+
+// ──────── LoaderCache 语法糖 ────────
+
+func TestLoaderCache_Get_ReadThrough(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	callCount := 0
+	loader := func(ctx context.Context, key string) (string, error) {
+		callCount++
+		return "loaded-" + key, nil
+	}
+	users := mustCache[string](t, dflt(), "users", loader)
+
+	v, err := users.Get(ctx, "u:1")
+	if err != nil || v != "loaded-u:1" {
+		t.Fatalf("first Get: v=%q err=%v", v, err)
+	}
+	if callCount != 1 {
+		t.Fatalf("loader called %d times, expected 1", callCount)
+	}
+
+	v, err = users.Get(ctx, "u:1")
+	if err != nil || v != "loaded-u:1" {
+		t.Fatalf("second Get: v=%q err=%v", v, err)
+	}
+	if callCount != 1 {
+		t.Fatalf("loader called %d times after hit, expected 1", callCount)
+	}
+
+	v, _ = users.Get(ctx, "u:2")
+	if v != "loaded-u:2" {
+		t.Fatalf("different key should reuse loader: v=%q", v)
+	}
+	if callCount != 2 {
+		t.Fatalf("loader called %d times, expected 2", callCount)
+	}
+}
+
+func TestLoaderCache_GetOrElse_CustomLoader(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	users := mustCache[string](t, dflt(), "users", func(ctx context.Context, key string) (string, error) {
+		return "default-loader", nil
+	})
+
+	v, err := users.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
+		return "custom-loader", nil
+	})
+	if err != nil || v != "custom-loader" {
+		t.Fatalf("custom loader: v=%q err=%v", v, err)
+	}
+}
+
+func TestLoaderCache_TryGet_NoLoader(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	callCount := 0
+	users := mustCache[string](t, dflt(), "users", func(ctx context.Context, key string) (string, error) {
+		callCount++
+		return "v", nil
+	})
+
+	_, ok, err := users.TryGet(ctx, "missing")
+	if err != nil || ok {
+		t.Fatalf("TryGet miss: ok=%v err=%v", ok, err)
+	}
+	if callCount != 0 {
+		t.Fatalf("TryGet must not call loader, called %d times", callCount)
+	}
+
+	users.Get(ctx, "k")
+	_, ok, _ = users.TryGet(ctx, "k")
+	if !ok {
+		t.Fatal("TryGet after Get should hit")
+	}
+}
+
+func TestLoaderCache_WithLoader(t *testing.T) {
+	setupManager(t)
+	ctx := context.Background()
+
+	inner, _ := ag_cache.GetCache[string](dflt(), "users")
+	users := ag_cache.WithLoader(inner, func(ctx context.Context, key string) (string, error) {
+		return "from-loader", nil
+	})
+
+	v, err := users.Get(ctx, "k")
+	if err != nil || v != "from-loader" {
+		t.Fatalf("WithLoader: v=%q err=%v", v, err)
+	}
+}
+
+// ──────── NewWithEngine 底层 ────────
+
+func TestNewWithEngine_ExplicitIsolation(t *testing.T) {
+	engineA := ag_cache.NewMockEngine()
+	engineB := ag_cache.NewMockEngine()
+	ctx := context.Background()
+
+	cacheA := ag_cache.NewWithEngine[string](engineA)
+	cacheB := ag_cache.NewWithEngine[string](engineB)
+
+	cacheA.Set(ctx, "k", "value-A")
+	cacheB.Set(ctx, "k", "value-B")
+
+	vA, _ := cacheA.Get(ctx, "k")
+	vB, _ := cacheB.Get(ctx, "k")
+	if vA != "value-A" || vB != "value-B" {
+		t.Fatalf("engine isolation failed: A=%q B=%q", vA, vB)
+	}
+}
+
+// ──────── config 选默认引擎 ────────
+
+func TestDefaultEngine_ConfigSelects(t *testing.T) {
+	count := &countingFactory{}
+	props := ag_cache.DefaultAgCacheProperties()
+	props.DefaultEngine = "counting"
+	m, err := ag_cache.NewManager(props)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	m.SetEngineFactory("counting", count)
+	ag_cache.SetDefault(m)
+	defer ag_cache.CloseAll()
+	ctx := context.Background()
+
+	mustCache[string](t, dflt(), "a", strLoader("x")).Get(ctx, "k")
+	if count.creates.Load() != 1 {
+		t.Fatalf("config default engine should be counting, creates=%d", count.creates.Load())
+	}
+}
+
+// ──────── MockCache 测试替身 ────────
+
+func TestMockCache_AsTestDouble(t *testing.T) {
+	svc := struct {
+		cache ag_cache.ICache[int]
+	}{cache: ag_cache.NewMock[int]()}
+
+	ctx := context.Background()
+	v, _ := svc.cache.GetOrElse(ctx, "max-retries", func(ctx context.Context, key string) (int, error) {
+		return 3, nil
+	})
+	if v != 3 {
+		t.Fatalf("expected 3, got %d", v)
+	}
+}
+
+// ──────── TryGet 行为 ────────
+
+func TestTryGet_Miss(t *testing.T) {
+	setupManager(t)
+	c, _ := ag_cache.GetCache[string](dflt(), "users")
+	ctx := context.Background()
+
+	v, ok, err := c.TryGet(ctx, "missing")
+	if err != nil || ok || v != "" {
+		t.Fatalf("TryGet miss: v=%q ok=%v err=%v", v, ok, err)
+	}
+}
+
+func TestTryGet_Hit(t *testing.T) {
+	setupManager(t)
+	c := mustCache[string](t, dflt(), "users", strLoader("v"))
+	ctx := context.Background()
+	c.GetOrElse(ctx, "k", strLoader("v"))
+
+	v, ok, err := c.TryGet(ctx, "k")
+	if err != nil || !ok || v != "v" {
+		t.Fatalf("TryGet hit: v=%q ok=%v err=%v", v, ok, err)
+	}
+}
+
+// ──────── Del 探测 BulkDelEngine ────────
+
+// bulkDelEngine: 实现 BulkDelEngine，记录 DelMany 调用
+type bulkDelEngine struct {
+	*ag_cache.MockEngine
+	mu      sync.Mutex
+	delMany []string
+}
+
+func (e *bulkDelEngine) DelMany(ctx context.Context, keys ...string) error {
+	e.mu.Lock()
+	e.delMany = append(e.delMany, keys...)
+	e.mu.Unlock()
+	return nil
+}
+
+func (e *bulkDelEngine) lastDelMany() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]string(nil), e.delMany...)
+}
+
+func TestDel_BulkDelEngine(t *testing.T) {
+	e := &bulkDelEngine{MockEngine: ag_cache.NewMockEngine()}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	if err := c.Del(ctx, "a", "b", "c"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	if got := e.lastDelMany(); len(got) != 3 || got[0] != "a" || got[2] != "c" {
+		t.Fatalf("DelMany not used: %v", got)
+	}
+}
+
+// ──────── 健壮性 2.1: double-check 用 WithoutCancel ────────
+
+func TestGetOrElse_DoubleCheck_WithoutCancel(t *testing.T) {
+	setupManager(t)
+	c := mustCache[string](t, dflt(), "users", strLoader("loaded"))
+	ctx := context.Background()
+
+	var mu sync.Mutex
+	callCount := 0
+	loader := func(ctx context.Context, key string) (string, error) {
+		mu.Lock()
+		callCount++
+		mu.Unlock()
+		time.Sleep(80 * time.Millisecond)
+		return "loaded", nil
+	}
+
+	// 首个调用者 ctx 取消，其余等待者正常
+	cancelCtx, cancel := context.WithCancel(ctx)
+	cancel() // 立即取消首个调用者
+
+	var wg sync.WaitGroup
+	errs := make([]error, 5)
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i == 0 {
+				_, errs[i] = c.GetOrElse(cancelCtx, "k", loader)
+			} else {
+				_, errs[i] = c.GetOrElse(context.Background(), "k", loader)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// 等待者应成功加载（loader 用 WithoutCancel；double-check 也用 WithoutCancel）
+	for i := 1; i < 5; i++ {
+		if errs[i] != nil {
+			t.Fatalf("waiter %d: %v", i, errs[i])
+		}
+	}
+	mu.Lock()
+	n := callCount
+	mu.Unlock()
+	if n != 1 {
+		t.Fatalf("loader called %d times, want 1", n)
+	}
+}
+
+// ──────── 健壮性 2.2: GetOrElse 写失败包 ErrBackend ────────
+
+// setFailEngine: 包装 MockEngine，Get 走 miss，Set 返回固定错误。
+type setFailEngine struct {
+	*ag_cache.MockEngine
+	fail error
+}
+
+func (e *setFailEngine) Set(ctx context.Context, key string, value []byte) error {
+	if e.fail != nil {
+		return e.fail
+	}
+	return e.MockEngine.Set(ctx, key, value)
+}
+
+func (e *setFailEngine) SetWithTTL(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if e.fail != nil {
+		return e.fail
+	}
+	return e.MockEngine.SetWithTTL(ctx, key, value, ttl)
+}
+
+func TestGetOrElse_SetFailure_ReturnsValue(t *testing.T) {
+	e := &setFailEngine{MockEngine: ag_cache.NewMockEngine(), fail: errors.New("persist: disk full")}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	// loader 成功但缓存写失败：读穿透以数据为准，返回 (v, nil)，不丢弃已加载数据。
+	v, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (string, error) {
+		return "loaded", nil
+	})
+	if err != nil {
+		t.Fatalf("write failure should not surface as error, got %v", err)
+	}
+	if v != "loaded" {
+		t.Fatalf("expected loaded value, got %q", v)
+	}
+}
+
+// ──────── 覆盖缺口 #2: TryGet 后端故障路径 ────────
+
+func TestTryGet_BackendFailure(t *testing.T) {
+	engine := ag_cache.NewMockEngine()
+	engine.Err = errors.New("connection refused")
+	c := ag_cache.NewWithEngine[string](engine)
+	ctx := context.Background()
+
+	v, ok, err := c.TryGet(ctx, "k")
+	if ok || v != "" {
+		t.Fatalf("TryGet backend failure: v=%q ok=%v", v, ok)
+	}
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+// ──────── 覆盖缺口 #3: Del 非 bulk 引擎多 key 中间失败短路 ────────
+
+// delFailEngine: 包装 MockEngine，删除指定 key 时返回错误。
+type delFailEngine struct {
+	*ag_cache.MockEngine
+	failKey string
+}
+
+func (e *delFailEngine) Del(ctx context.Context, key string) error {
+	if key == e.failKey {
+		return errors.New("del failed")
+	}
+	return e.MockEngine.Del(ctx, key)
+}
+
+func TestDel_Loop_StopsOnError(t *testing.T) {
+	e := &delFailEngine{MockEngine: ag_cache.NewMockEngine(), failKey: "b"}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	err := c.Del(ctx, "a", "b", "c") // b 失败 → 短路返回 ErrBackend
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ag_cache.ErrBackend) {
+		t.Fatalf("expected ErrBackend, got %v", err)
+	}
+}
+
+// ──────── 引擎不实现 TTLSetter → SetWithTTL 等同 Set ────────
+
+// noTTLEngine: 不实现 TTLSetter（无 SetWithTTL）的 Engine。
+type noTTLEngine struct {
+	*ag_cache.MockEngine
+}
+
+func TestSetWithTTL_NoTTLSetter_FallsBackToSet(t *testing.T) {
+	e := &noTTLEngine{MockEngine: ag_cache.NewMockEngine()}
+	c := ag_cache.NewWithEngine[string](e)
+	ctx := context.Background()
+
+	// 引擎无 TTLSetter：SetWithTTL 不报错，等同 Set。
+	if err := c.SetWithTTL(ctx, "k", "v", 30*time.Second); err != nil {
+		t.Fatalf("SetWithTTL on no-TTL engine should not error, got %v", err)
+	}
+	if _, err := c.Get(ctx, "k"); err != nil {
+		t.Fatalf("value should be stored via Set fallback, got %v", err)
+	}
+}
+
+// ──────── LoaderCache Del/Clear 转发 ────────
+
+func TestLoaderCache_Del(t *testing.T) {
+	setupManager(t)
+	users := mustCache[string](t, dflt(), "users", strLoader("v"))
+	ctx := context.Background()
+
+	users.GetOrElse(ctx, "u:1", strLoader("v"))
+	if _, err := users.Get(ctx, "u:1"); err != nil {
+		t.Fatalf("pre-del Get should hit, got %v", err)
+	}
+
+	if err := users.Del(ctx, "u:1"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	// Del 后 TryGet（纯读，不触发 loader）应 miss——值已被删除。
+	if _, ok, err := users.TryGet(ctx, "u:1"); err != nil || ok {
+		t.Fatalf("post-del TryGet should miss, ok=%v err=%v", ok, err)
+	}
+	// Get（读穿透）会重新 loader 写回——Cache-Aside 失效后重载的预期行为。
+	if v, err := users.Get(ctx, "u:1"); err != nil || v != "v" {
+		t.Fatalf("post-del Get should reload, v=%q err=%v", v, err)
+	}
+}
+
+func TestLoaderCache_Clear(t *testing.T) {
+	setupManager(t)
+	users := mustCache[string](t, dflt(), "users", strLoader("v"))
+	params := mustCache[string](t, dflt(), "params", strLoader("p"))
+	ctx := context.Background()
+
+	users.GetOrElse(ctx, "u:1", strLoader("v"))
+	params.GetOrElse(ctx, "p:1", strLoader("p"))
+
+	if err := users.Clear(ctx); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	// users 清空（TryGet 纯读 miss），params 不受影响。
+	if _, ok, err := users.TryGet(ctx, "u:1"); err != nil || ok {
+		t.Fatalf("users post-clear TryGet should miss, ok=%v err=%v", ok, err)
+	}
+	if _, err := params.Get(ctx, "p:1"); err != nil {
+		t.Fatalf("params should be unaffected, got %v", err)
+	}
+}
+
+// ──────── MockCache 测试替身自身方法 ────────
+
+func TestMockCache_SetGetDel(t *testing.T) {
+	c := ag_cache.NewMock[string]()
+	ctx := context.Background()
+
+	if err := c.Set(ctx, "k", "v"); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if v, err := c.Get(ctx, "k"); err != nil || v != "v" {
+		t.Fatalf("Get after Set: v=%q err=%v", v, err)
+	}
+	// TryGet 命中。
+	if v, ok, err := c.TryGet(ctx, "k"); err != nil || !ok || v != "v" {
+		t.Fatalf("TryGet hit: v=%q ok=%v err=%v", v, ok, err)
+	}
+	// SetWithTTL 等同 Set（mock 无 TTL）。
+	if err := c.SetWithTTL(ctx, "k", "v2", time.Minute); err != nil {
+		t.Fatalf("SetWithTTL: %v", err)
+	}
+	if v, _ := c.Get(ctx, "k"); v != "v2" {
+		t.Fatalf("Get after SetWithTTL: v=%q", v)
+	}
+	// Del。
+	if err := c.Del(ctx, "k"); err != nil {
+		t.Fatalf("Del: %v", err)
+	}
+	if _, err := c.Get(ctx, "k"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("Get after Del should miss, got %v", err)
+	}
+}
+
+func TestMockCache_GetOrElse_MissLoaderAndErr(t *testing.T) {
+	c := ag_cache.NewMock[int]()
+	ctx := context.Background()
+
+	// miss → loader 写入。
+	v, err := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (int, error) {
+		return 42, nil
+	})
+	if err != nil || v != 42 {
+		t.Fatalf("GetOrElse: v=%d err=%v", v, err)
+	}
+	// hit 不再调 loader。
+	calls := 0
+	if v, _ := c.GetOrElse(ctx, "k", func(ctx context.Context, key string) (int, error) {
+		calls++
+		return 0, nil
+	}); v != 42 {
+		t.Fatalf("hit should return cached 42, got %d", v)
+	}
+	if calls != 0 {
+		t.Fatalf("loader called %d times on hit, want 0", calls)
+	}
+
+	// SetError → 所有 GetOrElse 返回该错误（模拟后端故障）。
+	c.SetError(errors.New("backend down"))
+	if _, err := c.GetOrElse(ctx, "any", func(ctx context.Context, key string) (int, error) {
+		return 1, nil
+	}); err == nil {
+		t.Fatal("SetError should make GetOrElse return the injected error")
+	}
+}
+
+func TestMockCache_Clear(t *testing.T) {
+	c := ag_cache.NewMock[string]()
+	ctx := context.Background()
+	c.Set(ctx, "a", "A")
+	c.Set(ctx, "b", "B")
+	if err := c.Clear(ctx); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	if _, err := c.Get(ctx, "a"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("post-clear Get(a) should miss, got %v", err)
+	}
+	if _, err := c.Get(ctx, "b"); !errors.Is(err, ag_cache.ErrCacheMiss) {
+		t.Fatalf("post-clear Get(b) should miss, got %v", err)
+	}
+}
+
+// ──────── WithSerializer 自定义序列化 ────────
+
+// upperSerializer 自定义 Serializer：Marshal 原样存 []byte，Unmarshal 加前缀标记。
+// 用于验证 WithSerializer option 生效（typedCache 用自定义序列化器而非默认）。
+type upperSerializer struct{}
+
+func (upperSerializer) Marshal(v string) ([]byte, error) {
+	return []byte("raw:" + v), nil
+}
+func (upperSerializer) Unmarshal(data []byte) (*string, error) {
+	s := string(data)
+	return &s, nil
+}
+
+func TestWithSerializer_Custom(t *testing.T) {
+	e := ag_cache.NewMockEngine()
+	c := ag_cache.NewWithEngine[string](e, ag_cache.WithSerializer[string](upperSerializer{}))
+	ctx := context.Background()
+
+	if err := c.Set(ctx, "k", "hello"); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	// 验证引擎中存的是自定义序列化结果（"raw:hello"），而非默认序列化。
+	if v, err := e.Get(ctx, "k"); err != nil || string(v) != "raw:hello" {
+		t.Fatalf("engine should store custom-serialized bytes, got %q err=%v", v, err)
+	}
+	// 读回原值（自定义 Unmarshal 原样返回）。
+	if v, err := c.Get(ctx, "k"); err != nil || v != "raw:hello" {
+		t.Fatalf("Get via custom serializer: v=%q err=%v", v, err)
+	}
+}
