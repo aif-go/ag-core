@@ -231,3 +231,67 @@ func TestDAO_PointerDispatch(t *testing.T) {
 		}
 	})
 }
+
+// TestDAO_Decimal 验证 dao 模板对 decimal.Decimal 类型列生成 IsZero 判断（零值检查、主键守卫、索引守卫）。
+func TestDAO_Decimal(t *testing.T) {
+	t.Run("generateZeroValueCheck decimal 生成 IsZero", func(t *testing.T) {
+		columns := []table.ColumnData{{GoType: "decimal.Decimal", JsonTag: "salary"}}
+		code := generateZeroValueCheck(columns)
+		if !strings.Contains(code, "entity.salary.IsZero()") {
+			t.Errorf("generateZeroValueCheck 应生成 IsZero 判断, got: %s", code)
+		}
+		if strings.Contains(code, "entity.salary == 0") {
+			t.Errorf("generateZeroValueCheck decimal 不应生成 == 0, got: %s", code)
+		}
+	})
+
+	t.Run("generateZeroValueCheck *decimal.Decimal 生成 == nil", func(t *testing.T) {
+		columns := []table.ColumnData{{GoType: "*decimal.Decimal", JsonTag: "salary"}}
+		code := generateZeroValueCheck(columns)
+		if !strings.Contains(code, "entity.salary == nil") {
+			t.Errorf("generateZeroValueCheck 指针 decimal 应生成 == nil, got: %s", code)
+		}
+	})
+
+	t.Run("GetDaoTemplate decimal 主键生成 !IsZero 守卫", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:   "tm_decimal",
+			StructName:  "TmDecimal",
+			PrimaryKeys: []string{"salary"},
+			Columns: []table.ColumnData{
+				{Name: "salary", GoType: "decimal.Decimal", JsonTag: "salary", IsPrimaryKey: true},
+			},
+			Indexes: []table.IndexData{
+				{Name: "idx_salary", Columns: []string{"salary"}},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		if !strings.Contains(code, "!entity.salary.IsZero()") {
+			t.Errorf("GetDaoTemplate decimal 主键应生成 !IsZero 判断, got:\n%s", code)
+		}
+		if strings.Contains(code, "entity.salary != 0") {
+			t.Errorf("GetDaoTemplate decimal 主键不应生成 != 0, got:\n%s", code)
+		}
+	})
+
+	t.Run("GetDaoTemplate decimal 索引引导列生成 !IsZero 守卫", func(t *testing.T) {
+		tableData := &table.TableData{
+			ModuleName:  "github.com/aif-go/ag-core/tool/cmd/gen-go-db",
+			TableName:   "tm_decimal_idx",
+			StructName:  "TmDecimalIdx",
+			PrimaryKeys: []string{"id"},
+			Columns: []table.ColumnData{
+				{Name: "id", GoType: "int64", JsonTag: "id", IsPrimaryKey: true},
+				{Name: "salary", GoType: "decimal.Decimal", JsonTag: "salary"},
+			},
+			Indexes: []table.IndexData{
+				{Name: "idx_salary", Columns: []string{"salary"}},
+			},
+		}
+		code := GetDaoTemplate(tableData)
+		if !strings.Contains(code, "!entity.salary.IsZero()") {
+			t.Errorf("GetDaoTemplate decimal 索引引导列应生成 !IsZero 判断, got:\n%s", code)
+		}
+	})
+}
