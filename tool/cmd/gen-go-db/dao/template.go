@@ -299,19 +299,6 @@ func GetDaoTemplate(tableData *table.TableData) string {
 		// 生成主键为空的判断
 		primaryKeyUpdate += "\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n"
 
-		// 生成唯一键检查
-		// if len(uniqueKeyColumns) > 0 {
-		// 	primaryKeyUpdate += "\t\tif " + generateZeroValueCheck(uniqueKeyColumns) + " {\n"
-		// 	primaryKeyUpdate += "\t\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
-		// 	primaryKeyUpdate += "\t\t}\n"
-
-		// 	// 生成唯一键更新条件
-		// 	for _, uk := range uniqueKeyColumns {
-		// 		primaryKeyUpdate += "\t\twhere[\"" + uk.Name + "\"] = entity." + uk.JsonTag + "\n"
-		// 	}
-		// } else {
-		// 	primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
-		// }
 		primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
 
 		primaryKeyUpdate += "\t} else {\n"
@@ -323,27 +310,6 @@ func GetDaoTemplate(tableData *table.TableData) string {
 
 		primaryKeyUpdate += "\t}\n"
 	}
-	// else if len(uniqueKeyColumns) > 0 {
-	// 	// 没有主键但有唯一键的情况
-	// 	primaryKeyUpdate = "\t// 没有主键，使用唯一键作为更新条件\n"
-	// 	primaryKeyUpdate += "\tif " + generateZeroValueCheck(uniqueKeyColumns) + " {\n"
-	// 	primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,unique key is required\")\n"
-	// 	primaryKeyUpdate += "\t}\n"
-
-	// 	// 生成唯一键更新条件
-	// 	for _, uk := range uniqueKeyColumns {
-	// 		primaryKeyUpdate += "\twhere[\"" + uk.Name + "\"] = entity." + uk.JsonTag + "\n"
-	// 	}
-	// } else {
-	// 	// 既没有主键也没有唯一键
-	// 	primaryKeyUpdate = "\t// 既没有主键也没有唯一键\n"
-	// 	primaryKeyUpdate += "\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
-	// }
-
-	// var reflectImpor string = "reflect"
-	// if len(tableData.SelfQueries) > 0 {
-	// 	reflectImpor = "reflect"
-	// }
 
 	// 生成自定义规则查询的switch语句和do方法
 	switchCases := generateCustomerRuleSwitch(tableData)
@@ -353,8 +319,6 @@ func GetDaoTemplate(tableData *table.TableData) string {
 	if len(tableData.SelfQueries) > 0 {
 		initMethods = "Init" + structName + "NamingSql()"
 		importStrings = "\"strings\""
-		// 添加conditonwhere导入
-		// importStrings += "\n\t\"github.com/aif-go/ag-core/contribute/agdb/conditonwhere\""
 	}
 
 	// 构建完整的模板字符串
@@ -918,19 +882,6 @@ var %sNamingInfo = &db.NameingSqlArgInfo{
 `, query.Name, query.Name, structName, query.Name, resultType)
 		}
 	}
-
-// 	// 添加Column结构体实例
-// 	constants += fmt.Sprintf(`
-
-// // 定制列表模型的实例，供动态更细使用，这里不要使用表的表的主键和唯一键
-// var %sColumn = &model.%sColumn{
-// 	Name:    "name",
-// 	Address: "address",
-// 	Phone:   "phone",
-// 	ClassId: "class_id",
-// 	CardNo:  "card_no",
-// }
-// `, structName, structName)
 
     var dbImports string = `package dao
 `

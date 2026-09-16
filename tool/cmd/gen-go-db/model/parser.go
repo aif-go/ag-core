@@ -313,19 +313,6 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	}, nil
 }
 
-
-// 辅助函数：转换为大驼峰命名
-// func toCamelCase(s string) string {
-// 	parts := strings.Split(s, "_")
-// 	result := ""
-// 	for _, part := range parts {
-// 		if part != "" {
-// 			result += strings.Title(strings.ToLower(part))
-// 		}
-// 	}
-// 	return result
-// }
-
 // 辅助函数：获取Go类型
 func getGoType(sqlType string) string {
 	switch sqlType {
@@ -382,41 +369,6 @@ func whereDataToYAML(whereData map[interface{}]interface{}) (string, error) {
 	}
 	return string(yamlBytes), nil
 }
-
-// // 解析where条件
-// func parseWhereCondition(whereData map[interface{}]interface{}) *conditonwhere.MaskWhereCondition {
-// 	condition := &conditonwhere.MaskWhereCondition{}
-
-// 	// 解析operator
-// 	if operator, ok := whereData["operator"].(string); ok {
-// 		condition.Operator = operator
-// 	} else {
-// 		condition.Operator = "AND" // 默认使用AND
-// 	}
-
-// 	// 解析conditions
-// 	if conditionsData, ok := whereData["conditions"].([]interface{}); ok {
-// 		condition.Conditions = make([]conditonwhere.MaskWhereCondition, 0, len(conditionsData))
-// 		for _, condData := range conditionsData {
-// 			if condMap, ok := condData.(map[interface{}]interface{}); ok {
-// 				// 检查是嵌套条件还是表达式
-// 				if _, hasExpr := condMap["expr"]; hasExpr {
-// 					// 是表达式
-// 					subCond := conditonwhere.MaskWhereCondition{
-// 						Expr: condMap["expr"].(string),
-// 					}
-// 					condition.Conditions = append(condition.Conditions, subCond)
-// 				} else {
-// 					// 是嵌套条件
-// 					subCond := parseWhereCondition(condMap)
-// 					condition.Conditions = append(condition.Conditions, *subCond)
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return condition
-// }
 
 // 提取where条件中的所有字段信息
 func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]string, whereColFields *[]table.WhereColField) {
@@ -534,23 +486,6 @@ func generateGormTag(col *table.ColumnData, indexes []table.IndexData) string {
 	}
 
 	return strings.Join(tags, ";")
-}
-
-// 辅助函数：生成索引列变量
-func generateIndexColumns(indexes []table.IndexData) string {
-	columnsMap := make(map[string]bool)
-	for _, idx := range indexes {
-		for _, col := range idx.Columns {
-			columnsMap[col] = true
-		}
-	}
-
-	columns := []string{}
-	for col := range columnsMap {
-		columns = append(columns, `"`+col+`"`)
-	}
-
-	return `[]string{` + strings.Join(columns, `, `) + `}`
 }
 
 // 辅助函数：去重
