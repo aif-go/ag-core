@@ -1,8 +1,11 @@
+//go:build db
+
 package test
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aif-go/ag-core/contribute/agdb/agdao"
@@ -104,13 +107,21 @@ func mustOpenDB() *gorm.DB {
 	return db
 }
 
-// GetDSN 根据数据库类型返回对应的连接字符串
+// GetDSN 根据数据库类型返回对应的连接字符串（环境变量 MYSQL_DSN / DB2_DSN，§5.3）
 func GetDSN(dbType string) string {
 	switch dbType {
 	case "mysql":
-		return "root:root@tcp(localhost:3306)/process?parseTime=True&loc=Local"
+		dsn := os.Getenv("MYSQL_DSN")
+		if dsn == "" {
+			panic("未设置 MYSQL_DSN 环境变量")
+		}
+		return dsn
 	case "ibmdb":
-		return "HOSTNAME=192.168.105.63;DATABASE=testdb;PORT=50003;UID=db2inst1;PWD=db2inst1;AUTHENTICATION=SERVER;CurrentSchema=db2inst1"
+		dsn := os.Getenv("DB2_DSN")
+		if dsn == "" {
+			panic("未设置 DB2_DSN 环境变量")
+		}
+		return dsn
 	default:
 		panic(fmt.Sprintf("不支持的数据库类型: %s", dbType))
 	}

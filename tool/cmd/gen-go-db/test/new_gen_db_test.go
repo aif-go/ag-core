@@ -1,4 +1,6 @@
-package main
+//go:build db
+
+package test
 
 import (
 	"context"
@@ -9,7 +11,6 @@ import (
 	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/test"
 	"github.com/shopspring/decimal"
 
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
@@ -18,7 +19,7 @@ import (
 
 func TestInsertOne(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.InsertOne(ctx, &model.TmTeacher{
 		Name:    "test1",
 		Address: "上海市浦东新区",
@@ -31,7 +32,7 @@ func TestInsertOne(t *testing.T) {
 
 func TestInsertOneIgnoreZeroVal(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.InsertOneIgnoreZeroValCols(ctx, &model.TmTeacher{
 		Name:    "aaa3",
 		Address: "上海市徐汇区",
@@ -44,7 +45,7 @@ func TestInsertOneIgnoreZeroVal(t *testing.T) {
 
 func TestUpdateByPrimaryKey(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{
 		Id:      1,
 		Name:    "test1B",
@@ -58,7 +59,7 @@ func TestUpdateByPrimaryKey(t *testing.T) {
 
 func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
 		Id:      2,
 		Name:    "test2",
@@ -73,7 +74,7 @@ func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 
 func TestFindByStruct(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 
 	testCases := []struct {
 		name    string
@@ -118,8 +119,8 @@ func TestFindByStruct(t *testing.T) {
 
 func TestFindByCustomRule(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
-	args:=&model.TmTeacherFindByNameNadAddressArg{
+	tmTeacherDao := GetRepository()
+	args := &model.TmTeacherFindByNameNadAddressArg{
 		FieldMask: conditonwhere.NewFieldMask(),
 	}
 	args.WithName("Alice").WithAddress("北京")
@@ -134,7 +135,7 @@ func TestFindByCustomRule(t *testing.T) {
 
 func TestFindByCustomRuleByPageMysql(t *testing.T) {
 	ctx := context.Background()
-	tmTeacherDao := test.GetRepository()
+	tmTeacherDao := GetRepository()
 	res, err := tmTeacherDao.FindByCustomerRule(ctx, dao.FindByPhoneNamingInfo, &model.TmTeacherFindByPhoneArg{
 		Phone: "13800000000",
 		Page: gormdb.Page{

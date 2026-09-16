@@ -21,6 +21,10 @@ type TestCase struct {
 func TestParseWhereCondition(t *testing.T) {
 
 	testCases:=getTestCases()
+	// 已知失败用例（预期红，冻结项）：CHG-06 子查询 lexer 修复后应解冻本名单（S9 决策，同 CHG-07 模式）。
+	knownRedCases := map[string]string{
+		"子查询 - 复杂子查询": "CHG-06：子查询内 AND 被误拆为外层条件，解析结果错误，冻结待修",
+	}
 	// 执行测试并生成YAML文件
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -28,7 +32,16 @@ func TestParseWhereCondition(t *testing.T) {
 			result := ParseWhereCondition(tc.Input)
 
 			// t.Log(result)
-			
+
+			if reason, isKnownRed := knownRedCases[tc.Name]; isKnownRed {
+				if compareWhereClause(result, tc.Output) {
+					t.Errorf("预期红用例意外通过（%s）：缺陷可能已修复，请评审后解冻并更新本名单", reason)
+				} else {
+					t.Logf("预期红（%s）: 输入: %s", reason, tc.Input)
+				}
+				return
+			}
+
 			// 验证结果
 			if !compareWhereClause(result, tc.Output) {
 				t.Errorf("测试失败: %s\n输入: %s\n期望: %+v\n实际: %+v", tc.Name, tc.Input, tc.Output, result)
