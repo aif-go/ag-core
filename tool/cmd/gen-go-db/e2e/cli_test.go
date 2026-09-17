@@ -208,6 +208,26 @@ func TestE2E_Db_BadInput(t *testing.T) {
 	}
 }
 
+// TestE2E_Db_InvalidDbType CHG-05：非法 -d 值生成前报错，不再产出编译不过的产物。
+func TestE2E_Db_InvalidDbType(t *testing.T) {
+	bin, moduleRoot := buildGendbBinary(t)
+	outDir := t.TempDir()
+	code, out := runGendb(t, bin, "db", "-i", filepath.Join(moduleRoot, "repository", "yaml", "tm_no.yaml"), "-o", outDir, "-m", "example.com/demo", "-d", "oracle")
+	if code != 1 {
+		t.Fatalf("非法 dbType 应退出码 1，实际 %d，输出:\n%s", code, out)
+	}
+	if !strings.Contains(out, "非法的数据库类型") {
+		t.Errorf("应输出 dbType 校验错误，输出:\n%s", out)
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("校验失败后不应产生任何输出文件，实际: %v", entries)
+	}
+}
+
 // buildSheetInput 构造 sheet 子命令输入 xlsx。
 func buildSheetInput(t *testing.T, path string) {
 	t.Helper()
