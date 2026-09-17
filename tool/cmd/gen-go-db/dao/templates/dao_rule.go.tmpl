@@ -1,0 +1,187 @@
+{{define "doMethods"}}{{range .DoMethods}}{{if .DynamicSql}}// do{{.Name}} 执行{{.Name}}查询（分页）
+func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (*model.{{$.StructName}}{{.Name}}PageRes, error) {
+
+	queryArgs, ok := args.(*model.{{$.StructName}}{{.Name}}Arg)
+	if !ok {
+		return nil, errors.New("do{{.Name}} args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "{{$.StructName}}" + "_" + namingInfo.SqlName
+	execSql := {{$.StructName}}NamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("{{.Name}}",model.{{$.StructName}}ConditionMap)
+	if err != nil {
+		return nil, err
+	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.{{$.StructName}}IndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
+
+	execCountSql := {{$.StructName}}NamingSqlMap[sqlName+"_Count"]
+	if execCountSql == "" {
+		return nil, errors.New("not found naming sql count")
+	}
+
+	newTableName := dao.getApplyInfo(ctx).TableName
+	if newTableName != "" {
+		enity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var totalCount int64
+	result := dao.DB(ctx).Raw(execCountSql, argsMap).Scan(&totalCount)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	startRecord, endRecord, totalPage, enablePage, err := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	if err!= nil{
+		return nil, err
+	}
+	if !enablePage {
+		return &model.{{$.StructName}}{{.Name}}PageRes{
+			PageResult: gormdb.PageResult{
+				CurrentPage: queryArgs.PageNum,
+				PageSize:    queryArgs.PageSize,
+				TotalCount:  totalCount,
+				TotalPage:   totalPage,
+			},
+		}	, nil
+	}
+	argsMap["Start"] = startRecord
+	argsMap["End"] = endRecord
+	var list []*model.{{.ResultType}}
+	resultlist := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
+	if resultlist.Error != nil {
+		return nil, resultlist.Error
+	}
+
+	return &model.{{$.StructName}}{{.Name}}PageRes{
+		PageResult: gormdb.PageResult{
+			CurrentPage: queryArgs.PageNum,
+			PageSize:    queryArgs.PageSize,
+			TotalCount:  totalCount,
+			TotalPage:   totalPage,
+		},
+		ResultList: list,
+	}, nil
+}
+{{else}}{{if .HasPage}}// do{{.Name}} 执行{{.Name}}查询（分页）
+func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (*model.{{$.StructName}}{{.Name}}PageRes, error) {
+
+	queryArgs, ok := args.(*model.{{$.StructName}}{{.Name}}Arg)
+	if !ok {
+		return nil, errors.New("do{{.Name}} args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "{{$.StructName}}" + "_" + namingInfo.SqlName
+	execSql := {{$.StructName}}NamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("{{.Name}}",model.{{$.StructName}}ConditionMap)
+	if err != nil {
+		return nil, err
+	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.{{$.StructName}}IndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
+
+	execCountSql := {{$.StructName}}NamingSqlMap[sqlName+"_Count"]
+	if execCountSql == "" {
+		return nil, errors.New("not found naming sql count")
+	}
+
+	newTableName := dao.getApplyInfo(ctx).TableName
+	if newTableName != "" {
+		enity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var totalCount int64
+	result := dao.DB(ctx).Raw(execCountSql, argsMap).Scan(&totalCount)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	startRecord, endRecord, totalPage, enablePage, err := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
+	if err!= nil{
+		return nil, err
+	}
+	if !enablePage {
+		return &model.{{$.StructName}}{{.Name}}PageRes{
+			PageResult: gormdb.PageResult{
+				CurrentPage: queryArgs.PageNum,
+				PageSize:    queryArgs.PageSize,
+				TotalCount:  totalCount,
+				TotalPage:   totalPage,
+			},
+		}	, nil
+	}
+	argsMap["Start"] = startRecord
+	argsMap["End"] = endRecord
+	var list []*model.{{.ResultType}}
+	resultlist := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
+	if resultlist.Error != nil {
+		return nil, resultlist.Error
+	}
+
+	return &model.{{$.StructName}}{{.Name}}PageRes{
+		PageResult: gormdb.PageResult{
+			CurrentPage: queryArgs.PageNum,
+			PageSize:    queryArgs.PageSize,
+			TotalCount:  totalCount,
+			TotalPage:   totalPage,
+		},
+		ResultList: list,
+	}, nil
+}
+
+{{else}}// do{{.Name}} 执行{{.Name}}查询（非分页）
+func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) ([]*model.{{.ResultType}}, error) {
+
+	queryArgs, ok := args.(*model.{{$.StructName}}{{.Name}}Arg)
+	if !ok {
+		return nil, errors.New("do{{.Name}} args type not match")
+	}
+
+	sqlName := dao.DbType + "_" + "{{$.StructName}}" + "_" + namingInfo.SqlName
+	execSql := {{$.StructName}}NamingSqlMap[sqlName]
+	if execSql == "" {
+		return nil, errors.New("not found naming sql")
+	}
+
+	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("{{.Name}}",model.{{$.StructName}}ConditionMap)
+	if err != nil {
+		return nil, err
+	}
+	// 校验新的where条件是否使用了索引列，避免全表扫描
+	check:=conditonwhere.ValidateLeadingCol(newwhere,model.{{$.StructName}}IndexLeadingCols)
+	if !check {
+		return nil, errors.New("query not use any index")
+	}
+
+	newTableName := dao.getApplyInfo(ctx).TableName
+	if newTableName != "" {
+		enity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+	}
+
+	argsMap := queryArgs.ConvertToMap()
+	var list []*model.{{.ResultType}}
+	result := dao.DB(ctx).Raw(execSql, argsMap).Find(&list)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return list, nil
+}
+
+{{end}}{{end}}{{end}}{{end}}
