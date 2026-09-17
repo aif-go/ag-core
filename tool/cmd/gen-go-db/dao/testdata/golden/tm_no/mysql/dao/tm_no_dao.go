@@ -1,15 +1,14 @@
 package dao
 
 import (
-	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
 	"context"
-	"reflect"
 	"errors"
 	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"reflect"
 
 	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
-	
 
 	"gorm.io/gorm"
 )
@@ -39,7 +38,7 @@ type ITmNoDao interface {
 
 // NewTmNoDao get dao instance
 func NewTmNoDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITmNoDao {
-	
+
 	return &TmNoDao{
 		Repository: repository,
 		baseDao:    baseDao,
@@ -63,9 +62,9 @@ func (dao *TmNoDao) InsertOne(ctx context.Context, entity *model.TmNo) (int64, e
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *TmNoDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
-	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
-	if err!= nil{
-		return 0, err	
+	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
+	if err != nil {
+		return 0, err
 	}
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -99,7 +98,7 @@ func (dao *TmNoDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, ent
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
-	}	
+	}
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 
@@ -117,9 +116,9 @@ func (dao *TmNoDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoP
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var entity model.TmNo
-	result := db.Where("", ).First(&entity)
+	result := db.Where("").First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -266,8 +265,6 @@ func (dao *TmNoDao) FindFirstOneByCondition(ctx context.Context, condition *cond
 	return &entity, result.Error
 }
 
-
-
 // getInfo 获取表信息
 func (dao *TmNoDao) getInfo() agdao.TableInfo {
 	return dao.info
@@ -292,7 +289,3 @@ func (dao *TmNoDao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db = db.Table(tbname)
 	return db, nil
 }
-
-
-
-

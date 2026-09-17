@@ -1,15 +1,14 @@
 package dao
 
 import (
-	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
 	"context"
-	"reflect"
 	"errors"
 	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"reflect"
 
 	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
-	
 
 	"gorm.io/gorm"
 )
@@ -39,7 +38,7 @@ type ITmStudentDao interface {
 
 // NewTmStudentDao get dao instance
 func NewTmStudentDao(repository *gormdb.Repository, baseDao agdao.BaseDao) ITmStudentDao {
-	
+
 	return &TmStudentDao{
 		Repository: repository,
 		baseDao:    baseDao,
@@ -63,9 +62,9 @@ func (dao *TmStudentDao) InsertOne(ctx context.Context, entity *model.TmStudent)
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *TmStudentDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmStudent) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
-	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
-	if err!= nil{
-		return 0, err	
+	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
+	if err != nil {
+		return 0, err
 	}
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -86,7 +85,7 @@ func (dao *TmStudentDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.TenantId == 0) || (entity.StudentNo == "")) {
+	if (entity.TenantId == 0) || (entity.StudentNo == "") {
 		return 0, errors.New("when update,primary key or unique key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
@@ -106,11 +105,11 @@ func (dao *TmStudentDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
-	}	
+	}
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.TenantId == 0) || (entity.StudentNo == "")) {
+	if (entity.TenantId == 0) || (entity.StudentNo == "") {
 		return 0, errors.New("when update,primary key or unique key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
@@ -131,7 +130,7 @@ func (dao *TmStudentDao) FindByPrimaryKey(ctx context.Context, primaryKey model.
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var entity model.TmStudent
 	result := db.Where("tenant_id = ? AND student_no = ?", primaryKey.TenantId, primaryKey.StudentNo).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -300,8 +299,6 @@ func (dao *TmStudentDao) FindFirstOneByCondition(ctx context.Context, condition 
 	return &entity, result.Error
 }
 
-
-
 // getInfo 获取表信息
 func (dao *TmStudentDao) getInfo() agdao.TableInfo {
 	return dao.info
@@ -326,7 +323,3 @@ func (dao *TmStudentDao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db = db.Table(tbname)
 	return db, nil
 }
-
-
-
-

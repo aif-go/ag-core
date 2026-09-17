@@ -1,12 +1,12 @@
 package dao
 
 import (
-	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
 	"context"
-	"reflect"
 	"errors"
 	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
+	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
+	"reflect"
 
 	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
 	"strings"
@@ -63,9 +63,9 @@ func (dao *TmMediaActDao) InsertOne(ctx context.Context, entity *model.TmMediaAc
 // InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
 func (dao *TmMediaActDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
-	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
-	if err!= nil{
-		return 0, err	
+	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
+	if err != nil {
+		return 0, err
 	}
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -86,7 +86,7 @@ func (dao *TmMediaActDao) UpdateByPrimaryKey(ctx context.Context, entity *model.
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.Seq == 0)) {
+	if entity.Seq == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	} else {
 		where["SEQ"] = entity.Seq
@@ -105,11 +105,11 @@ func (dao *TmMediaActDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Contex
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
-	}	
+	}
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
-	if ((entity.Seq == 0)) {
+	if entity.Seq == 0 {
 		return 0, errors.New("when update,primary key or unique key is required")
 	} else {
 		where["SEQ"] = entity.Seq
@@ -129,7 +129,7 @@ func (dao *TmMediaActDao) FindByPrimaryKey(ctx context.Context, id model.TmMedia
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var entity model.TmMediaAct
 	result := db.Where("SEQ = ?", id).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -312,12 +312,12 @@ func (dao *TmMediaActDao) doNoPageQuery(ctx context.Context, namingInfo *gormdb.
 		return nil, errors.New("not found naming sql")
 	}
 
-	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("NoPageQuery",model.TmMediaActConditionMap)
+	newwhere, err := queryArgs.FieldMask.BuildWhereFromConfig("NoPageQuery", model.TmMediaActConditionMap)
 	if err != nil {
 		return nil, err
 	}
 	// 校验新的where条件是否使用了索引列，避免全表扫描
-	check:=conditonwhere.ValidateLeadingCol(newwhere,model.TmMediaActIndexLeadingCols)
+	check := conditonwhere.ValidateLeadingCol(newwhere, model.TmMediaActIndexLeadingCols)
 	if !check {
 		return nil, errors.New("query not use any index")
 	}
@@ -350,12 +350,12 @@ func (dao *TmMediaActDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Namein
 	if execSql == "" {
 		return nil, errors.New("not found naming sql")
 	}
-	newwhere,err:=queryArgs.FieldMask.BuildWhereFromConfig("Xxxxx",model.TmMediaActConditionMap)
+	newwhere, err := queryArgs.FieldMask.BuildWhereFromConfig("Xxxxx", model.TmMediaActConditionMap)
 	if err != nil {
 		return nil, err
 	}
 	// 校验新的where条件是否使用了索引列，避免全表扫描
-	check:=conditonwhere.ValidateLeadingCol(newwhere,model.TmMediaActIndexLeadingCols)
+	check := conditonwhere.ValidateLeadingCol(newwhere, model.TmMediaActIndexLeadingCols)
 	if !check {
 		return nil, errors.New("query not use any index")
 	}
@@ -379,7 +379,7 @@ func (dao *TmMediaActDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Namein
 		return nil, result.Error
 	}
 	startRecord, endRecord, totalPage, enablePage, err := gormdb.CalcPageStartRecord(queryArgs.PageNum, queryArgs.PageSize, totalCount, dao.DbType)
-	if err!= nil{
+	if err != nil {
 		return nil, err
 	}
 	if !enablePage {
@@ -390,7 +390,7 @@ func (dao *TmMediaActDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Namein
 				TotalCount:  totalCount,
 				TotalPage:   totalPage,
 			},
-		}	, nil
+		}, nil
 	}
 	argsMap["Start"] = startRecord
 	argsMap["End"] = endRecord
@@ -410,8 +410,6 @@ func (dao *TmMediaActDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Namein
 		ResultList: list,
 	}, nil
 }
-
-
 
 // getInfo 获取表信息
 func (dao *TmMediaActDao) getInfo() agdao.TableInfo {
@@ -437,7 +435,3 @@ func (dao *TmMediaActDao) newDB(ctx context.Context) (*gorm.DB, error) {
 	db = db.Table(tbname)
 	return db, nil
 }
-
-
-
-

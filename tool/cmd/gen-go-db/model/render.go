@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"text/template"
+	"go/format"
 
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
@@ -21,6 +22,10 @@ func renderModelTemplate(name string, data any) (string, error) {
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 		return "", err
+	}
+	// 阶段 4（CHG-01）：生成物统一 gofmt；格式化失败（如 CHG-07 缺陷产物）回退原文
+	if formatted, ferr := format.Source(buf.Bytes()); ferr == nil {
+		return string(formatted), nil
 	}
 	return buf.String(), nil
 }
