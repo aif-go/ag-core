@@ -29,7 +29,8 @@ type ITmTeacherDao interface {
 	InsertOne(ctx context.Context, entity *model.TmTeacher) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.TmTeacher) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) // Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（永久并存，无移除计划）
+	UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error)
 	FindByPrimaryKey(ctx context.Context, id model.TmTeacherPrimaryKey) (*model.TmTeacher, error)
 	FindByStruct(ctx context.Context, entity *model.TmTeacher) ([]*model.TmTeacher, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
@@ -60,7 +61,7 @@ func (dao *TmTeacherDao) InsertOne(ctx context.Context, entity *model.TmTeacher)
 	return result.RowsAffected, result.Error
 }
 
-// InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
+// InsertOneIgnoreZeroValCols 插入数据时，自动剔除零值的列
 func (dao *TmTeacherDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
@@ -100,8 +101,8 @@ func (dao *TmTeacherDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *TmTeacherDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) {
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+func (dao *TmTeacherDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -121,6 +122,12 @@ func (dao *TmTeacherDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context
 	// 使用支持更新的列
 	result := db.Model(&model.TmTeacher{}).Where(where).Updates(entity)
 	return result.RowsAffected, result.Error
+}
+
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（两者永久并存，无移除计划）
+func (dao *TmTeacherDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) {
+	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
 }
 
 // FindByPrimaryKey 根据主键查询
@@ -328,8 +335,8 @@ func (dao *TmTeacherDao) doFindByNameNadAddress(ctx context.Context, namingInfo 
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.TmTeacher{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.TmTeacher{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
@@ -371,9 +378,9 @@ func (dao *TmTeacherDao) doFindByPhone(ctx context.Context, namingInfo *gormdb.N
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.TmTeacher{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.TmTeacher{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()

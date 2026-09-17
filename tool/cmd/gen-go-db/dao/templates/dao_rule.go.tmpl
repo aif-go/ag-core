@@ -28,9 +28,9 @@ func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gor
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.{{$.StructName}}{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
@@ -101,9 +101,9 @@ func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gor
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.{{$.StructName}}{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
@@ -171,8 +171,8 @@ func (dao *{{$.StructName}}Dao) do{{.Name}}(ctx context.Context, namingInfo *gor
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.{{$.StructName}}{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.{{$.StructName}}{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()

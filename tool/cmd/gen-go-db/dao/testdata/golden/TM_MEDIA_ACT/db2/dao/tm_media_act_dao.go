@@ -29,7 +29,8 @@ type ITmMediaActDao interface {
 	InsertOne(ctx context.Context, entity *model.TmMediaAct) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.TmMediaAct) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) // Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（永久并存，无移除计划）
+	UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error)
 	FindByPrimaryKey(ctx context.Context, id model.TmMediaActPrimaryKey) (*model.TmMediaAct, error)
 	FindByStruct(ctx context.Context, entity *model.TmMediaAct) ([]*model.TmMediaAct, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
@@ -60,7 +61,7 @@ func (dao *TmMediaActDao) InsertOne(ctx context.Context, entity *model.TmMediaAc
 	return result.RowsAffected, result.Error
 }
 
-// InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
+// InsertOneIgnoreZeroValCols 插入数据时，自动剔除零值的列
 func (dao *TmMediaActDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
@@ -100,8 +101,8 @@ func (dao *TmMediaActDao) UpdateByPrimaryKey(ctx context.Context, entity *model.
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *TmMediaActDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) {
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+func (dao *TmMediaActDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -121,6 +122,12 @@ func (dao *TmMediaActDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Contex
 	// 使用支持更新的列
 	result := db.Model(&model.TmMediaAct{}).Where(where).Updates(entity)
 	return result.RowsAffected, result.Error
+}
+
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（两者永久并存，无移除计划）
+func (dao *TmMediaActDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmMediaAct) (int64, error) {
+	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
 }
 
 // FindByPrimaryKey 根据主键查询
@@ -324,8 +331,8 @@ func (dao *TmMediaActDao) doNoPageQuery(ctx context.Context, namingInfo *gormdb.
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.TmMediaAct{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.TmMediaAct{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
@@ -367,9 +374,9 @@ func (dao *TmMediaActDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Namein
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.TmMediaAct{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
-		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.TmMediaAct{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		execCountSql = strings.ReplaceAll(execCountSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()

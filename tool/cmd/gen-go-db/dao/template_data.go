@@ -86,8 +86,8 @@ func generateFindByPrimaryKeyInterface(tableData *table.TableData) string {
 		// 单主键，使用类型别名
 		return "\tFindByPrimaryKey(ctx context.Context, id model." + structName + "PrimaryKey) (*model." + structName + ", error)"
 	}
-	// 多主键，使用结构体
-	return "\tFindByPrimaryKey(ctx context.Context, primaryKey model." + structName + "Primarkey) (*model." + structName + ", error)"
+	// 多主键，使用结构体（历史拼写 Primarkey 以别名兼容，见 model 产物）
+	return "\tFindByPrimaryKey(ctx context.Context, primaryKey model." + structName + "PrimaryKey) (*model." + structName + ", error)"
 }
 
 // generateFindByPrimaryKeyMethod 生成 FindByPrimaryKey 方法实现
@@ -118,7 +118,7 @@ func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, id model
 	// 多主键，使用结构体
 	argsClause := generatePrimaryKeyArgs(tableData)
 	return `// FindByPrimaryKey 根据主键查询
-func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, primaryKey model.` + structName + `Primarkey) (*model.` + structName + `, error) {
+func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, primaryKey model.` + structName + `PrimaryKey) (*model.` + structName + `, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err

@@ -24,11 +24,14 @@ type TmStudent struct {
 	LastUpdateTime time.Time       `gorm:"column:last_update_time;AUTOUPDATETIME" json:"LastUpdateTime"`
 }
 
-// TmStudentPrimarkey 多主键结构体
-type TmStudentPrimarkey struct {
+// TmStudentPrimaryKey 多主键结构体
+type TmStudentPrimaryKey struct {
 	TenantId  int64
 	StudentNo string
 }
+
+// TmStudentPrimarkey 多主键结构体（历史拼写别名，永久保留，无移除计划）
+type TmStudentPrimarkey = TmStudentPrimaryKey
 
 // TableName 返回表名
 func (tmStudent *TmStudent) TableName() string {

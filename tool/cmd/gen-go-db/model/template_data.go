@@ -93,10 +93,13 @@ type %sPrimaryKey %s`, structName, structName, col.GoType)
 		}
 	}
 
-	return fmt.Sprintf(`// %sPrimarkey 多主键结构体
-type %sPrimarkey struct {
+	return fmt.Sprintf(`// %sPrimaryKey 多主键结构体
+type %sPrimaryKey struct {
 %s
-}`, structName, structName, strings.Join(fields, "\n"))
+}
+
+// %sPrimarkey 多主键结构体（历史拼写别名，永久保留，无移除计划）
+type %sPrimarkey = %sPrimaryKey`, structName, structName, strings.Join(fields, "\n"), structName, structName, structName)
 }
 
 // lowerStructName 首字母小写的结构体名。

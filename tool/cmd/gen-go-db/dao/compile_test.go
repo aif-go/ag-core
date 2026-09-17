@@ -124,6 +124,22 @@ func TestGeneratedCodeCompiles(t *testing.T) {
 		t.Fatalf("生成物编译失败（预期全绿组）: %v\n%s", err, string(out))
 	}
 
+	// CHG-04 断言：新旧方法名并存（Deprecated 委托 + 编译通过）
+	daoFile := filepath.Join(greenRoot, "tm_teacher_nodbtype", "repository", "dao", "tm_teacher_dao.go")
+	codeBytes, readErr := os.ReadFile(daoFile)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	for _, want := range []string{
+		"UpdateByPrimaryKeyIgnoreZeroValCols",
+		"UpdateByPrimaryKeyIngoreZeroValCols", // 旧名委托保留
+		"Deprecated:",
+	} {
+		if !strings.Contains(string(codeBytes), want) {
+			t.Errorf("生成物缺少期望标识 %q（CHG-04 双名并存）", want)
+		}
+	}
+
 	redRoot := filepath.Join(tmp, "red")
 	generateCompileSet(t, redRoot, compileRedCases)
 	redCmd := setupCompileModule(t, redRoot, filepath.Join(tmp, "red.go.work"), agcoreRoot)

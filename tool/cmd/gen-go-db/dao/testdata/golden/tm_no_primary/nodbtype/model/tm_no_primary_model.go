@@ -24,9 +24,12 @@ type TmNoPrimary struct {
 	LastUpdateTime time.Time       `gorm:"column:last_update_time;AUTOUPDATETIME" json:"LastUpdateTime"`
 }
 
-// TmNoPrimaryPrimarkey 多主键结构体
-type TmNoPrimaryPrimarkey struct {
+// TmNoPrimaryPrimaryKey 多主键结构体
+type TmNoPrimaryPrimaryKey struct {
 }
+
+// TmNoPrimaryPrimarkey 多主键结构体（历史拼写别名，永久保留，无移除计划）
+type TmNoPrimaryPrimarkey = TmNoPrimaryPrimaryKey
 
 // TableName 返回表名
 func (tmNoPrimary *TmNoPrimary) TableName() string {

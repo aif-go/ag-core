@@ -28,8 +28,9 @@ type ITmNoDao interface {
 	InsertOne(ctx context.Context, entity *model.TmNo) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.TmNo) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error)
-	FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimarkey) (*model.TmNo, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) // Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（永久并存，无移除计划）
+	UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error)
+	FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimaryKey) (*model.TmNo, error)
 	FindByStruct(ctx context.Context, entity *model.TmNo) ([]*model.TmNo, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
 	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.TmNo, *gormdb.PageResult, error)
@@ -59,7 +60,7 @@ func (dao *TmNoDao) InsertOne(ctx context.Context, entity *model.TmNo) (int64, e
 	return result.RowsAffected, result.Error
 }
 
-// InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
+// InsertOneIgnoreZeroValCols 插入数据时，自动剔除零值的列
 func (dao *TmNoDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
@@ -93,8 +94,8 @@ func (dao *TmNoDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmNo) 
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *TmNoDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+func (dao *TmNoDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -110,8 +111,14 @@ func (dao *TmNoDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, ent
 	return result.RowsAffected, result.Error
 }
 
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（两者永久并存，无移除计划）
+func (dao *TmNoDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.TmNo) (int64, error) {
+	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
+}
+
 // FindByPrimaryKey 根据主键查询
-func (dao *TmNoDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimarkey) (*model.TmNo, error) {
+func (dao *TmNoDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimaryKey) (*model.TmNo, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err

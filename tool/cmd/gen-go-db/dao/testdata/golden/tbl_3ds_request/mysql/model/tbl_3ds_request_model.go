@@ -62,11 +62,14 @@ type Tbl3dsRequest struct {
 	InsertUser               string    `gorm:"column:INSERT_USER;size:20" json:"InsertUser"`
 }
 
-// Tbl3dsRequestPrimarkey 多主键结构体
-type Tbl3dsRequestPrimarkey struct {
+// Tbl3dsRequestPrimaryKey 多主键结构体
+type Tbl3dsRequestPrimaryKey struct {
 	Id        int64
 	ClusterId string
 }
+
+// Tbl3dsRequestPrimarkey 多主键结构体（历史拼写别名，永久保留，无移除计划）
+type Tbl3dsRequestPrimarkey = Tbl3dsRequestPrimaryKey
 
 // TableName 返回表名
 func (tbl3dsRequest *Tbl3dsRequest) TableName() string {
