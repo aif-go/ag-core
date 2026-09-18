@@ -95,7 +95,7 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *mod
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Save(entity)
@@ -119,7 +119,7 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Con
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Updates(entity)

@@ -86,7 +86,7 @@ func (dao *TmNoPrimaryDao) UpdateByPrimaryKey(ctx context.Context, entity *model
 	where := make(map[string]any)
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.TmNoPrimary{}).Where(where).Save(entity)
@@ -103,7 +103,7 @@ func (dao *TmNoPrimaryDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Conte
 	where := make(map[string]any)
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.TmNoPrimary{}).Where(where).Updates(entity)

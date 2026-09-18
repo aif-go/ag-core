@@ -87,14 +87,14 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *mod
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.Id == 0) || (entity.ClusterId == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["ID"] = entity.Id
 		where["CLUSTER_ID"] = entity.ClusterId
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Save(entity)
@@ -111,14 +111,14 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Con
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.Id == 0) || (entity.ClusterId == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["ID"] = entity.Id
 		where["CLUSTER_ID"] = entity.ClusterId
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Updates(entity)

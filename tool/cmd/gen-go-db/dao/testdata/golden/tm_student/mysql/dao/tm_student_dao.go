@@ -94,7 +94,7 @@ func (dao *TmStudentDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.TmStudent{}).Where(where).Save(entity)
@@ -118,7 +118,7 @@ func (dao *TmStudentDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.TmStudent{}).Where(where).Updates(entity)

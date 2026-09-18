@@ -67,7 +67,7 @@ func TestStudentUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 
 	t.Run("场景2:主键缺失-预期错误", func(t *testing.T) {
 		_, err := studentDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmStudent{Name: "x"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景3:更新不存在的主键-影响0行", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestTeacherUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 
 	t.Run("场景2:主键缺失-预期错误", func(t *testing.T) {
 		_, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{Name: "x"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景3:更新不存在的主键-影响0行", func(t *testing.T) {
@@ -157,11 +157,11 @@ func TestTmNoUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 
 	t.Run("场景1:空实体更新-恒报错", func(t *testing.T) {
 		_, err := tmNoDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmNo{})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景2:带字段更新-恒报错", func(t *testing.T) {
 		_, err := tmNoDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmNo{Name: "Alice"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 }

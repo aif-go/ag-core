@@ -56,12 +56,12 @@ func TestStudentUpdateByPrimaryKey(t *testing.T) {
 
 	t.Run("场景2:主键缺失-TenantId=0-预期错误", func(t *testing.T) {
 		_, err := studentDao.UpdateByPrimaryKey(ctx, &model.TmStudent{StudentNo: seed.StudentNo, Name: "x", ClassId: "C1"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景3:主键缺失-StudentNo为空-预期错误", func(t *testing.T) {
 		_, err := studentDao.UpdateByPrimaryKey(ctx, &model.TmStudent{TenantId: seed.TenantId, Name: "x", ClassId: "C1"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景4:更新不存在的主键-Save upsert插入-影响1行", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestTeacherUpdateByPrimaryKey(t *testing.T) {
 
 	t.Run("场景2:主键缺失-Id=0-预期错误", func(t *testing.T) {
 		_, err := teacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{Name: "x", ClassId: "C1"})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景3:更新不存在的主键-Save upsert插入-影响1行", func(t *testing.T) {
@@ -182,11 +182,11 @@ func TestTmNoUpdateByPrimaryKey(t *testing.T) {
 
 	t.Run("场景1:空实体更新-恒报错", func(t *testing.T) {
 		_, err := tmNoDao.UpdateByPrimaryKey(ctx, &model.TmNo{})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景2:带字段更新-恒报错", func(t *testing.T) {
 		_, err := tmNoDao.UpdateByPrimaryKey(ctx, &model.TmNo{Name: "Alice", Score: decimal.NewFromInt(95)})
-		assertErrorContains(t, err, "primary key or unique key is required")
+		assertErrorContains(t, err, "primary key is required")
 	})
 }

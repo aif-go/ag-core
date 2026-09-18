@@ -86,14 +86,14 @@ func (dao *TmNoIndexDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
 		where["student_no"] = entity.StudentNo
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.TmNoIndex{}).Where(where).Save(entity)
@@ -110,14 +110,14 @@ func (dao *TmNoIndexDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
 		where["student_no"] = entity.StudentNo
 	}
 
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.TmNoIndex{}).Where(where).Updates(entity)

@@ -88,7 +88,7 @@ func (dao *{{.StructName}}Dao) UpdateByPrimaryKey(ctx context.Context, entity *m
 	where := make(map[string]any)
 {{.PrimaryKeyUpdate}}
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 5. 使用支持更新的列
 	result := db.Model(&model.{{.StructName}}{}).Where(where).Save(entity)
@@ -105,7 +105,7 @@ func (dao *{{.StructName}}Dao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.C
 	where := make(map[string]any)
 {{.PrimaryKeyUpdate}}
 	if len(where) == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
 	result := db.Model(&model.{{.StructName}}{}).Where(where).Updates(entity)
