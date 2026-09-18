@@ -373,13 +373,14 @@ func whereDataToYAML(whereData map[interface{}]interface{}) (string, error) {
 // 提取where条件中的所有字段信息
 func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]string, whereColFields *[]table.WhereColField) {
 	if condition.Expr != "" {
-		// 解析表达式，提取列名、操作符和字段名
-		colField := parseWhereExpr(condition.Expr)
-		if colField.ColName != "" && colField.FieldName != "" {
-			// 添加到WhereFields
-			*fields = append(*fields, colField.ColName)
-			// 添加到WhereColFields
-			*whereColFields = append(*whereColFields, colField)
+		// 解析表达式，提取列名、操作符和字段名（between 返回双参数两条目）
+		for _, colField := range parseWhereExpr(condition.Expr) {
+			if colField.ColName != "" && colField.FieldName != "" {
+				// 添加到WhereFields
+				*fields = append(*fields, colField.ColName)
+				// 添加到WhereColFields
+				*whereColFields = append(*whereColFields, colField)
+			}
 		}
 	} else {
 		for i := range condition.Conditions {
@@ -388,47 +389,114 @@ func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]s
 	}
 }
 
-// parseWhereExpr 解析where表达式，提取列名、操作符和字段名
-func parseWhereExpr(expr string) table.WhereColField {
-	colField := table.WhereColField{}
+// whereOperators 支持的操作符，按最长优先排列（CHG-08：词边界匹配，
+// 替代裸子串匹配——修复参数/列名含操作符子串（如 @Min、PRINT_DATE）时的误判）
+var whereOperators = []string{
+	"is not null", "is null",
+	"not like", "not in",
+	">=", "<=", "!=", "<>",
+	"between", "like", "in",
+	"=", ">", "<",
+}
 
-	// 支持的操作符，按长度降序排列，确保长操作符优先匹配
-	operators := []string{"!=", "not in", "not like", "like", "in", "=", ">", "<", ">=", "<=", "between"}
+// isWhereBoundaryChar 操作符词边界字符
+func isWhereBoundaryChar(c byte) bool {
+	return c == ' ' || c == '\t' || c == '(' || c == ')'
+}
 
-	for _, op := range operators {
-		if idx := strings.Index(strings.ToLower(expr), strings.ToLower(op)); idx != -1 {
-			// 提取列名
-			colName := strings.TrimSpace(expr[:idx])
+// indexOfWhereOperator 在小写表达式中查找第一个满足词边界的操作符位置，无则返回 -1
+func indexOfWhereOperator(lower string, op string) int {
+	start := 0
+	for {
+		idx := strings.Index(lower[start:], op)
+		if idx < 0 {
+			return -1
+		}
+		idx += start
+		leftOk := idx == 0 || isWhereBoundaryChar(lower[idx-1])
+		j := idx + len(op)
+		rightOk := j == len(lower) || isWhereBoundaryChar(lower[j])
+		if leftOk && rightOk {
+			return idx
+		}
+		start = idx + 1
+	}
+}
 
-			// 提取字段名
-			fieldPart := strings.TrimSpace(expr[idx+len(op):])
-			fieldName := ""
-			isSlice := false
+// extractWhereParam 从操作符右侧提取 @Param 字段名（支持前导/尾随通配符 %_ 与一层括号）。
+// ok=false 表示无可绑定参数（字面量条件），由调用方按无参数处理。
+func extractWhereParam(rest string, op string) (fieldName string, isSlice bool, ok bool) {
+	isSlice = op == "in" || op == "not in"
+	rest = strings.TrimSpace(rest)
+	if strings.HasPrefix(rest, "(") && strings.HasSuffix(rest, ")") && len(rest) >= 2 {
+		rest = strings.TrimSpace(rest[1 : len(rest)-1])
+	}
+	// 处理@Field格式（先剥掉前导通配符 %_）
+	rest = strings.TrimLeft(rest, "%_")
+	if !strings.HasPrefix(rest, "@") {
+		return "", isSlice, false
+	}
+	fieldName = strings.TrimSpace(rest[1:])
+	fieldName = strings.TrimRight(fieldName, "%_")
+	if fieldName == "" {
+		return "", isSlice, false
+	}
+	return fieldName, isSlice, true
+}
 
-			// 处理@Field格式（先剥掉前导通配符 %_）
-			fieldPart = strings.TrimLeft(fieldPart, "%_")
-			if strings.HasPrefix(fieldPart, "@") {
-				fieldName = strings.TrimSpace(fieldPart[1:])
-				fieldName = strings.TrimRight(fieldName, "%_")
-			}
+// parseBetweenFields 解析 between 双参数（between @Min AND @Max），返回两条目；
+// 任一侧无 @Param（字面量）或缺少 AND 分隔则视为无可绑定参数。
+func parseBetweenFields(colName string, rest string) []table.WhereColField {
+	lowerRest := strings.ToLower(rest)
+	idx := strings.Index(lowerRest, " and ")
+	if idx < 0 {
+		return nil
+	}
+	f1, _, ok1 := extractWhereParam(strings.TrimSpace(rest[:idx]), "between")
+	f2, _, ok2 := extractWhereParam(strings.TrimSpace(rest[idx+len(" and "):]), "between")
+	if !ok1 || !ok2 || f1 == f2 {
+		return nil
+	}
+	return []table.WhereColField{
+		{ColName: colName, FieldName: f1, Operator: "between"},
+		{ColName: colName, FieldName: f2, Operator: "between"},
+	}
+}
 
-			// 判断是否为切片类型
-			lowerOp := strings.ToLower(op)
-			if lowerOp == "in" || lowerOp == "not in" {
-				isSlice = true
-			}
+// parseWhereExpr 解析where表达式，提取列名、操作符和字段名。
+// CHG-08：操作符词边界 + 最长优先匹配；between 返回双参数两条目；
+// IS [NOT] NULL 及纯字面量表达式无可绑定参数，条件由 conditonwhere 原样透传。
+func parseWhereExpr(expr string) []table.WhereColField {
+	lower := strings.ToLower(expr)
+	for _, op := range whereOperators {
+		idx := indexOfWhereOperator(lower, op)
+		if idx < 0 {
+			continue
+		}
+		colName := strings.TrimSpace(expr[:idx])
+		rest := strings.TrimSpace(expr[idx+len(op):])
 
-			colField = table.WhereColField{
+		if op == "is null" || op == "is not null" {
+			return nil
+		}
+		if op == "between" {
+			return parseBetweenFields(colName, rest)
+		}
+
+		fieldName, isSlice, ok := extractWhereParam(rest, op)
+		if !ok {
+			return nil
+		}
+		return []table.WhereColField{
+			{
 				ColName:   colName,
 				FieldName: fieldName,
 				IsSlice:   isSlice,
 				Operator:  op,
-			}
-			break
+			},
 		}
 	}
-
-	return colField
+	return nil
 }
 
 // 辅助函数：生成GORM标签
