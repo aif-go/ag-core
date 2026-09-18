@@ -468,7 +468,7 @@ func (tmMediaActXxxxxArg *TmMediaActXxxxxArg) WithAddress(Address string) *TmMed
 	return tmMediaActXxxxxArg
 }
 
-func (tmMediaActXxxxxArg *TmMediaActXxxxxArg) WithBizDateSlice(BizDateSlice time.Time) *TmMediaActXxxxxArg {
+func (tmMediaActXxxxxArg *TmMediaActXxxxxArg) WithBizDateSlice(BizDateSlice []time.Time) *TmMediaActXxxxxArg {
 	tmMediaActXxxxxArg.BizDateSlice = BizDateSlice
 	tmMediaActXxxxxArg.FieldMask.Set("BizDateSlice")
 	return tmMediaActXxxxxArg

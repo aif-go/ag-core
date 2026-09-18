@@ -10,23 +10,16 @@ import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/model"
 )
 
-// compileGreenCases 编译矩阵关键样例（预期全绿）：有 SelfQueries（含分页）+ 无 SelfQueries（§5.2）。
+// compileGreenCases 编译矩阵关键样例（预期全绿）：有 SelfQueries（含分页 / 动态模板 /
+// CHG-07 修复后的切片参数）+ 无 SelfQueries（§5.2）。
 var compileGreenCases = []struct {
 	name string
 	yaml string
 }{
 	{"tm_teacher", "../repository/yaml/tm_teacher.yaml"},
+	{"TM_MEDIA_ACT", "../TM_MEDIA_ACT.yaml"},
 	{"tbl_3ds_request", "../repository/yaml/tbl_3ds_request.yaml"},
 	{"tm_no", "../repository/yaml/tm_no.yaml"},
-}
-
-// compileRedCases 已知编译失败用例，登记 CHG-07（预期红，冻结项）：
-// generateWithMethods 未处理 in @XxxSlice 切片参数，生成物 With 方法赋值类型不匹配。
-var compileRedCases = []struct {
-	name string
-	yaml string
-}{
-	{"TM_MEDIA_ACT", "../TM_MEDIA_ACT.yaml"},
 }
 
 // findAgCoreRoot 自测试目录向上查找 ag-core 根目录（以 go.work 为标志）。
@@ -109,7 +102,8 @@ func setupCompileModule(t *testing.T, genRoot, goWorkPath, agcoreRoot string) *e
 	return cmd
 }
 
-// TestGeneratedCodeCompiles L2 编译等价：预期绿组生成物可编译；预期红组（CHG-07）必须保持编译失败。
+// TestGeneratedCodeCompiles L2 编译等价：全部矩阵用例生成物可编译。
+// CHG-07 修复后（2026-09-18），切片参数样例 TM_MEDIA_ACT 已由预期红组迁入绿组。
 func TestGeneratedCodeCompiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short 模式跳过编译矩阵")
@@ -140,11 +134,13 @@ func TestGeneratedCodeCompiles(t *testing.T) {
 		}
 	}
 
-	redRoot := filepath.Join(tmp, "red")
-	generateCompileSet(t, redRoot, compileRedCases)
-	redCmd := setupCompileModule(t, redRoot, filepath.Join(tmp, "red.go.work"), agcoreRoot)
-	_, err := redCmd.CombinedOutput()
-	if err == nil {
-		t.Fatal("预期红组（CHG-07 冻结项）编译通过：缺陷可能已修复，请评审后解冻并更新本用例")
+	// CHG-07 断言：切片参数 With 方法形参为 []T，与 Arg 结构体字段类型一致
+	mediaModel := filepath.Join(greenRoot, "tm_media_act_nodbtype", "repository", "model", "tm_media_act_model.go")
+	modelCode, readErr := os.ReadFile(mediaModel)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !strings.Contains(string(modelCode), "WithBizDateSlice(BizDateSlice []time.Time)") {
+		t.Error("生成物 With 方法切片形参类型不正确（CHG-07）")
 	}
 }

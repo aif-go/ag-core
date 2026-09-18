@@ -385,21 +385,31 @@ func generateWithMethods(tableData *table.TableData, query table.QueryData) stri
 	for _, wc := range query.WhereColFields {
 		// 对于用户指定的go类型，此处只需按照指定的类型处理
 		if wc.GoType != "" {
+			// CHG-07：切片参数（in/not in）生成 []T 形参，与 Arg 结构体字段类型一致
+			goType := wc.GoType
+			if wc.IsSlice {
+				goType = "[]" + goType
+			}
 			methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{
 	%s%sArg.%s = %s
 	%s%sArg.FieldMask.Set("%s")
 	return %s%sArg
-} `, lsn, queryName, structName, queryName, wc.FieldName, wc.FieldName, wc.GoType, structName, queryName,
+} `, lsn, queryName, structName, queryName, wc.FieldName, wc.FieldName, goType, structName, queryName,
 				lsn, queryName, wc.FieldName, wc.FieldName, lsn, queryName, wc.FieldName, lsn, queryName))
 			continue
 		}
 		for _, col := range tableData.Columns {
 			if col.Name == wc.ColName {
+				// CHG-07：切片参数（in/not in）生成 []T 形参，与 Arg 结构体字段类型一致
+				goType := col.GoType
+				if wc.IsSlice {
+					goType = "[]" + goType
+				}
 				methods = append(methods, fmt.Sprintf(`func (%s%sArg *%s%sArg) With%s(%s %s) *%s%sArg{
 	%s%sArg.%s = %s
 	%s%sArg.FieldMask.Set("%s")
 	return %s%sArg
-} `, lsn, queryName, structName, queryName, wc.FieldName, wc.FieldName, col.GoType, structName, queryName,
+} `, lsn, queryName, structName, queryName, wc.FieldName, wc.FieldName, goType, structName, queryName,
 					lsn, queryName, wc.FieldName, wc.FieldName, lsn, queryName, wc.FieldName, lsn, queryName))
 				break
 			}
