@@ -68,7 +68,7 @@ func (l *Lexer) NextToken() *Token {
 	// 检查AND操作符
 	if l.pos+2 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+3])) == "AND" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 		// 检查后面是否是表达式边界（字符串结束或空格）
 		nextIsBoundary := l.pos+3 == len(l.runes) || l.runes[l.pos+3] == ' ' || l.runes[l.pos+3] == '\t' || l.runes[l.pos+3] == '('
 		
@@ -81,7 +81,7 @@ func (l *Lexer) NextToken() *Token {
 	// 检查OR操作符
 	if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "OR" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 		// 检查后面是否是表达式边界（字符串结束或空格）
 		nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
 		
@@ -94,7 +94,7 @@ func (l *Lexer) NextToken() *Token {
 	// 检查NOT IN操作符（需要先检查，因为NOT IN包含IN）
 	if l.pos+5 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+6])) == "NOT IN" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 		// 检查后面是否是表达式边界（字符串结束或空格）
 		nextIsBoundary := l.pos+6 == len(l.runes) || l.runes[l.pos+6] == ' ' || l.runes[l.pos+6] == '\t' || l.runes[l.pos+6] == '('
 		
@@ -107,7 +107,7 @@ func (l *Lexer) NextToken() *Token {
 	// 检查IN操作符
 	if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "IN" {
 		// 检查前面是否是表达式边界（字符串开始或空格）
-		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+		prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 		// 检查后面是否是表达式边界（字符串结束或空格）
 		nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
 		
@@ -121,11 +121,13 @@ func (l *Lexer) NextToken() *Token {
 	start := l.pos
 	inBetween := false // 标记是否在BETWEEN表达式中
 	inIn := false      // 标记是否在IN表达式中
+	inInDepth := 0     // CHG-06：IN(...) 内嵌套括号深度计数
+	inInOpened := false // CHG-06：IN 括号组是否已开（首个 ( 为组开括号，不计深度）
 	
 	for l.pos < len(l.runes) {
 		// 检查是否是BETWEEN关键字
 		if l.pos+6 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+7])) == "BETWEEN" {
-			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 			nextIsBoundary := l.pos+7 == len(l.runes) || l.runes[l.pos+7] == ' ' || l.runes[l.pos+7] == '\t'
 			
 			if prevIsBoundary && nextIsBoundary {
@@ -137,7 +139,7 @@ func (l *Lexer) NextToken() *Token {
 		
 		// 检查是否是IN关键字
 		if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "IN" {
-			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 			nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
 			
 			if prevIsBoundary && nextIsBoundary {
@@ -149,7 +151,7 @@ func (l *Lexer) NextToken() *Token {
 		
 		// 检查是否是NOT IN关键字
 		if l.pos+5 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+6])) == "NOT IN" {
-			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 			nextIsBoundary := l.pos+6 == len(l.runes) || l.runes[l.pos+6] == ' ' || l.runes[l.pos+6] == '\t' || l.runes[l.pos+6] == '('
 			
 			if prevIsBoundary && nextIsBoundary {
@@ -162,40 +164,68 @@ func (l *Lexer) NextToken() *Token {
 		// 检查是否是操作符的开始
 		if l.pos+2 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+3])) == "AND" {
 			// 检查前面是否是表达式边界（字符串开始或空格）
-			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 			// 检查后面是否是表达式边界（字符串结束或空格）
 			nextIsBoundary := l.pos+3 == len(l.runes) || l.runes[l.pos+3] == ' ' || l.runes[l.pos+3] == '\t' || l.runes[l.pos+3] == '('
-			
+
 			// 如果在BETWEEN表达式中，跳过这个AND（它是BETWEEN的一部分）
 			if inBetween && prevIsBoundary && nextIsBoundary {
 				l.pos += 3
 				inBetween = false // AND之后，BETWEEN表达式结束
 				continue
 			}
-			
+
 			if prevIsBoundary && nextIsBoundary {
+				if inIn {
+					// CHG-06：IN(...) 括号组内的 AND 属于子查询表达式内容，不作为条件分隔符
+					l.pos += 3
+					continue
+				}
 				break
 			}
 		}
 		if l.pos+1 < len(l.runes) && strings.ToUpper(string(l.runes[l.pos:l.pos+2])) == "OR" {
 			// 检查前面是否是表达式边界（字符串开始或空格）
-			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t'
+			prevIsBoundary := l.pos == 0 || l.runes[l.pos-1] == ' ' || l.runes[l.pos-1] == '\t' || l.runes[l.pos-1] == ')' // CHG-06：右括号后为合法操作符边界
 			// 检查后面是否是表达式边界（字符串结束或空格）
 			nextIsBoundary := l.pos+2 == len(l.runes) || l.runes[l.pos+2] == ' ' || l.runes[l.pos+2] == '\t' || l.runes[l.pos+2] == '('
-			
+
 			if prevIsBoundary && nextIsBoundary {
+				if inIn {
+					// CHG-06：IN(...) 括号组内的 OR 属于子查询表达式内容
+					l.pos += 2
+					continue
+				}
 				break
 			}
 		}
 		// 检查是否是括号
-		if l.runes[l.pos] == '(' || l.runes[l.pos] == ')' {
-			// 如果在IN表达式中，遇到右括号才结束
-			if inIn && l.runes[l.pos] == ')' {
-				l.pos++ // 包含右括号
-				inIn = false
-				break
+		if l.runes[l.pos] == '(' {
+			if inIn {
+				if inInOpened {
+					// CHG-06：子查询内的嵌套括号，深度递增
+					inInDepth++
+				} else {
+					// IN 括号组自身的开括号
+					inInOpened = true
+				}
+				l.pos++
+				continue
 			}
-			if !inIn {
+			// 非 IN 括号组：交给 LParen token 处理（嵌套条件路径）
+			break
+		}
+		if l.runes[l.pos] == ')' {
+			if inIn {
+				if inInDepth == 0 {
+					// IN 括号组闭合，包含右括号
+					l.pos++
+					inIn = false
+					break
+				}
+				// CHG-06：子查询内层括号闭合，深度递减
+				inInDepth--
+			} else {
 				break
 			}
 		}
