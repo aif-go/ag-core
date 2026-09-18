@@ -1,0 +1,21 @@
+description: 测试多表JOIN条件
+input: users.id = orders.user_id AND orders.id = order_items.order_id AND users.status = 'active'
+name: JOIN_多表JOIN条件
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: users.id = orders.user_id
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: orders.id = order_items.order_id
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: users.status = 'active'
+          field: ""
+          values: []

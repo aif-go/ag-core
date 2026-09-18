@@ -1,0 +1,26 @@
+description: 测试嵌套的BETWEEN AND条件
+input: (age BETWEEN 18 AND 60 OR age BETWEEN 60 AND 80) AND status = 'active'
+name: BetweenAnd_嵌套between
+output:
+    operator: AND
+    conditions:
+        - operator: OR
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: age BETWEEN 18 AND 60
+              field: ""
+              values: []
+            - operator: ""
+              conditions: []
+              expr: age BETWEEN 60 AND 80
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: status = 'active'
+          field: ""
+          values: []

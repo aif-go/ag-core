@@ -1,0 +1,16 @@
+description: 测试不等于操作符
+input: status != 'deleted' AND status <> 'inactive'
+name: 比较操作_不等于
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: status != 'deleted'
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: status <> 'inactive'
+          field: ""
+          values: []

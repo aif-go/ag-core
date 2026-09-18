@@ -1,0 +1,11 @@
+description: 测试多个EXISTS操作组合
+input: EXISTS (SELECT 1 FROM orders WHERE user_id = id) AND NOT EXISTS (SELECT 1 FROM refunds WHERE order_id = id)
+name: EXISTS_多个EXISTS组合
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: EXISTS
+          field: ""
+          values: []

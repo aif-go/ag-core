@@ -1,0 +1,56 @@
+description: 测试复杂的嵌套条件
+input: (id = 1 AND (name = 'test' OR age > 18)) OR (status = 'active' AND (type = 'A' OR type = 'B'))
+name: 嵌套条件_复杂嵌套
+output:
+    operator: OR
+    conditions:
+        - operator: AND
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: id = 1
+              field: ""
+              values: []
+            - operator: OR
+              conditions:
+                - operator: ""
+                  conditions: []
+                  expr: name = 'test'
+                  field: ""
+                  values: []
+                - operator: ""
+                  conditions: []
+                  expr: age > 18
+                  field: ""
+                  values: []
+              expr: ""
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []
+        - operator: AND
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: status = 'active'
+              field: ""
+              values: []
+            - operator: OR
+              conditions:
+                - operator: ""
+                  conditions: []
+                  expr: type = 'A'
+                  field: ""
+                  values: []
+                - operator: ""
+                  conditions: []
+                  expr: type = 'B'
+                  field: ""
+                  values: []
+              expr: ""
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []

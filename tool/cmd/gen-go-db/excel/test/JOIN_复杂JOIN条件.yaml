@@ -1,0 +1,36 @@
+description: 测试复杂的JOIN条件
+input: (users.id = orders.user_id AND orders.status = 'completed') OR (users.id = refunds.user_id AND refunds.status = 'approved')
+name: JOIN_复杂JOIN条件
+output:
+    operator: OR
+    conditions:
+        - operator: AND
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: users.id = orders.user_id
+              field: ""
+              values: []
+            - operator: ""
+              conditions: []
+              expr: orders.status = 'completed'
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []
+        - operator: AND
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: users.id = refunds.user_id
+              field: ""
+              values: []
+            - operator: ""
+              conditions: []
+              expr: refunds.status = 'approved'
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []

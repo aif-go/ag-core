@@ -1,0 +1,11 @@
+description: 测试简单的子查询
+input: id IN (SELECT id FROM users WHERE status = 'active')
+name: 子查询_简单子查询
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id IN (SELECT id FROM users WHERE status = 'active')
+          field: ""
+          values: []
