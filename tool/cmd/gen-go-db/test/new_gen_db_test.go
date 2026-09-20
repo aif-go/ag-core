@@ -7,70 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
-	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
-	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/model"
 	"github.com/shopspring/decimal"
 
 	// gormibmdb 内部通过 sql.Open("go_ibm_db", dsn) 建立连接，需注册该驱动
 	_ "github.com/ibmdb/go_ibm_db"
 )
-
-func TestInsertOne(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.InsertOne(ctx, &model.TmTeacher{
-		Name:    "test1",
-		Address: "上海市浦东新区",
-		Phone:   "13800000000",
-		ClassId: "1",
-		CardNo:  "沪A123M1",
-	})
-	printEntity("InsertOne", res, err, t)
-}
-
-func TestInsertOneIgnoreZeroVal(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.InsertOneIgnoreZeroValCols(ctx, &model.TmTeacher{
-		Name:    "aaa3",
-		Address: "上海市徐汇区",
-		Phone:   "10000000003",
-		ClassId: "",
-		CardNo:  "xxxx",
-	})
-	printEntity("InsertOneIgnoreZeroVal", res, err, t)
-}
-
-func TestUpdateByPrimaryKey(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{
-		Id:      1,
-		Name:    "test1B",
-		Address: "上海市浦东新区",
-		Phone:   "1380000000B",
-		ClassId: "",
-		CardNo:  "沪BBBB",
-	})
-	printEntity("UpdateByPrimaryKey", res, err, t)
-}
-
-func TestUpdaeByPrimaryKeyIngoreZeroValCols(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{
-		Id:      2,
-		Name:    "test2",
-		Address: "上海市浦东新区",
-		Phone:   "1380000000x",
-		ClassId: "",
-		CardNo:  "沪AAAA",
-	})
-
-	printEntity("UpdaeByPrimaryKeyIngoreZeroValCols", res, err, t)
-}
 
 func TestFindByStruct(t *testing.T) {
 	ctx := context.Background()
@@ -117,66 +59,6 @@ func TestFindByStruct(t *testing.T) {
 	}
 }
 
-func TestFindByCustomRule(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	args := &model.TmTeacherFindByNameNadAddressArg{
-		FieldMask: conditonwhere.NewFieldMask(),
-	}
-	args.WithName("Alice").WithAddress("北京")
-	res, err := tmTeacherDao.FindByCustomerRule(ctx, dao.FindByNameNadAddressNamingInfo, args)
-
-	resEntity, ok := res.([]*model.TmTeacherFindByNameNadAddressRes)
-	if !ok {
-		t.Errorf("FindByCustomerRule failed: %v", err)
-	}
-	printList("TestFindByCustomRule", resEntity, err, t)
-}
-
-func TestFindByCustomRuleByPageMysql(t *testing.T) {
-	ctx := context.Background()
-	tmTeacherDao := GetRepository()
-	res, err := tmTeacherDao.FindByCustomerRule(ctx, dao.FindByPhoneNamingInfo, &model.TmTeacherFindByPhoneArg{
-		Phone: "13800000000",
-		Page: gormdb.Page{
-			PageNum:  4,
-			PageSize: 3,
-		},
-	})
-
-	resEntity, ok := res.(*model.TmTeacherFindByPhonePageRes)
-	t.Log("TestFindByCustomRuleByPageMysql", resEntity.PageResult)
-	if !ok {
-		t.Errorf("FindByCustomerRuleByPage failed: %v", err)
-	}
-	printList("TestFindByCustomRuleByPageMysql", resEntity.ResultList, err, t)
-}
-
-// func TestUpdateDynamic(t *testing.T) {
-// 	ctx := context.Background()
-// 	tmTeacherDao := GetRepository()
-// 	res, err := tmTeacherDao.UpdateDynamic(ctx, &model.TmTeacher{
-// 		Id: 2,
-// 		// Name:    "test2",
-// 		Address: "上海市浦东新区",
-// 		Phone:   "1380000000x",
-// 		ClassId: "5",
-// 		CardNo:  "沪A5678",
-// 	}, []string{dao.TmTeacherColumn.ClassId})
-
-// 	printEntity("TestUpdateDynamic", res, err, t)
-// }
-
-// func TestInsertOne(t *testing.T) {
-// 	// 测试插入一条数据
-// 	err := dao.InsertOne(&model.User{
-// 		Username: "testuser",
-// 		Password: "testpass",
-// 	})
-// 	if err != nil {
-// 		t.Errorf("InsertOne failed: %v", err)
-// 	}
-// }
 
 func printList[T any](name string, list []T, err error, t *testing.T) {
 

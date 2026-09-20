@@ -286,7 +286,7 @@ func (d *DaoTemplateData) PrimaryKeyUpdate() string {
 	if len(primaryKeyColumns) > 0 {
 		primaryKeyUpdate = "\t// 检查主键是否为空，如果为空继续检查唯一键\n"
 		primaryKeyUpdate += "\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n"
-		primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key or unique key is required\")\n"
+		primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key is required\")\n"
 		primaryKeyUpdate += "\t} else {\n"
 		for _, pk := range primaryKeyColumns {
 			primaryKeyUpdate += "\t\twhere[\"" + pk.Name + "\"] = entity." + pk.JsonTag + "\n"

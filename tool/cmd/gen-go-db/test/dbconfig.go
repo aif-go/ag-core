@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aif-go/ag-core/contribute/agdb/agdao"
@@ -17,7 +18,30 @@ import (
 )
 
 // DbType 数据库类型：mysql / ibmdb
-var DbType string = "mysql"
+// 从环境自动推导（与 DSN 联动），DB_TYPE 环境变量可显式覆盖
+var DbType = resolveDbType()
+
+// resolveDbType 推导数据库类型，优先级从高到低：
+//  1. 显式 DB_TYPE 环境变量（mysql / db2 / ibmdb，大小写归一）
+//  2. 仅设置 DB2_DSN → ibmdb（配了哪个 DSN 就用哪个库）
+//  3. 其余情况（仅 MYSQL_DSN、两个 DSN 同时存在、均未设置）→ 默认 mysql
+func resolveDbType() string {
+	switch strings.ToUpper(os.Getenv("DB_TYPE")) {
+	case "MYSQL":
+		return "mysql"
+	case "DB2", "IBMDB":
+		return "ibmdb"
+	case "":
+		hasDB2 := os.Getenv("DB2_DSN") != ""
+		hasMySQL := os.Getenv("MYSQL_DSN") != ""
+		if hasDB2 && !hasMySQL {
+			return "ibmdb"
+		}
+		return "mysql"
+	default:
+		panic(fmt.Sprintf("不支持的 DB_TYPE 环境变量: %s", os.Getenv("DB_TYPE")))
+	}
+}
 
 // GetRepository 获取 tm_teacher DAO 实例
 func GetRepository() dao.ITmTeacherDao {

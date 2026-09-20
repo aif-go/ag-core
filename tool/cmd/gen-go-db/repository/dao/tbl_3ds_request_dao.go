@@ -29,8 +29,9 @@ type ITbl3dsRequestDao interface {
 	InsertOne(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
 	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
 	UpdateByPrimaryKey(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
-	FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimarkey) (*model.Tbl3dsRequest, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) // Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（永久并存，无移除计划）
+	UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error)
+	FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimaryKey) (*model.Tbl3dsRequest, error)
 	FindByStruct(ctx context.Context, entity *model.Tbl3dsRequest) ([]*model.Tbl3dsRequest, error)
 	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
 	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.Tbl3dsRequest, *gormdb.PageResult, error)
@@ -60,7 +61,7 @@ func (dao *Tbl3dsRequestDao) InsertOne(ctx context.Context, entity *model.Tbl3ds
 	return result.RowsAffected, result.Error
 }
 
-// InsertOneIgnorenNullCols 插入数据时，自动剔除零值的列
+// InsertOneIgnoreZeroValCols 插入数据时，自动剔除零值的列
 func (dao *Tbl3dsRequestDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
 	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
 	colnames, _, err := entity.ListZeroValueCols(true, true, false, true)
@@ -101,8 +102,8 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *mod
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
-func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
@@ -125,8 +126,14 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Con
 	return result.RowsAffected, result.Error
 }
 
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（两者永久并存，无移除计划）
+func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.Tbl3dsRequest) (int64, error) {
+	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
+}
+
 // FindByPrimaryKey 根据主键查询
-func (dao *Tbl3dsRequestDao) FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimarkey) (*model.Tbl3dsRequest, error) {
+func (dao *Tbl3dsRequestDao) FindByPrimaryKey(ctx context.Context, primaryKey model.Tbl3dsRequestPrimaryKey) (*model.Tbl3dsRequest, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return nil, err
@@ -324,8 +331,8 @@ func (dao *Tbl3dsRequestDao) doXxxxx(ctx context.Context, namingInfo *gormdb.Nam
 
 	newTableName := dao.getApplyInfo(ctx).TableName
 	if newTableName != "" {
-		enity := &model.Tbl3dsRequest{}
-		execSql = strings.ReplaceAll(execSql, "FROM "+enity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
+		entity := &model.Tbl3dsRequest{}
+		execSql = strings.ReplaceAll(execSql, "FROM "+entity.TableName()+" WHERE", "FROM "+newTableName+" WHERE")
 	}
 
 	argsMap := queryArgs.ConvertToMap()
