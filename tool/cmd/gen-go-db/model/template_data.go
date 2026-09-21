@@ -136,9 +136,9 @@ func isIndexColumn(tableData *table.TableData, colName string) bool {
 	return false
 }
 
-// isSpecialColumn 检查列是否为特殊列（jpaVersion, create_time, last_update_time）
+// isSpecialColumn 检查列是否为特殊列（jpaVersion, create_time, last_update_time、乐观锁列）
 func isSpecialColumn(colData table.ColumnData) bool {
-	if colData.IsAutoCreate || colData.IsAutoUpdate || colData.IsJavaVersion {
+	if colData.IsAutoCreate || colData.IsAutoUpdate || colData.IsJavaVersion || colData.IsOptimisticLock {
 		return true
 	}
 	return false
@@ -155,6 +155,9 @@ func getZeroCheck(lowerName string, col table.ColumnData) string {
 		return fmt.Sprintf("%s.%s == \"\"", lowerName, col.JsonTag)
 	case "time.Time", "decimal.Decimal":
 		return fmt.Sprintf("%s.%s.IsZero()", lowerName, col.JsonTag)
+	case "optimisticlock.Version":
+		// 乐观锁列零值 = 未装载版本，以 Valid 判断（值 0 属合法历史版本）
+		return fmt.Sprintf("!%s.%s.Valid", lowerName, col.JsonTag)
 	case "bool":
 		return fmt.Sprintf("!%s.%s", lowerName, col.JsonTag)
 	default:
@@ -203,11 +206,14 @@ func buildFieldChecks(tableData *table.TableData) []FieldCheck {
 		case isSpecial:
 			check.Kind = "special"
 			check.Desc = "特殊用途"
-			if strings.Contains(strings.ToLower(col.Name), "version") {
+			switch {
+			case col.IsOptimisticLock:
 				check.Desc = "乐观锁"
-			} else if strings.Contains(strings.ToLower(col.Name), "create") {
+			case strings.Contains(strings.ToLower(col.Name), "version"):
+				check.Desc = "乐观锁"
+			case strings.Contains(strings.ToLower(col.Name), "create"):
 				check.Desc = "自动创建时间"
-			} else if strings.Contains(strings.ToLower(col.Name), "update") {
+			case strings.Contains(strings.ToLower(col.Name), "update"):
 				check.Desc = "自动更新时间"
 			}
 		default:
@@ -228,11 +234,11 @@ func (d *ModelTemplateData) HasGeneralCol() bool {
 	return false
 }
 
-
 // LowerStructName 首字母小写结构体名（模板用）。
 func (d *ModelTemplateData) LowerStructName() string {
 	return lowerStructName(d.StructName)
 }
+
 // FieldChecksCode 渲染字段检查代码（原 generateListZeroValueColsMethod 内部逻辑）。
 func (d *ModelTemplateData) FieldChecksCode() string {
 	lsn := lowerStructName(d.StructName)

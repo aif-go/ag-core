@@ -39,7 +39,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 	// 提取列信息
 	columns := []table.ColumnData{}
-	primaryKeys := []string{}  // 新增：主键列表
+	primaryKeys := []string{} // 新增：主键列表
 	importPackages := []string{"fmt"}
 
 	// 处理列数据
@@ -90,6 +90,15 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					if strings.Contains(tag, "///@javaVersion") {
 						col.IsJavaVersion = true
 					}
+					if strings.Contains(tag, "///@optimisticlock") {
+						col.IsOptimisticLock = true
+					}
+				}
+
+				// 乐观锁列：GoType 固定为 gorm 乐观锁插件版本类型，注入对应 import
+				if col.IsOptimisticLock {
+					col.GoType = "optimisticlock.Version"
+					importPackages = append(importPackages, "gorm.io/plugin/optimisticlock")
 				}
 
 				// 处理support_update字段
@@ -175,7 +184,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			if pkName, ok := pk.(string); ok {
 				// 添加到主键列表
 				primaryKeys = append(primaryKeys, pkName)
-				
+
 				// 设置 IsPrimaryKey 标志（保留原有逻辑）
 				for i := range columns {
 					if columns[i].Name == pkName {
@@ -202,7 +211,6 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			if queryMap, ok := query.(map[interface{}]interface{}); ok {
 				q := table.QueryData{
 					Name: name.(string),
-
 				}
 
 				// 如果加模版之后，这部分有问题，如何区分模版和普通的处理
@@ -244,23 +252,23 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					extractWhereFields(q.Where, &q.WhereFields, &q.WhereColFields)
 				}
 				// 提取whereparams
-				if params,ok:=queryMap["Where_params"].([]interface{}); ok{
+				if params, ok := queryMap["Where_params"].([]interface{}); ok {
 					q.DynamicSql = queryMap["dynamic_sql"].(bool)
 					q.SqlTemplate = queryMap["sql_template"].(string)
-					colWhereFields:= make([]table.WhereColField, 0, len(params))
-					fields:= make([]string, 0, len(params))
+					colWhereFields := make([]table.WhereColField, 0, len(params))
+					fields := make([]string, 0, len(params))
 					for _, param := range params {
 						if paramMap, ok := param.(map[interface{}]interface{}); ok {
-							whereColField:=table.WhereColField{
+							whereColField := table.WhereColField{
 								// 这个要补全
-								ColName: paramMap["colname"].(string),
+								ColName:   paramMap["colname"].(string),
 								FieldName: paramMap["paraname"].(string),
-								IsSlice: paramMap["slice"].(bool),
-								GoType: normalizeGoType(paramMap["type"].(string)),
+								IsSlice:   paramMap["slice"].(bool),
+								GoType:    normalizeGoType(paramMap["type"].(string)),
 							}
-							colWhereFields=append(colWhereFields, whereColField)
+							colWhereFields = append(colWhereFields, whereColField)
 
-							fields=append(fields, whereColField.ColName)		
+							fields = append(fields, whereColField.ColName)
 
 							// 补充查询参数类型的 import
 							if whereColField.GoType == "time.Time" || whereColField.GoType == "*time.Time" {
@@ -272,7 +280,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 						}
 					}
 					q.WhereFields = fields
-					q.WhereColFields = colWhereFields					
+					q.WhereColFields = colWhereFields
 				}
 
 				selfQueries = append(selfQueries, q)
@@ -301,7 +309,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		TableName:   tableName,
 		StructName:  structName,
 		Columns:     columns,
-		PrimaryKeys: primaryKeys,  // 新增：主键列表
+		PrimaryKeys: primaryKeys, // 新增：主键列表
 		Indexes:     indexes,
 		SelfQueries: selfQueries,
 		ModelTemplateData: &table.ModelTemplateData{

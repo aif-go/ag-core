@@ -76,7 +76,8 @@ func (dao *TmNoIndexDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity 
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKey 根据主键或者唯一键更新，该操作只适合从数据库查询原实体修改值之后使用
+// UpdateByPrimaryKey 根据主键或者唯一键更新，全字段覆盖更新，该操作只适合从数据库查询原实体修改值之后使用
+// 直接构造实体提交同样支持，但必须装载乐观锁版本字段（如有）
 func (dao *TmNoIndexDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmNoIndex) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
@@ -87,41 +88,36 @@ func (dao *TmNoIndexDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
 		where["student_no"] = entity.StudentNo
 	}
-
-	if len(where) == 0 {
-		return 0, errors.New("when update,primary key is required")
-	}
 	// 5. 使用支持更新的列
-	result := db.Model(&model.TmNoIndex{}).Where(where).Save(entity)
+	result := db.Model(&model.TmNoIndex{}).Where(where).Select("*").Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动忽略零值列（乐观锁版本列除外）
 func (dao *TmNoIndexDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmNoIndex) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
+
 	// 4. 更新条件（主键）
 	where := make(map[string]any)
 	// 检查主键是否为空，如果为空继续检查唯一键
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
-		return 0, errors.New("when update,primary key or unique key is required")
+		return 0, errors.New("when update,primary key is required")
 	} else {
 		where["tenant_id"] = entity.TenantId
 		where["student_no"] = entity.StudentNo
 	}
-
-	if len(where) == 0 {
-		return 0, errors.New("when update,primary key is required")
-	}
 	// 使用支持更新的列
 	result := db.Model(&model.TmNoIndex{}).Where(where).Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 

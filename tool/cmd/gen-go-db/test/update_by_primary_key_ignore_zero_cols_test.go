@@ -35,7 +35,8 @@ func TestStudentUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 			t.Fatalf("加载原实体失败: %v", err)
 		}
 
-		// 仅设置主键 + 待更新的 support_update 列（class_id），其余保持零值
+		// 仅设置主键 + 待更新的 support_update 列（class_id），其余保持零值；
+		// 乐观锁表需装载版本（先查后改约定）：未装载会被 LockCheck 显式拦截
 		patch := &model.TmStudent{TenantId: seed.TenantId, StudentNo: seed.StudentNo, ClassId: "C8"}
 		affected, err := studentDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, patch)
 		if err != nil {
@@ -105,7 +106,7 @@ func TestTeacherUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 			t.Fatalf("加载原实体失败: %v", err)
 		}
 
-		patch := &model.TmTeacher{Id: seed.Id, CardNo: "UPDCARD004"}
+		patch := &model.TmTeacher{Id: seed.Id, CardNo: "UPDCARD004", JpaVersion: before.JpaVersion}
 		affected, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, patch)
 		if err != nil {
 			t.Fatalf("UpdateByPrimaryKeyIngoreZeroValCols 不期望错误: %v", err)
@@ -131,12 +132,13 @@ func TestTeacherUpdateByPrimaryKeyIngoreZeroValCols(t *testing.T) {
 	})
 
 	t.Run("场景2:主键缺失-预期错误", func(t *testing.T) {
-		_, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{Name: "x"})
+		// 装载版本以聚焦主键校验（未装载版本先被 LockCheck 拦截）
+		_, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{Name: "x", JpaVersion: ver(1)})
 		assertErrorContains(t, err, "primary key is required")
 	})
 
 	t.Run("场景3:更新不存在的主键-影响0行", func(t *testing.T) {
-		affected, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{Id: 999999999, CardNo: "X"})
+		affected, err := teacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, &model.TmTeacher{Id: 999999999, CardNo: "X", JpaVersion: ver(1)})
 		if err != nil {
 			t.Fatalf("更新不存在主键不期望错误: %v", err)
 		}

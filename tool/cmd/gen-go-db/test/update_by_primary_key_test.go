@@ -64,8 +64,8 @@ func TestStudentUpdateByPrimaryKey(t *testing.T) {
 		assertErrorContains(t, err, "primary key is required")
 	})
 
-	t.Run("场景4:更新不存在的主键-Save upsert插入-影响1行", func(t *testing.T) {
-		t.Log("注意：GORM Save 语义：UPDATE 影响 0 行时回退 INSERT（upsert），故不存在的主键会被插入，影响 1 行")
+	t.Run("场景4:更新不存在的主键-影响0行不落库", func(t *testing.T) {
+		// 语义修正：Updates 形态下不存在的主键 0 行、无错误、不落库
 		notExist := &model.TmStudent{
 			TenantId: 99999, StudentNo: "NOEXIST999", Name: "不存在",
 			Address: "a", Phone: "13800000000", ClassId: "C1",
@@ -74,9 +74,12 @@ func TestStudentUpdateByPrimaryKey(t *testing.T) {
 		if err != nil {
 			t.Fatalf("更新不存在主键不期望错误: %v", err)
 		}
-		// GORM Save 语义：UPDATE 影响 0 行时回退 INSERT（upsert），故不存在的主键会被插入，影响 1 行
-		if affected != 1 {
-			t.Errorf("期望影响 1 行（Save upsert 插入），实际 %d", affected)
+		if affected != 0 {
+			t.Errorf("期望影响 0 行（不再 Save upsert 插入），实际 %d", affected)
+		}
+		notFound, err := studentDao.FindByPrimaryKey(ctx, model.TmStudentPrimarkey{TenantId: 99999, StudentNo: "NOEXIST999"})
+		if err != nil || notFound != nil {
+			t.Errorf("不存在的主键不应落库: found=%v err=%v", notFound, err)
 		}
 	})
 
@@ -153,20 +156,25 @@ func TestTeacherUpdateByPrimaryKey(t *testing.T) {
 	})
 
 	t.Run("场景2:主键缺失-Id=0-预期错误", func(t *testing.T) {
-		_, err := teacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{Name: "x", ClassId: "C1"})
+		// 装载版本以聚焦主键校验（未装载版本先被 LockCheck 拦截）
+		_, err := teacherDao.UpdateByPrimaryKey(ctx, &model.TmTeacher{Name: "x", ClassId: "C1", JpaVersion: ver(1)})
 		assertErrorContains(t, err, "primary key is required")
 	})
 
-	t.Run("场景3:更新不存在的主键-Save upsert插入-影响1行", func(t *testing.T) {
-		t.Log("注意：GORM Save 语义：UPDATE 影响 0 行时回退 INSERT（upsert），故不存在的主键会被插入，影响 1 行")
-		notExist := &model.TmTeacher{Id: 999999999, Name: "不存在", Address: "a", Phone: "13900000000", ClassId: "C1"}
+	t.Run("场景3:更新不存在的主键-影响0行不落库", func(t *testing.T) {
+		// 语义修正：Save upsert（UPDATE 0 行回退 INSERT）形态已重构为 Updates，
+		// 不存在的主键 → 0 行、无错误、不落库（乐观锁方案 §五 用例 4）
+		notExist := &model.TmTeacher{Id: 999999999, Name: "不存在", Address: "a", Phone: "13900000000", ClassId: "C1", JpaVersion: ver(1)}
 		affected, err := teacherDao.UpdateByPrimaryKey(ctx, notExist)
 		if err != nil {
 			t.Fatalf("更新不存在主键不期望错误: %v", err)
 		}
-		// GORM Save 语义：UPDATE 影响 0 行时回退 INSERT（upsert），故不存在的主键会被插入，影响 1 行
-		if affected != 1 {
-			t.Errorf("期望影响 1 行（Save upsert 插入），实际 %d", affected)
+		if affected != 0 {
+			t.Errorf("期望影响 0 行（不再 Save upsert 插入），实际 %d", affected)
+		}
+		notFound, err := teacherDao.FindByPrimaryKey(ctx, model.TmTeacherPrimaryKey(999999999))
+		if err != nil || notFound != nil {
+			t.Errorf("不存在的主键不应落库: found=%v err=%v", notFound, err)
 		}
 	})
 }

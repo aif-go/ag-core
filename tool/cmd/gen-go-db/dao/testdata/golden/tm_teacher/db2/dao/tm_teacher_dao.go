@@ -77,50 +77,48 @@ func (dao *TmTeacherDao) InsertOneIgnoreZeroValCols(ctx context.Context, entity 
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKey 根据主键或者唯一键更新，该操作只适合从数据库查询原实体修改值之后使用
+// UpdateByPrimaryKey 根据主键或者唯一键更新，全字段覆盖更新，该操作只适合从数据库查询原实体修改值之后使用
+// 直接构造实体提交同样支持，但必须装载乐观锁版本字段（如有）
 func (dao *TmTeacherDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmTeacher) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if entity.Id == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["id"] = entity.Id
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.JpaVersion.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
 	}
 
-	if len(where) == 0 {
+	// 检查主键是否为空
+	if entity.Id == 0 {
 		return 0, errors.New("when update,primary key is required")
 	}
-	// 5. 使用支持更新的列
-	result := db.Model(&model.TmTeacher{}).Where(where).Save(entity)
+	// 5. 全字段更新，gorm 自动以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 
-// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动忽略零值列（乐观锁版本列除外）
 func (dao *TmTeacherDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.TmTeacher) (int64, error) {
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
 	}
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
-	if entity.Id == 0 {
-		return 0, errors.New("when update,primary key or unique key is required")
-	} else {
-		where["id"] = entity.Id
+
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.JpaVersion.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
 	}
 
-	if len(where) == 0 {
+	// 检查主键是否为空
+	if entity.Id == 0 {
 		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.TmTeacher{}).Where(where).Updates(entity)
+	result := db.Model(entity).Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 

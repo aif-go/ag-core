@@ -83,7 +83,7 @@ func generateCompileSet(t *testing.T, genRoot string, cases []struct {
 // setupCompileModule 写临时模块 go.mod 与临时 go.work，返回 go build 命令。
 func setupCompileModule(t *testing.T, genRoot, goWorkPath, agcoreRoot string) *exec.Cmd {
 	t.Helper()
-	goMod := "module compilegen\n\ngo 1.24.8\n\nrequire (\n\tgithub.com/shopspring/decimal v1.4.0\n\tgorm.io/gorm v1.31.1\n\tgopkg.in/yaml.v2 v2.4.0\n)\n"
+	goMod := "module compilegen\n\ngo 1.24.8\n\nrequire (\n\tgithub.com/shopspring/decimal v1.4.0\n\tgorm.io/gorm v1.31.2\n\tgorm.io/plugin/optimisticlock v1.1.3\n\tgopkg.in/yaml.v2 v2.4.0\n)\n"
 	if err := os.WriteFile(filepath.Join(genRoot, "go.mod"), []byte(goMod), 0644); err != nil {
 		t.Fatal(err)
 	}
