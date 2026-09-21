@@ -72,6 +72,46 @@ func TestParseYAML_OptimisticLock(t *testing.T) {
 	}
 }
 
+// TestParseYAML_OptimisticLock_JavaVersionCoexist ///@optimisticlock 与其他 tag 并存（; 分隔）
+func TestParseYAML_OptimisticLock_JavaVersionCoexist(t *testing.T) {
+	yamlContent := `table_name: tm_lock_coexist
+columns:
+- name: id
+  type: int64
+- name: jpa_version
+  type: int64
+  tag: ///@javaVersion;///@optimisticlock
+`
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "lock_coexist.yaml")
+	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+
+	data, err := ParseYAML(yamlPath, "test-module")
+	if err != nil {
+		t.Fatalf("ParseYAML 意外报错: %v", err)
+	}
+	col := data.Columns[1]
+
+	if !col.IsOptimisticLock || !col.IsJavaVersion {
+		t.Fatalf("双 tag 应同时生效: IsOptimisticLock=%v IsJavaVersion=%v", col.IsOptimisticLock, col.IsJavaVersion)
+	}
+	if col.GoType != "optimisticlock.Version" {
+		t.Errorf("GoType = %q; want optimisticlock.Version（乐观锁声明优先）", col.GoType)
+	}
+
+	imported := false
+	for _, pkg := range data.ModelTemplateData.ImportPackages {
+		if pkg == "gorm.io/plugin/optimisticlock" {
+			imported = true
+		}
+	}
+	if !imported {
+		t.Error("双 tag 场景未注入 optimisticlock import")
+	}
+}
+
 // TestGetZeroCheck_OptimisticVersion 乐观锁列零值判断以 Valid 为准（值 0 属合法历史版本）。
 func TestGetZeroCheck_OptimisticVersion(t *testing.T) {
 	col := table.ColumnData{Name: "version_no", JsonTag: "VersionNo", GoType: "optimisticlock.Version"}
