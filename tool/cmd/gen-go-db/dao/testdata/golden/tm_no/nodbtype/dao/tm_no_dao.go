@@ -84,13 +84,13 @@ func (dao *TmNoDao) UpdateByPrimaryKey(ctx context.Context, entity *model.TmNo) 
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	if len(where) == 0 {
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
 		return 0, errors.New("when update,primary key is required")
 	}
-	// 5. 使用支持更新的列
-	result := db.Model(&model.TmNo{}).Where(where).Select("*").Updates(entity)
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
 
 	return result.RowsAffected, result.Error
 }
@@ -102,13 +102,13 @@ func (dao *TmNoDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, ent
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	if len(where) == 0 {
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
 		return 0, errors.New("when update,primary key is required")
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.TmNo{}).Where(where).Updates(entity)
+	result := db.Model(entity).Updates(entity)
 
 	return result.RowsAffected, result.Error
 }

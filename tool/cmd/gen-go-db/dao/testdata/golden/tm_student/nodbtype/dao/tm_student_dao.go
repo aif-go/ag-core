@@ -84,17 +84,12 @@ func (dao *TmStudentDao) UpdateByPrimaryKey(ctx context.Context, entity *model.T
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
+	// 检查主键是否为空
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
 		return 0, errors.New("when update,primary key is required")
-	} else {
-		where["tenant_id"] = entity.TenantId
-		where["student_no"] = entity.StudentNo
 	}
-	// 5. 使用支持更新的列
-	result := db.Model(&model.TmStudent{}).Where(where).Select("*").Updates(entity)
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
 
 	return result.RowsAffected, result.Error
 }
@@ -106,17 +101,12 @@ func (dao *TmStudentDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
+	// 检查主键是否为空
 	if (entity.TenantId == 0) || (entity.StudentNo == "") {
 		return 0, errors.New("when update,primary key is required")
-	} else {
-		where["tenant_id"] = entity.TenantId
-		where["student_no"] = entity.StudentNo
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.TmStudent{}).Where(where).Updates(entity)
+	result := db.Model(entity).Updates(entity)
 
 	return result.RowsAffected, result.Error
 }

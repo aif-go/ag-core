@@ -85,17 +85,12 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKey(ctx context.Context, entity *mod
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
+	// 检查主键是否为空
 	if (entity.Id == 0) || (entity.ClusterId == "") {
 		return 0, errors.New("when update,primary key is required")
-	} else {
-		where["ID"] = entity.Id
-		where["CLUSTER_ID"] = entity.ClusterId
 	}
-	// 5. 使用支持更新的列
-	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Select("*").Updates(entity)
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
 
 	return result.RowsAffected, result.Error
 }
@@ -107,17 +102,12 @@ func (dao *Tbl3dsRequestDao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Con
 		return 0, err
 	}
 
-	// 4. 更新条件（主键）
-	where := make(map[string]any)
-	// 检查主键是否为空，如果为空继续检查唯一键
+	// 检查主键是否为空
 	if (entity.Id == 0) || (entity.ClusterId == "") {
 		return 0, errors.New("when update,primary key is required")
-	} else {
-		where["ID"] = entity.Id
-		where["CLUSTER_ID"] = entity.ClusterId
 	}
 	// 使用支持更新的列
-	result := db.Model(&model.Tbl3dsRequest{}).Where(where).Updates(entity)
+	result := db.Model(entity).Updates(entity)
 
 	return result.RowsAffected, result.Error
 }

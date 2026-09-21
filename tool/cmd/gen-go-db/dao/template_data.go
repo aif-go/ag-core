@@ -253,55 +253,6 @@ func (d *DaoTemplateData) GuardCheck() string {
 	return guardCheck
 }
 
-// PrimaryKeyUpdate 生成主键更新条件代码。
-func (d *DaoTemplateData) PrimaryKeyUpdate() string {
-	tableData := d.TableData
-	var primaryKeyUpdate string
-
-	var primaryKeyColumns []table.ColumnData
-	var uniqueKeyColumns []table.ColumnData
-
-	for _, column := range tableData.Columns {
-		if column.IsPrimaryKey {
-			primaryKeyColumns = append(primaryKeyColumns, column)
-		}
-	}
-
-	for _, index := range tableData.Indexes {
-		if index.IsUnique {
-			for _, colName := range index.Columns {
-				for _, column := range tableData.Columns {
-					if column.Name == colName {
-						exists := false
-						for _, existingCol := range uniqueKeyColumns {
-							if existingCol.Name == column.Name {
-								exists = true
-								break
-							}
-						}
-						if !exists {
-							uniqueKeyColumns = append(uniqueKeyColumns, column)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-
-	if len(primaryKeyColumns) > 0 {
-		primaryKeyUpdate = "\t// 检查主键是否为空，如果为空继续检查唯一键\n"
-		primaryKeyUpdate += "\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n"
-		primaryKeyUpdate += "\t\treturn 0, errors.New(\"when update,primary key is required\")\n"
-		primaryKeyUpdate += "\t} else {\n"
-		for _, pk := range primaryKeyColumns {
-			primaryKeyUpdate += "\t\twhere[\"" + pk.Name + "\"] = entity." + pk.JsonTag + "\n"
-		}
-		primaryKeyUpdate += "\t}\n"
-	}
-	return primaryKeyUpdate
-}
-
 // findLockCol 查找表中的乐观锁列（IsOptimisticLock 标志驱动，禁止硬编码字段名）。
 func findLockCol(tableData *table.TableData) *table.ColumnData {
 	for i, col := range tableData.Columns {
@@ -326,28 +277,30 @@ func (d *DaoTemplateData) LockCheck() string {
 		"\t}\n"
 }
 
-// IsSinglePK 是否为恰好一个主键且无其他键条件的形态（决定更新 SQL 形态分支）。
-func (d *DaoTemplateData) IsSinglePK() bool {
-	return len(d.TableData.PrimaryKeys) == 1
-}
-
-// NeedWhereMap 多主键或无主键形态需显式 where map。
-func (d *DaoTemplateData) NeedWhereMap() bool {
-	return !d.IsSinglePK()
-}
-
 // HasLockCol 表是否存在乐观锁列（模板/渲染分支标志）。
 func (d *DaoTemplateData) HasLockCol() bool {
 	return findLockCol(d.TableData) != nil
 }
 
-// PKRequiredCheck 单主键形态的主键零值校验块（无 where map）。
-func (d *DaoTemplateData) PKRequiredCheck() string {
+// UpdatePreBlock 更新方法的前置代码块（校验、条件构建）：
+// - 有主键（单/复合）：全键零值校验（任一为零报错），条件由 gorm 以实体主键字段自动构造
+// - 无主键表：无任何可用条件 → 显式 where map + len 拦截恒报错（非死代码，且避免 unreachable）
+func (d *DaoTemplateData) UpdatePreBlock() string {
 	var primaryKeyColumns []table.ColumnData
 	for _, column := range d.TableData.Columns {
 		if column.IsPrimaryKey {
 			primaryKeyColumns = append(primaryKeyColumns, column)
 		}
+	}
+	if len(primaryKeyColumns) == 0 {
+		// 无主键表：无任何可用条件 → dao 层恒拦截。
+		// pkConditions 为运行时值，len 编译器不可常量折叠 → 不触发 unreachable 告警；
+		// 拦截语句不参与 SQL 拼装，执行语句仍与其他形态统一（见 UpdateStmt/UpdateIgnoreStmt）。
+		return "\t// 表无主键，更新一律拦截\n" +
+			"\tvar pkConditions []string\n" +
+			"\tif len(pkConditions) == 0 {\n" +
+			"\t\treturn 0, errors.New(\"when update,primary key is required\")\n" +
+			"\t}\n"
 	}
 	return "\t// 检查主键是否为空\n" +
 		"\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n" +
@@ -355,45 +308,19 @@ func (d *DaoTemplateData) PKRequiredCheck() string {
 		"\t}\n"
 }
 
-// UpdatePreBlock 更新方法的前置代码块（校验、条件构建）：
-// - 单主键：主键零值校验即可，db.Model(entity) 自动以实体主键为 WHERE
-// - 多主键/无主键：显式 where map + 主键条件装配（无主键表保留 len(where)==0 报错路径，非死代码）
-func (d *DaoTemplateData) UpdatePreBlock() string {
-	if d.IsSinglePK() {
-		return d.PKRequiredCheck()
-	}
-	pre := "\t// 4. 更新条件（主键）\n\twhere := make(map[string]any)\n" + d.PrimaryKeyUpdate()
-	if len(d.TableData.PrimaryKeys) == 0 {
-		// 无主键表：PrimaryKeyUpdate 为空，len(where)==0 是唯一报错路径
-		pre += "\tif len(where) == 0 {\n" +
-			"\t\treturn 0, errors.New(\"when update,primary key is required\")\n" +
-			"\t}\n"
-	}
-	return pre
-}
-
-// UpdateStmt UpdateByPrimaryKey 的更新执行语句（统一形态）。
-// 单主键：gorm 自动以实体主键为条件，全字段 Select("*") 覆盖更新；
-// 多主键/无主键：显式 Where 条件。
+// UpdateStmt UpdateByPrimaryKey 的更新执行语句（统一形态，主键条件由 gorm 自动构造）。
+// Select("*")：全字段覆盖更新；前置全键零值校验保证主键 WHERE 完整。
 func (d *DaoTemplateData) UpdateStmt() string {
-	if d.IsSinglePK() {
-		return "\t// 5. 全字段更新，gorm 自动以实体主键为 WHERE 条件\n" +
-			"\tresult := db.Model(entity).Select(\"*\").Updates(entity)\n"
-	}
-	return "\t// 5. 使用支持更新的列\n" +
-		"\tresult := db.Model(&model." + d.TableData.StructName + "{}).Where(where).Select(\"*\").Updates(entity)\n"
+	return "\t// 5. 全字段更新，gorm 以实体主键为 WHERE 条件\n" +
+		"\tresult := db.Model(entity).Select(\"*\").Updates(entity)\n"
 }
 
 // UpdateIgnoreStmt UpdateByPrimaryKeyIgnoreZeroValCols 的更新执行语句。
 // 不带 Select("*")：gorm Updates(entity) 仅更新非零值字段（保持剔除零值语义），
 // 乐观锁版本子句由插件基于实体版本字段生成、不受 Select 限定影响。
 func (d *DaoTemplateData) UpdateIgnoreStmt() string {
-	if d.IsSinglePK() {
-		return "\t// 使用支持更新的列\n" +
-			"\tresult := db.Model(entity).Updates(entity)\n"
-	}
 	return "\t// 使用支持更新的列\n" +
-		"\tresult := db.Model(&model." + d.TableData.StructName + "{}).Where(where).Updates(entity)\n"
+		"\tresult := db.Model(entity).Updates(entity)\n"
 }
 
 // SwitchCases 生成自定义规则查询的 switch case 分支。

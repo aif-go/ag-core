@@ -89,7 +89,7 @@ func (dao *TmMediaActDao) UpdateByPrimaryKey(ctx context.Context, entity *model.
 	if entity.Seq == 0 {
 		return 0, errors.New("when update,primary key is required")
 	}
-	// 5. 全字段更新，gorm 自动以实体主键为 WHERE 条件
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
 	result := db.Model(entity).Select("*").Updates(entity)
 
 	return result.RowsAffected, result.Error

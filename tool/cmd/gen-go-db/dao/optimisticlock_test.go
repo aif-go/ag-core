@@ -56,16 +56,19 @@ func TestDAO_LockCheck(t *testing.T) {
 	})
 }
 
-// TestDAO_UpdateStmt_UpdateForm 更新形态统一（Save→Updates）与剔除语义保留。
+// TestDAO_UpdateStmt_UpdateForm 更新形态统一（Save→Updates、复合主键同用实体自动 WHERE）。
 func TestDAO_UpdateStmt_UpdateForm(t *testing.T) {
 	d := DaoTemplateData{TableData: lockTableData()}
 
 	full := d.UpdateStmt()
 	if !strings.Contains(full, `db.Model(entity).Select("*").Updates(entity)`) {
-		t.Errorf("单主键全字段更新应为 db.Model(entity).Select(...).Updates(entity):\n%s", full)
+		t.Errorf("全字段更新应为 db.Model(entity).Select(...).Updates(entity):\n%s", full)
 	}
 	if strings.Contains(full, "Save(") {
 		t.Errorf("UpdateByPrimaryKey 不应再使用 Save 形态:\n%s", full)
+	}
+	if strings.Contains(full, "Where(where)") {
+		t.Errorf("统一形态不应携带显式 where map:\n%s", full)
 	}
 
 	ignore := d.UpdateIgnoreStmt()
@@ -73,25 +76,52 @@ func TestDAO_UpdateStmt_UpdateForm(t *testing.T) {
 		t.Errorf("UpdateIgnore 不应带 Select(\"*\")（保留零值剔除语义）:\n%s", ignore)
 	}
 	if !strings.Contains(ignore, "db.Model(entity).Updates(entity)") {
-		t.Errorf("单主键部分更新形态不符:\n%s", ignore)
+		t.Errorf("部分更新形态不符:\n%s", ignore)
+	}
+
+	// 有主键表（单/复合）均不生成显式 where map
+	for _, td := range []*table.TableData{lockTableData(), multiPkTableData()} {
+		if strings.Contains((&DaoTemplateData{TableData: td}).UpdatePreBlock(), "where := make(map[string]any)") {
+			t.Errorf("%s 有主键，不应生成显式 where map", td.StructName)
+		}
+	}
+
+	// 无主键表：dao 层恒拦截（守卫语句，非 SQL 特例形态），无 unchanged where map
+	noPk := lockTableData()
+	noPk.PrimaryKeys = nil
+	for i := range noPk.Columns {
+		noPk.Columns[i].IsPrimaryKey = false
+	}
+	pre := (&DaoTemplateData{TableData: noPk}).UpdatePreBlock()
+	if !strings.Contains(pre, "pkConditions") || !strings.Contains(pre, "primary key is required") {
+		t.Errorf("无主键表应保留 dao 层拦截:\n%s", pre)
+	}
+	if strings.Contains(pre, "map[string]any") {
+		t.Errorf("无主键表拦截不应使用 where map:\n%s", pre)
 	}
 }
 
-// TestDAO_UpdateStmt_MultiPK 多主键形态走显式 where map。
-func TestDAO_UpdateStmt_MultiPK(t *testing.T) {
+// multiPkTableData 复合主键 + 乐观锁列
+func multiPkTableData() *table.TableData {
 	td := lockTableData()
 	td.PrimaryKeys = []string{"id", "version_no"}
 	td.Columns[1].IsPrimaryKey = true
-	d := DaoTemplateData{TableData: td}
+	return td
+}
 
-	if !strings.Contains(d.UpdateStmt(), `db.Model(&model.TmLockDemo{}).Where(where).Select("*").Updates(entity)`) {
-		t.Errorf("多主键全字段更新应携带显式 Where:\n%s", d.UpdateStmt())
+// TestDAO_UpdateStmt_MultiPK 复合主键：全键零值校验 + 同统一执行语句（无 where map）。
+func TestDAO_UpdateStmt_MultiPK(t *testing.T) {
+	d := DaoTemplateData{TableData: multiPkTableData()}
+
+	if !strings.Contains(d.UpdateStmt(), `db.Model(entity).Select("*").Updates(entity)`) {
+		t.Errorf("复合主键全字段更新应与单主键同形态:\n%s", d.UpdateStmt())
 	}
-	if !strings.Contains(d.UpdateIgnoreStmt(), `db.Model(&model.TmLockDemo{}).Where(where).Updates(entity)`) {
-		t.Errorf("多主键部分更新应携带显式 Where:\n%s", d.UpdateIgnoreStmt())
+	if !strings.Contains(d.UpdateIgnoreStmt(), "db.Model(entity).Updates(entity)") {
+		t.Errorf("复合主键部分更新应与单主键同形态:\n%s", d.UpdateIgnoreStmt())
 	}
-	if !strings.Contains(d.UpdatePreBlock(), "where := make(map[string]any)") {
-		t.Errorf("多主键形态应生成 where map:\n%s", d.UpdatePreBlock())
+	pre := d.UpdatePreBlock()
+	if !strings.Contains(pre, `entity.Id == 0`) || !strings.Contains(pre, `!entity.VersionNo.Valid`) {
+		t.Errorf("复合主键应校验全部主键列:\n%s", pre)
 	}
 }
 
