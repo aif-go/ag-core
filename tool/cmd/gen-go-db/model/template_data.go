@@ -144,26 +144,9 @@ func isSpecialColumn(colData table.ColumnData) bool {
 	return false
 }
 
-// getZeroCheck 获取零值检查表达式（参考dao模板的简洁实现）
+// getZeroCheck 获取列零值判断表达式（唯一事实源：table.ZeroCheckExpr，签名保留兼容既有测试）。
 func getZeroCheck(lowerName string, col table.ColumnData) string {
-	// 指针类型列使用 nil 判断
-	if strings.HasPrefix(col.GoType, "*") {
-		return fmt.Sprintf("%s.%s == nil", lowerName, col.JsonTag)
-	}
-	switch col.GoType {
-	case "string":
-		return fmt.Sprintf("%s.%s == \"\"", lowerName, col.JsonTag)
-	case "time.Time", "decimal.Decimal":
-		return fmt.Sprintf("%s.%s.IsZero()", lowerName, col.JsonTag)
-	case "optimisticlock.Version":
-		// 乐观锁列零值 = 未装载版本，以 Valid 判断（值 0 属合法历史版本）
-		return fmt.Sprintf("!%s.%s.Valid", lowerName, col.JsonTag)
-	case "bool":
-		return fmt.Sprintf("!%s.%s", lowerName, col.JsonTag)
-	default:
-		// 数值类型（int, int64, float64等）
-		return fmt.Sprintf("%s.%s == 0", lowerName, col.JsonTag)
-	}
+	return table.ZeroCheckExpr(lowerName, col, false)
 }
 
 // containsPk 检查列名是否在主键列表中
@@ -237,64 +220,6 @@ func (d *ModelTemplateData) HasGeneralCol() bool {
 // LowerStructName 首字母小写结构体名（模板用）。
 func (d *ModelTemplateData) LowerStructName() string {
 	return lowerStructName(d.StructName)
-}
-
-// FieldChecksCode 渲染字段检查代码（原 generateListZeroValueColsMethod 内部逻辑）。
-func (d *ModelTemplateData) FieldChecksCode() string {
-	lsn := lowerStructName(d.StructName)
-	var fieldChecks []string
-
-	// 先遍历判断是否存在普通列，有才声明 generalColZeroVal
-	if d.HasGeneralCol() {
-		generalColZeroValVarDefine := fmt.Sprintf(` // generalColZeroVal 用于普通列的零值检查，避免重复代码
-	%s
-	`, "var generalColZeroVal bool = false")
-		fieldChecks = append(fieldChecks, generalColZeroValVarDefine)
-	}
-
-	for _, fc := range d.FieldChecks {
-		zeroCheck := fc.ZeroCond
-		var fieldCheck string
-		switch fc.Kind {
-		case "primary":
-			fieldCheck = fmt.Sprintf(`	// %s - 主键，索引列
-	if !filterPrimary {
-		isZero := %s
-		// false 保留零值 true 过滤零值
-		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
-			cols = append(cols, "%s")
-			vals = append(vals, %s.%s)
-		}
-	}`, fc.Tag, zeroCheck, fc.ColName, lsn, fc.Tag)
-		case "index":
-			fieldCheck = fmt.Sprintf(`	// %s - 索引列
-	if !filterIndex {
-		isZero := %s
-		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
-			cols = append(cols, "%s")
-			vals = append(vals, %s.%s)
-		}
-	}`, fc.Tag, zeroCheck, fc.ColName, lsn, fc.Tag)
-		case "special":
-			fieldCheck = fmt.Sprintf(`	// %s - 特殊列，用于%s
-	if !filterSpecial {
-		isZero := %s
-		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
-			cols = append(cols, "%s")
-			vals = append(vals, %s.%s)
-		}
-	}`, fc.Tag, fc.Desc, zeroCheck, fc.ColName, lsn, fc.Tag)
-		default:
-			fieldCheck = fmt.Sprintf(`	// %s - 普通列
-	generalColZeroVal = %s
-	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
-		cols = append(cols, "%s")
-		vals = append(vals, %s.%s)
-	}`, fc.Tag, zeroCheck, fc.ColName, lsn, fc.Tag)
-		}
-		fieldChecks = append(fieldChecks, fieldCheck)
-	}
-	return strings.Join(fieldChecks, "\n\n")
 }
 
 // generateAllowUpdateColsBlock 生成AllowUpdateCols变量块

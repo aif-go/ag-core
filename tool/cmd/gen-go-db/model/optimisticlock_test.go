@@ -129,7 +129,7 @@ func TestIsSpecialColumn_OptimisticLock(t *testing.T) {
 	}
 }
 
-// TestFieldChecksCode_OptimisticLock 渲染 ListZeroValueCols：锁列走 Valid 判断且归为特殊列。
+// TestFieldChecksCode_OptimisticLock 渲染 ListZeroValueCols：锁列走 Valid 判断且归为特殊列（渲染级断言）。
 func TestFieldChecksCode_OptimisticLock(t *testing.T) {
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "lock.yaml")
@@ -141,11 +141,10 @@ func TestFieldChecksCode_OptimisticLock(t *testing.T) {
 		t.Fatalf("ParseYAML 意外报错: %v", err)
 	}
 
-	td := BuildModelTemplateData(data)
-	code := td.FieldChecksCode()
+	code := GetModelTemplate(data)
 
 	if !strings.Contains(code, "!tmLockDemo.VersionNo.Valid") {
-		t.Errorf("FieldChecksCode 未使用 Valid 判断:\n%s", code)
+		t.Errorf("FieldChecks 渲染未使用 Valid 判断:\n%s", code)
 	}
 	if !strings.Contains(code, "用于乐观锁") {
 		t.Errorf("锁列应归类特殊列（用于乐观锁）:\n%s", code)

@@ -83,10 +83,29 @@ func (dao *{{.StructName}}Dao) UpdateByPrimaryKey(ctx context.Context, entity *m
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
-	}
+	}{{- if .HasLockCol}}
 
-{{.LockCheck}}
-{{.UpdatePreBlock}}{{.UpdateStmt}}
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.{{.LockColJsonTag}}.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
+	}
+{{- end}}{{- if .HasPK}}
+
+	// 检查主键是否为空
+	if {{.PKZeroCond}} {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- else}}
+
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- end}}
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 
@@ -95,10 +114,29 @@ func (dao *{{.StructName}}Dao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.C
 	db, err := dao.newDB(ctx)
 	if err != nil {
 		return 0, err
-	}
+	}{{- if .HasLockCol}}
 
-{{.LockCheck}}
-{{.UpdatePreBlock}}{{.UpdateIgnoreStmt}}
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.{{.LockColJsonTag}}.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
+	}
+{{- end}}{{- if .HasPK}}
+
+	// 检查主键是否为空
+	if {{.PKZeroCond}} {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- else}}
+
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- end}}
+	// 使用支持更新的列
+	result := db.Model(entity).Updates(entity)
+
 	return result.RowsAffected, result.Error
 }
 
@@ -118,7 +156,23 @@ func (dao *{{.StructName}}Dao) FindByStruct(ctx context.Context, entity *model.{
 		return nil, err
 	}
 
-{{.GuardCheck}}
+	// 检查是否使用了主键或索引，避免全表扫描
+	keyUsed := false
+{{- if .HasPK}}
+	// 检查主键
+	if {{.GuardPKCond}} {
+		keyUsed = true
+	}
+{{- end}}{{- range .GuardIndexes}}
+	// 检查索引 {{.Name}}
+	if {{.Cond}} {
+		keyUsed = true
+	}
+{{- end}}
+	if !keyUsed {
+		return nil, errors.New("query not use any index")
+	}
+
 	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件
 	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
 	if err != nil {

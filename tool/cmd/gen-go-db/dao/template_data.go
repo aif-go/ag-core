@@ -23,24 +23,8 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 		} else {
 			checkCode += "("
 		}
-		// 根据字段类型生成不同的零值判断条件
-		if isPointerGoType(col.GoType) {
-			checkCode += "entity." + col.JsonTag + " == nil"
-		} else {
-			switch col.GoType {
-			case "string":
-				checkCode += "entity." + col.JsonTag + " == \"\""
-			case "time.Time", "decimal.Decimal":
-				checkCode += "entity." + col.JsonTag + ".IsZero()"
-			case "optimisticlock.Version":
-				checkCode += "!entity." + col.JsonTag + ".Valid"
-			case "bool":
-				checkCode += "!entity." + col.JsonTag
-			default:
-				// 数值类型
-				checkCode += "entity." + col.JsonTag + " == 0"
-			}
-		}
+		// 根据字段类型生成不同的零值判断条件（唯一事实源：table.ZeroCheckExpr）
+		checkCode += table.ZeroCheckExpr("entity", col, false)
 		checkCode += ")"
 	}
 	checkCode += ")"
@@ -161,98 +145,72 @@ func (d *DaoTemplateData) InitMethodCall() string {
 	return ""
 }
 
-// GuardCheck 守卫块代码（主键/索引引导列非零判断，含恒报错兜底）。
-func (d *DaoTemplateData) GuardCheck() string {
-	tableData := d.TableData
-	var guardCheck string
-	guardCheck += "\t// 检查是否使用了主键或索引，避免全表扫描\n"
-	guardCheck += "\tkeyUsed := false\n"
+// HasLockCol 表是否存在乐观锁列（模板分支数据）。
+func (d *DaoTemplateData) HasLockCol() bool {
+	return findLockCol(d.TableData) != nil
+}
 
-	// 主键检查（主键即索引；仅当主键存在时生成）
-	if len(tableData.PrimaryKeys) > 0 {
-		var firstPkCol *table.ColumnData
-		for _, col := range tableData.Columns {
-			if col.Name == tableData.PrimaryKeys[0] {
-				firstPkCol = &col
+// LockColJsonTag 乐观锁列实体字段名（仅 HasLockCol=true 时被模板使用）。
+func (d *DaoTemplateData) LockColJsonTag() string {
+	if col := findLockCol(d.TableData); col != nil {
+		return col.JsonTag
+	}
+	return ""
+}
+
+// HasPK 是否存在主键（决定更新方法前置校验形态）。
+func (d *DaoTemplateData) HasPK() bool {
+	return len(d.TableData.PrimaryKeys) > 0
+}
+
+// PKZeroCond 主键零值校验表达式（单/复合主键通用）。
+func (d *DaoTemplateData) PKZeroCond() string {
+	var primaryKeyColumns []table.ColumnData
+	for _, column := range d.TableData.Columns {
+		if column.IsPrimaryKey {
+			primaryKeyColumns = append(primaryKeyColumns, column)
+		}
+	}
+	return generateZeroValueCheck(primaryKeyColumns)
+}
+
+// GuardPKCond FindByStruct 守卫的主键非零判断表达式。
+func (d *DaoTemplateData) GuardPKCond() string {
+	if len(d.TableData.PrimaryKeys) == 0 {
+		return ""
+	}
+	var firstPkCol *table.ColumnData
+	for _, col := range d.TableData.Columns {
+		if col.Name == d.TableData.PrimaryKeys[0] {
+			firstPkCol = &col
+			break
+		}
+	}
+	return table.ZeroCheckExpr("entity", *firstPkCol, true)
+}
+
+// GuardIndex FindByStruct 索引导引列判断项。
+type GuardIndex struct {
+	Name string // 索引名（注释使用）
+	Cond string // 首列非零判断表达式
+}
+
+// GuardIndexes 索引导引列判断项集（有列索引才生成）。
+func (d *DaoTemplateData) GuardIndexes() []GuardIndex {
+	var items []GuardIndex
+	for _, index := range d.TableData.Indexes {
+		if len(index.Columns) == 0 {
+			continue
+		}
+		for _, c := range d.TableData.Columns {
+			if c.Name == index.Columns[0] {
+				items = append(items, GuardIndex{Name: index.Name, Cond: table.ZeroCheckExpr("entity", c, true)})
 				break
 			}
 		}
-		if firstPkCol != nil {
-			var nullCheck string
-			if isPointerGoType(firstPkCol.GoType) {
-				nullCheck = "entity." + firstPkCol.JsonTag + " != nil"
-			} else {
-				switch firstPkCol.GoType {
-				case "string":
-					nullCheck = "entity." + firstPkCol.JsonTag + " != \"\""
-				case "time.Time", "decimal.Decimal":
-					nullCheck = "!entity." + firstPkCol.JsonTag + ".IsZero()"
-				case "optimisticlock.Version":
-					nullCheck = "entity." + firstPkCol.JsonTag + ".Valid"
-				case "bool":
-					nullCheck = "entity." + firstPkCol.JsonTag
-				default:
-					nullCheck = "entity." + firstPkCol.JsonTag + " != 0"
-				}
-			}
-			guardCheck += "\t// 检查主键\n"
-			guardCheck += "\tif " + nullCheck + " {\n"
-			guardCheck += "\t\tkeyUsed = true\n"
-			guardCheck += "\t}\n"
-		}
 	}
-
-	// 索引引导列检查（仅当索引存在时生成，最左前缀即可命中索引）
-	if len(tableData.Indexes) > 0 {
-		var validIndexes []table.IndexData
-		for _, index := range tableData.Indexes {
-			if len(index.Columns) > 0 {
-				validIndexes = append(validIndexes, index)
-			}
-		}
-
-		// 按优先级排序索引（如果有）
-		// 简单实现：假设索引已经按优先级排序
-		for _, index := range validIndexes {
-			guardCheck += "\t// 检查索引 " + index.Name + "\n"
-
-			colName := index.Columns[0]
-			for _, col := range tableData.Columns {
-				if col.Name == colName {
-					var nullCheck string
-					if isPointerGoType(col.GoType) {
-						nullCheck = "entity." + col.JsonTag + " != nil"
-					} else {
-						switch col.GoType {
-						case "string":
-							nullCheck = "entity." + col.JsonTag + " != \"\""
-						case "time.Time", "decimal.Decimal":
-							nullCheck = "!entity." + col.JsonTag + ".IsZero()"
-						case "optimisticlock.Version":
-							nullCheck = "entity." + col.JsonTag + ".Valid"
-						case "bool":
-							nullCheck = "entity." + col.JsonTag
-						default:
-							nullCheck = "entity." + col.JsonTag + " != 0"
-						}
-					}
-
-					guardCheck += "\tif " + nullCheck + " {\n"
-					guardCheck += "\t\tkeyUsed = true\n"
-					guardCheck += "\t}\n"
-					break
-				}
-			}
-		}
-	}
-
-	// 最终守卫判断（无条件生成；无主键无索引表 keyUsed 恒为 false，恒报错）
-	guardCheck += "\tif !keyUsed {\n"
-	guardCheck += "\t\treturn nil, errors.New(\"query not use any index\")\n"
-	guardCheck += "\t}\n"
-	return guardCheck
+	return items
 }
-
 // findLockCol 查找表中的乐观锁列（IsOptimisticLock 标志驱动，禁止硬编码字段名）。
 func findLockCol(tableData *table.TableData) *table.ColumnData {
 	for i, col := range tableData.Columns {
@@ -261,66 +219,6 @@ func findLockCol(tableData *table.TableData) *table.ColumnData {
 		}
 	}
 	return nil
-}
-
-// LockCheck 生成乐观锁版本装载数值校验代码块（表有 IsOptimisticLock 列时）。
-// 未装载版本（Valid=false）时插件会静默丢弃版本 WHERE，冲突保护失效，这里显式报错。
-// 注入在两个更新方法的开头（先校验后剔除/更新）；无锁列的表返回空、不生成任何代码。
-func (d *DaoTemplateData) LockCheck() string {
-	lockCol := findLockCol(d.TableData)
-	if lockCol == nil {
-		return ""
-	}
-	return "\t// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）\n" +
-		"\tif !entity." + lockCol.JsonTag + ".Valid {\n" +
-		"\t\treturn 0, errors.New(\"when update,optimistic lock version is required\")\n" +
-		"\t}\n"
-}
-
-// HasLockCol 表是否存在乐观锁列（模板/渲染分支标志）。
-func (d *DaoTemplateData) HasLockCol() bool {
-	return findLockCol(d.TableData) != nil
-}
-
-// UpdatePreBlock 更新方法的前置代码块（校验、条件构建）：
-// - 有主键（单/复合）：全键零值校验（任一为零报错），条件由 gorm 以实体主键字段自动构造
-// - 无主键表：无任何可用条件 → 显式 where map + len 拦截恒报错（非死代码，且避免 unreachable）
-func (d *DaoTemplateData) UpdatePreBlock() string {
-	var primaryKeyColumns []table.ColumnData
-	for _, column := range d.TableData.Columns {
-		if column.IsPrimaryKey {
-			primaryKeyColumns = append(primaryKeyColumns, column)
-		}
-	}
-	if len(primaryKeyColumns) == 0 {
-		// 无主键表：无任何可用条件 → dao 层恒拦截。
-		// pkConditions 为运行时值，len 编译器不可常量折叠 → 不触发 unreachable 告警；
-		// 拦截语句不参与 SQL 拼装，执行语句仍与其他形态统一（见 UpdateStmt/UpdateIgnoreStmt）。
-		return "\t// 表无主键，更新一律拦截\n" +
-			"\tvar pkConditions []string\n" +
-			"\tif len(pkConditions) == 0 {\n" +
-			"\t\treturn 0, errors.New(\"when update,primary key is required\")\n" +
-			"\t}\n"
-	}
-	return "\t// 检查主键是否为空\n" +
-		"\tif " + generateZeroValueCheck(primaryKeyColumns) + " {\n" +
-		"\t\treturn 0, errors.New(\"when update,primary key is required\")\n" +
-		"\t}\n"
-}
-
-// UpdateStmt UpdateByPrimaryKey 的更新执行语句（统一形态，主键条件由 gorm 自动构造）。
-// Select("*")：全字段覆盖更新；前置全键零值校验保证主键 WHERE 完整。
-func (d *DaoTemplateData) UpdateStmt() string {
-	return "\t// 5. 全字段更新，gorm 以实体主键为 WHERE 条件\n" +
-		"\tresult := db.Model(entity).Select(\"*\").Updates(entity)\n"
-}
-
-// UpdateIgnoreStmt UpdateByPrimaryKeyIgnoreZeroValCols 的更新执行语句。
-// 不带 Select("*")：gorm Updates(entity) 仅更新非零值字段（保持剔除零值语义），
-// 乐观锁版本子句由插件基于实体版本字段生成、不受 Select 限定影响。
-func (d *DaoTemplateData) UpdateIgnoreStmt() string {
-	return "\t// 使用支持更新的列\n" +
-		"\tresult := db.Model(entity).Updates(entity)\n"
 }
 
 // SwitchCases 生成自定义规则查询的 switch case 分支。

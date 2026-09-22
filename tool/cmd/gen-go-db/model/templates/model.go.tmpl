@@ -35,8 +35,46 @@ func ({{.LowerStructName}} *{{.StructName}}) ListZeroValueCols(filterPrimary boo
 
 	var cols []string
 	var vals []interface{}
+{{if .HasGeneralCol}}
 
-{{.FieldChecksCode}}
+	 // generalColZeroVal 用于普通列的零值检查，避免重复代码
+	var generalColZeroVal bool = false
+
+	{{end}}{{range $i, $fc := .FieldChecks}}{{if $i}}
+
+{{end}}	// {{$fc.Tag}} - {{if eq $fc.Kind "primary"}}主键，索引列{{- else if eq $fc.Kind "index"}}索引列{{- else if eq $fc.Kind "special"}}特殊列，用于{{$fc.Desc}}{{- else}}普通列{{- end}}
+{{- if eq $fc.Kind "primary"}}
+	if !filterPrimary {
+		isZero := {{$fc.ZeroCond}}
+		// false 保留零值 true 过滤零值
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "{{$fc.ColName}}")
+			vals = append(vals, {{$.LowerStructName}}.{{$fc.Tag}})
+		}
+	}
+{{- else if eq $fc.Kind "index"}}
+	if !filterIndex {
+		isZero := {{$fc.ZeroCond}}
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "{{$fc.ColName}}")
+			vals = append(vals, {{$.LowerStructName}}.{{$fc.Tag}})
+		}
+	}
+{{- else if eq $fc.Kind "special"}}
+	if !filterSpecial {
+		isZero := {{$fc.ZeroCond}}
+		if (!filterIsZero && isZero) || (filterIsZero && !isZero) {
+			cols = append(cols, "{{$fc.ColName}}")
+			vals = append(vals, {{$.LowerStructName}}.{{$fc.Tag}})
+		}
+	}
+{{- else}}
+	generalColZeroVal = {{$fc.ZeroCond}}
+	if (!filterIsZero && generalColZeroVal) || (filterIsZero && !generalColZeroVal) {
+		cols = append(cols, "{{$fc.ColName}}")
+		vals = append(vals, {{$.LowerStructName}}.{{$fc.Tag}})
+	}
+{{- end}}{{end}}
 
 	return cols, vals, nil
 }
