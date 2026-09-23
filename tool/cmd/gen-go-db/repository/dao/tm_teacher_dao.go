@@ -135,6 +135,11 @@ func (dao *TmTeacherDao) FindByPrimaryKey(ctx context.Context, id model.TmTeache
 		return nil, err
 	}
 
+	// 检查主键是否为空
+	if id == 0 {
+		return nil, errors.New("when query,primary key is required")
+	}
+
 	var entity model.TmTeacher
 	result := db.Where("id = ?", id).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {

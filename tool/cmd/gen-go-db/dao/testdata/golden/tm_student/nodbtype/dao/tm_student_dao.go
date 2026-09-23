@@ -124,6 +124,11 @@ func (dao *TmStudentDao) FindByPrimaryKey(ctx context.Context, primaryKey model.
 		return nil, err
 	}
 
+	// 检查主键是否为空
+	if (primaryKey.TenantId == 0) || (primaryKey.StudentNo == "") {
+		return nil, errors.New("when query,primary key is required")
+	}
+
 	var entity model.TmStudent
 	result := db.Where("tenant_id = ? AND student_no = ?", primaryKey.TenantId, primaryKey.StudentNo).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {

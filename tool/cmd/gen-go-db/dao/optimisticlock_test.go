@@ -127,8 +127,12 @@ func TestDAO_GetDaoTemplate_UpdateForm(t *testing.T) {
 	})
 	t.Run("无主键表", func(t *testing.T) {
 		code := renderDao(t, PrimaryKeyless())
-		if strings.Count(code, "var pkConditions []string") != 2 {
-			t.Errorf("无主键表两更新方法均应保留 dao 层拦截:\n%s", code)
+		// 三个方法各保留一处 dao 层拦截：两更新方法 + FindByPrimaryKey
+		if strings.Count(code, "var pkConditions []string") != 3 {
+			t.Errorf("无主键表两更新方法与 Find 应各保留一处 dao 层拦截, got %d", strings.Count(code, "var pkConditions []string"))
+		}
+		if strings.Count(code, "when query,primary key is required") != 1 {
+			t.Errorf("FindByPrimaryKey 恒拦截应生成一次:\n%s", code)
 		}
 		if strings.Contains(code, "map[string]any") {
 			t.Errorf("无主键表拦截不应该用 where map:\n%s", code)

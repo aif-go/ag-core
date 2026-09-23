@@ -125,6 +125,11 @@ func (dao *TmMediaActDao) FindByPrimaryKey(ctx context.Context, id model.TmMedia
 		return nil, err
 	}
 
+	// 检查主键是否为空
+	if id == 0 {
+		return nil, errors.New("when query,primary key is required")
+	}
+
 	var entity model.TmMediaAct
 	result := db.Where("SEQ = ?", id).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {

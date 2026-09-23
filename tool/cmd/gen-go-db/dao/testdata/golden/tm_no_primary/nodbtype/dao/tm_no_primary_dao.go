@@ -121,17 +121,14 @@ func (dao *TmNoPrimaryDao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Conte
 
 // FindByPrimaryKey 根据主键查询
 func (dao *TmNoPrimaryDao) FindByPrimaryKey(ctx context.Context, primaryKey model.TmNoPrimaryPrimaryKey) (*model.TmNoPrimary, error) {
-	db, err := dao.newDB(ctx)
-	if err != nil {
-		return nil, err
+
+	// 表无主键，查询一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return nil, errors.New("when query,primary key is required")
 	}
 
-	var entity model.TmNoPrimary
-	result := db.Where("").First(&entity)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &entity, result.Error
+	return nil, nil
 }
 
 // FindByStruct 根据实体查询

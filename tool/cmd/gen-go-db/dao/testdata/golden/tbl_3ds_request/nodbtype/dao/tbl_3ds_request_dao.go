@@ -125,6 +125,11 @@ func (dao *Tbl3dsRequestDao) FindByPrimaryKey(ctx context.Context, primaryKey mo
 		return nil, err
 	}
 
+	// 检查主键是否为空
+	if (primaryKey.Id == 0) || (primaryKey.ClusterId == "") {
+		return nil, errors.New("when query,primary key is required")
+	}
+
 	var entity model.Tbl3dsRequest
 	result := db.Where("ID = ? AND CLUSTER_ID = ?", primaryKey.Id, primaryKey.ClusterId).First(&entity)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {

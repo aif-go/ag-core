@@ -13,10 +13,14 @@ func isPointerGoType(goType string) bool {
 	return strings.HasPrefix(goType, "*")
 }
 
-// generateZeroValueCheck 生成零值判断代码
+// generateZeroValueCheck 生成零值判断代码（变量名固定为 entity）。
 func generateZeroValueCheck(columns []table.ColumnData) string {
+	return generateZeroValueCheckFor("entity", columns)
+}
+
+// generateZeroValueCheckFor 生成指定变量名的零值判断代码。
+func generateZeroValueCheckFor(owner string, columns []table.ColumnData) string {
 	var checkCode string
-	checkCode += "("
 	for i, col := range columns {
 		if i > 0 {
 			checkCode += " || ("
@@ -24,10 +28,9 @@ func generateZeroValueCheck(columns []table.ColumnData) string {
 			checkCode += "("
 		}
 		// 根据字段类型生成不同的零值判断条件（唯一事实源：table.ZeroCheckExpr）
-		checkCode += table.ZeroCheckExpr("entity", col, false)
+		checkCode += table.ZeroCheckExpr(owner, col, false)
 		checkCode += ")"
 	}
-	checkCode += ")"
 	return checkCode
 }
 
@@ -76,47 +79,60 @@ func generateFindByPrimaryKeyInterface(tableData *table.TableData) string {
 	return "\tFindByPrimaryKey(ctx context.Context, primaryKey model." + structName + "PrimaryKey) (*model." + structName + ", error)"
 }
 
-// generateFindByPrimaryKeyMethod 生成 FindByPrimaryKey 方法实现
-func generateFindByPrimaryKeyMethod(tableData *table.TableData) string {
-	structName := tableData.StructName
+// PKParamDecl FindByPrimaryKey 的形参声明（id / primaryKey + 类型别名）。
+func (d *DaoTemplateData) PKParamDecl() string {
+	if len(d.TableData.PrimaryKeys) == 1 {
+		return "id model." + d.TableData.StructName + "PrimaryKey"
+	}
+	return "primaryKey model." + d.TableData.StructName + "PrimaryKey"
+}
 
-	// 生成查询条件
-	whereClause := generatePrimaryKeyWhere(tableData)
+// PKQueryZeroCond 零值主键前置校验表达式（变量名随分支：id / primaryKey）。
+func (d *DaoTemplateData) PKQueryZeroCond() string {
+	var primaryKeyColumns []table.ColumnData
+	for _, column := range d.TableData.Columns {
+		if column.IsPrimaryKey {
+			primaryKeyColumns = append(primaryKeyColumns, column)
+		}
+	}
+	owner := "id"
+	if len(d.TableData.PrimaryKeys) != 1 {
+		owner = "primaryKey"
+	}
+	return generateZeroValueCheckForPK(owner, primaryKeyColumns)
+}
 
-	if len(tableData.PrimaryKeys) == 1 {
-		// 单主键，使用类型别名
-		return `// FindByPrimaryKey 根据主键查询
-func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, id model.` + structName + `PrimaryKey) (*model.` + structName + `, error) {
-	db, err := dao.newDB(ctx)
-	if err != nil {
-		return nil, err
-	}
-	
-	var entity model.` + structName + `
-	result := db.Where("` + whereClause + `", id).First(&entity)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &entity, result.Error
-}`
-	}
+// PKWhereClause 主键查询条件串。
+func (d *DaoTemplateData) PKWhereClause() string {
+	return generatePrimaryKeyWhere(d.TableData)
+}
 
-	// 多主键，使用结构体
-	argsClause := generatePrimaryKeyArgs(tableData)
-	return `// FindByPrimaryKey 根据主键查询
-func (dao *` + structName + `Dao) FindByPrimaryKey(ctx context.Context, primaryKey model.` + structName + `PrimaryKey) (*model.` + structName + `, error) {
-	db, err := dao.newDB(ctx)
-	if err != nil {
-		return nil, err
+// PKQueryArgs 主键查询绑定参数（id / primaryKey.<Field>…）。
+func (d *DaoTemplateData) PKQueryArgs() string {
+	if len(d.TableData.PrimaryKeys) == 1 {
+		return "id"
 	}
-	
-	var entity model.` + structName + `
-	result := db.Where("` + whereClause + `", ` + argsClause + `).First(&entity)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, nil
+	return generatePrimaryKeyArgs(d.TableData)
+}
+
+// generateZeroValueCheckForPK 生成主键零值判断表达式。
+// 单主键时 owner 为类型别名（如 id），直接比较零值；
+// 多主键时 owner 为结构体（如 primaryKey），访问其字段。
+func generateZeroValueCheckForPK(owner string, columns []table.ColumnData) string {
+	if len(columns) == 1 {
+		col := columns[0]
+		// 单主键类型别名直接比较零值，不通过 .JsonTag 访问字段
+		switch col.GoType {
+		case "string":
+			return "(" + owner + ` == ""` + ")"
+		case "bool":
+			return "(!" + owner + ")"
+		default:
+			// 数值类型
+			return "(" + owner + " == 0)"
+		}
 	}
-	return &entity, result.Error
-}`
+	return generateZeroValueCheckFor(owner, columns)
 }
 
 // DaoTemplateData DAO 模板渲染数据（§7.2）。
@@ -211,6 +227,7 @@ func (d *DaoTemplateData) GuardIndexes() []GuardIndex {
 	}
 	return items
 }
+
 // findLockCol 查找表中的乐观锁列（IsOptimisticLock 标志驱动，禁止硬编码字段名）。
 func findLockCol(tableData *table.TableData) *table.ColumnData {
 	for i, col := range tableData.Columns {
@@ -262,11 +279,6 @@ func (d *DaoTemplateData) DoMethods() []DoMethod {
 // PKInterfaceMethod FindByPrimaryKey 接口定义行。
 func (d *DaoTemplateData) PKInterfaceMethod() string {
 	return generateFindByPrimaryKeyInterface(d.TableData)
-}
-
-// PKMethodBody FindByPrimaryKey 方法实现。
-func (d *DaoTemplateData) PKMethodBody() string {
-	return generateFindByPrimaryKeyMethod(d.TableData)
 }
 
 // NamingInfo 命名SQL参数信息。

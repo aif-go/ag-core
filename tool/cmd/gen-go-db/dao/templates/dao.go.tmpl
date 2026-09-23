@@ -146,8 +146,36 @@ func (dao *{{.StructName}}Dao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.C
 	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
 }
 
-{{.PKMethodBody}}
+// FindByPrimaryKey 根据主键查询
+func (dao *{{.StructName}}Dao) FindByPrimaryKey(ctx context.Context, {{.PKParamDecl}}) (*model.{{.StructName}}, error) {
+{{- if .HasPK}}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
 
+	// 检查主键是否为空
+	if {{.PKQueryZeroCond}} {
+		return nil, errors.New("when query,primary key is required")
+	}
+
+	var entity model.{{.StructName}}
+	result := db.Where("{{.PKWhereClause}}", {{.PKQueryArgs}}).First(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
+{{- else}}
+
+	// 表无主键，查询一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return nil, errors.New("when query,primary key is required")
+	}
+
+	return nil, nil
+{{- end}}
+}
 // FindByStruct 根据实体查询
 func (dao *{{.StructName}}Dao) FindByStruct(ctx context.Context, entity *model.{{.StructName}}) ([]*model.{{.StructName}}, error) {
 	var list []*model.{{.StructName}}
