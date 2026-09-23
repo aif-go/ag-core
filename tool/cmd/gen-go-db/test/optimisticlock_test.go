@@ -15,6 +15,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/repository/dao"
@@ -445,5 +446,64 @@ func TestLock_无锁列表回归(t *testing.T) {
 	}
 	if affected != 1 {
 		t.Fatalf("affected=%d; want 1", affected)
+	}
+}
+
+// 用例 3b：真实 goroutine 并发双写——两读者装载同一版本并发提交，
+// 验证恰好一行成功、版本仅 +1、数据未被并发方覆盖（区别于用例 3 的顺序模拟）
+func TestLock_真实并发双写(t *testing.T) {
+	for _, method := range updateMatrix() {
+		t.Run(method.name, func(t *testing.T) {
+			ctx := context.Background()
+			teacherDao := GetRepository()
+			id := int64(93310)
+			cleanup := seedTeacher(t, ctx, lockSeed(id))
+			defer cleanup()
+
+			first := findTeacher(t, ctx, teacherDao, id)
+			// 两读者持有同一版本（模拟并发读）
+			reader1 := *first
+			reader2 := *first
+			reader1.Address = "concurrent-write-1"
+			reader2.Address = "concurrent-write-2"
+
+			success := make(chan int64, 2)
+			errCh := make(chan error, 2)
+			var wg sync.WaitGroup
+			wg.Add(2)
+			for _, r := range []*model.TmTeacher{&reader1, &reader2} {
+				go func(entity *model.TmTeacher) {
+					defer wg.Done()
+					n, err := method.update(ctx, teacherDao, entity)
+					if err != nil {
+						errCh <- err
+						return
+					}
+					success <- n
+				}(r)
+			}
+			wg.Wait()
+			close(success)
+			close(errCh)
+
+			for err := range errCh {
+				t.Fatalf("并发提交不期望错误: %v", err)
+			}
+			// 恰好一行成功（1+0）
+			got := 0
+			for n := range success {
+				got += int(n)
+			}
+			if got != 1 {
+				t.Fatalf("并发双写成功行数=%d; want 1", got)
+			}
+			// 版本仅 +1（初始 1 → 2）
+			assertVersionEq(t, id, 2)
+			// 数据为两写之一，未被冲突方覆盖（两个 Address 任一落库即可，且必须非空）
+			_, address := mustTeacherRow(t, id)
+			if address != "concurrent-write-1" && address != "concurrent-write-2" {
+				t.Fatalf("并发提交数据异常: address=%q", address)
+			}
+		})
 	}
 }

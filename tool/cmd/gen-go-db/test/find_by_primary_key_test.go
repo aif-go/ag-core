@@ -85,6 +85,17 @@ func TestTeacherFindByPrimaryKey(t *testing.T) {
 			t.Errorf("期望返回 nil, 实际: %+v", found)
 		}
 	})
+
+	t.Run("场景3:零值主键-返回错误", func(t *testing.T) {
+		found, err := teacherDao.FindByPrimaryKey(ctx, model.TmTeacherPrimaryKey(0))
+		if err == nil {
+			t.Fatal("期望零值主键拦截错误，但未返回错误")
+		}
+		assertErrorContains(t, err, "primary key is required")
+		if found != nil {
+			t.Errorf("期望返回 nil, 实际: %+v", found)
+		}
+	})
 }
 
 // TestTmNoIndexFindByPrimaryKey 有主键无索引表 tm_no_index：按主键查询命中
@@ -118,7 +129,7 @@ func TestTmNoIndexFindByPrimaryKey(t *testing.T) {
 	})
 }
 
-// TestStudentFindByPrimaryKeyPartial 复合主键仅传部分字段：未命中返回 nil,nil
+// TestStudentFindByPrimaryKeyPartial 复合主键仅传部分字段：零值主键拦截，返回错误
 func TestStudentFindByPrimaryKeyPartial(t *testing.T) {
 	ctx := context.Background()
 	studentDao := GetStudentRepository()
@@ -127,28 +138,30 @@ func TestStudentFindByPrimaryKeyPartial(t *testing.T) {
 	clearTable(t, "tm_student")
 	defer clearTable(t, "tm_student")
 
-	t.Run("场景1:仅传首主键TenantId-未命中", func(t *testing.T) {
+	t.Run("场景1:仅传首主键TenantId-零值拦截", func(t *testing.T) {
 		found, err := studentDao.FindByPrimaryKey(ctx, model.TmStudentPrimarkey{TenantId: 1, StudentNo: ""})
-		if err != nil {
-			t.Fatalf("不期望错误: %v", err)
+		if err == nil {
+			t.Fatal("期望零值主键拦截错误，但未返回错误")
 		}
+		assertErrorContains(t, err, "primary key is required")
 		if found != nil {
 			t.Errorf("期望返回 nil, 实际: %+v", found)
 		}
 	})
 
-	t.Run("场景2:仅传次主键StudentNo-未命中", func(t *testing.T) {
+	t.Run("场景2:仅传次主键StudentNo-零值拦截", func(t *testing.T) {
 		found, err := studentDao.FindByPrimaryKey(ctx, model.TmStudentPrimarkey{TenantId: 0, StudentNo: "NO001"})
-		if err != nil {
-			t.Fatalf("不期望错误: %v", err)
+		if err == nil {
+			t.Fatal("期望零值主键拦截错误，但未返回错误")
 		}
+		assertErrorContains(t, err, "primary key is required")
 		if found != nil {
 			t.Errorf("期望返回 nil, 实际: %+v", found)
 		}
 	})
 }
 
-// TestTmNoFindByPrimaryKey 无主键无索引表 tm_no：FindByPrimaryKey 行为容错（不应崩溃）
+// TestTmNoFindByPrimaryKey 无主键无索引表 tm_no：FindByPrimaryKey 恒拦截，返回错误
 func TestTmNoFindByPrimaryKey(t *testing.T) {
 	ctx := context.Background()
 	tmNoDao := GetTmNoRepository()
@@ -157,16 +170,31 @@ func TestTmNoFindByPrimaryKey(t *testing.T) {
 	clearTable(t, "tm_no")
 	defer clearTable(t, "tm_no")
 
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("tm_no FindByPrimaryKey 触发 panic（当前实现行为）: %v", r)
-		}
-	}()
-
 	found, err := tmNoDao.FindByPrimaryKey(ctx, model.TmNoPrimarkey{})
-	if err != nil {
-		t.Logf("tm_no FindByPrimaryKey 返回错误: %v", err)
-		return
+	if err == nil {
+		t.Fatal("期望无主键拦截错误，但未返回错误")
 	}
-	t.Logf("tm_no FindByPrimaryKey 返回: %+v", found)
+	assertErrorContains(t, err, "primary key is required")
+	if found != nil {
+		t.Errorf("期望返回 nil, 实际: %+v", found)
+	}
+}
+
+// TestTmNoPrimaryFindByPrimaryKey 无主键有索引表 tm_no_primary：FindByPrimaryKey 恒拦截，返回错误
+func TestTmNoPrimaryFindByPrimaryKey(t *testing.T) {
+	ctx := context.Background()
+	tmNoPrimaryDao := GetTmNoPrimaryRepository()
+
+	// 测试表策略：清空整表保证数据干净，测试结束清空整表
+	clearTable(t, "tm_no_primary")
+	defer clearTable(t, "tm_no_primary")
+
+	found, err := tmNoPrimaryDao.FindByPrimaryKey(ctx, model.TmNoPrimaryPrimarkey{})
+	if err == nil {
+		t.Fatal("期望无主键拦截错误，但未返回错误")
+	}
+	assertErrorContains(t, err, "primary key is required")
+	if found != nil {
+		t.Errorf("期望返回 nil, 实际: %+v", found)
+	}
 }
