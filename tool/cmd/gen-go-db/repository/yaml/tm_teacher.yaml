@@ -56,7 +56,7 @@ columns:
   not_null: false
   auto_increment: false
   support_update: false
-  tag: ///@javaVersion
+  tag: ///@javaVersion;///@optimisticlock
 - name: create_time
   type: time
   not_null: false

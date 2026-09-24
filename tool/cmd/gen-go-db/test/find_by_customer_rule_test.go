@@ -1,3 +1,5 @@
+//go:build db
+
 package test
 
 import (
@@ -49,19 +51,40 @@ func TestTeacherFindByCustomerRule_Validations(t *testing.T) {
 	})
 }
 
-// TestTeacherFindByCustomerRule_FindByNameNadAddress 覆盖自定义规则 FindByNameNadAddress（非分页）
-// 注意：生成的 InitTmTeacherNamingSql 仅注册 DB2 命名SQL，在 MySQL 环境下会命中 "not found naming sql"，
-// 属已知的生成代码限制，此处对业务结果做容错处理并记录原因。
+// seedCustomerRuleTeachers 清空 tm_teacher 并插入 FindByCustomerRule 业务用例自备数据
+// （card_no/phone 为唯一约束列，必须独立取值），返回清理函数。
+func seedCustomerRuleTeachers(t *testing.T, ctx context.Context, teacherDao interface {
+	InsertOne(ctx context.Context, entity *model.TmTeacher) (int64, error)
+}) func() {
+	t.Helper()
+	clearTable(t, "tm_teacher")
+	seeds := []*model.TmTeacher{
+		{Id: 94001, Name: "CustomerRuleAlice", Address: "北京市海淀区", Phone: "13800009401", ClassId: "C1", CardNo: "CRULE001"},
+		{Id: 94002, Name: "CustomerRuleAlice", Address: "上海市浦东新区", Phone: "13800009402", ClassId: "C2", CardNo: "CRULE002"},
+		{Id: 94003, Name: "CustomerRuleBob", Address: "北京市海淀区", Phone: "13800009403", ClassId: "C3", CardNo: "CRULE003"},
+	}
+	for _, s := range seeds {
+		if _, err := teacherDao.InsertOne(ctx, s); err != nil {
+			t.Fatalf("插入 tm_teacher 自备数据失败: %v", err)
+		}
+	}
+	return func() { clearTable(t, "tm_teacher") }
+}
+
+// TestTeacherFindByCustomerRule_FindByNameNadAddress 覆盖自定义规则 FindByNameNadAddress（非分页）：
+// MySQL 命名 SQL 已注册（InitTmTeacherNamingSql → InitTmTeacherMYSQL），强断言命中条数与结果集
 func TestTeacherFindByCustomerRule_FindByNameNadAddress(t *testing.T) {
 	ctx := context.Background()
 	teacherDao := GetRepository()
+	cleanup := seedCustomerRuleTeachers(t, ctx, teacherDao)
+	defer cleanup()
 
 	fieldMask := conditonwhere.NewFieldMask()
 	fieldMask.Set("Name")
 	fieldMask.Set("Address")
 	args := &model.TmTeacherFindByNameNadAddressArg{
 		FieldMask: fieldMask,
-		Name:      "Alice",
+		Name:      "CustomerRuleAlice",
 		Address:   "北京市海淀区",
 	}
 	namingInfo := &gormdb.NameingSqlArgInfo{
@@ -71,10 +94,6 @@ func TestTeacherFindByCustomerRule_FindByNameNadAddress(t *testing.T) {
 
 	res, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
 	if err != nil {
-		if err.Error() == "not found naming sql" {
-			t.Logf("当前 DbType=%s 未注册 MYSQL 命名SQL（InitTmTeacherNamingSql 仅初始化 DB2），跳过业务断言: %v", DbType, err)
-			return
-		}
 		t.Fatalf("FindByCustomerRule 不期望错误: %v", err)
 	}
 
@@ -82,23 +101,28 @@ func TestTeacherFindByCustomerRule_FindByNameNadAddress(t *testing.T) {
 	if !ok {
 		t.Fatalf("返回类型不符, got %T", res)
 	}
-	t.Logf("FindByNameNadAddress 查询到 %d 条", len(list))
-	for _, e := range list {
-		t.Logf("  -> %+v", e)
+	if len(list) != 1 {
+		t.Fatalf("期望命中 1 条(Name=CustomerRuleAlice AND Address=北京市海淀区)，实际 %d 条: %v", len(list), list)
+	}
+	if list[0].Name != "CustomerRuleAlice" || list[0].Address != "北京市海淀区" || list[0].Phone != "13800009401" {
+		t.Errorf("结果集字段不符: %+v", list[0])
 	}
 }
 
-// TestTeacherFindByCustomerRule_FindByPhone 覆盖自定义规则 FindByPhone（分页）
+// TestTeacherFindByCustomerRule_FindByPhone 覆盖自定义规则 FindByPhone（分页）：
+// 强断言分页 TotalCount/TotalPage/页内记录
 func TestTeacherFindByCustomerRule_FindByPhone(t *testing.T) {
 	ctx := context.Background()
 	teacherDao := GetRepository()
+	cleanup := seedCustomerRuleTeachers(t, ctx, teacherDao)
+	defer cleanup()
 
 	fieldMask := conditonwhere.NewFieldMask()
 	fieldMask.Set("Phone")
 	args := &model.TmTeacherFindByPhoneArg{
 		Page:      gormdb.Page{PageNum: 1, PageSize: 2},
 		FieldMask: fieldMask,
-		Phone:     "13800000000",
+		Phone:     "13800009401",
 	}
 	namingInfo := &gormdb.NameingSqlArgInfo{
 		SqlName: "FindByPhone",
@@ -107,10 +131,6 @@ func TestTeacherFindByCustomerRule_FindByPhone(t *testing.T) {
 
 	res, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
 	if err != nil {
-		if err.Error() == "not found naming sql" {
-			t.Logf("当前 DbType=%s 未注册 MYSQL 命名SQL（InitTmTeacherNamingSql 仅初始化 DB2），跳过业务断言: %v", DbType, err)
-			return
-		}
 		t.Fatalf("FindByCustomerRule 不期望错误: %v", err)
 	}
 
@@ -118,16 +138,29 @@ func TestTeacherFindByCustomerRule_FindByPhone(t *testing.T) {
 	if !ok {
 		t.Fatalf("返回类型不符, got %T", res)
 	}
-	t.Logf("FindByPhone 分页结果: 当前页=%d 每页=%d 总数=%d 总页数=%d 本页记录=%d",
-		pageRes.PageResult.CurrentPage, pageRes.PageResult.PageSize,
-		pageRes.PageResult.TotalCount, pageRes.PageResult.TotalPage, len(pageRes.ResultList))
+	if pageRes.PageResult.TotalCount != 1 {
+		t.Errorf("期望 TotalCount=1，实际 %d", pageRes.PageResult.TotalCount)
+	}
+	if pageRes.PageResult.TotalPage != 1 {
+		t.Errorf("期望 TotalPage=1，实际 %d", pageRes.PageResult.TotalPage)
+	}
+	if pageRes.PageResult.CurrentPage != 1 || pageRes.PageResult.PageSize != 2 {
+		t.Errorf("分页参数不符: %+v", pageRes.PageResult)
+	}
+	if len(pageRes.ResultList) != 1 {
+		t.Fatalf("期望本页 1 条，实际 %d 条", len(pageRes.ResultList))
+	}
+	if pageRes.ResultList[0].Id != 94001 || pageRes.ResultList[0].Phone != "13800009401" {
+		t.Errorf("页内记录不符: %+v", pageRes.ResultList[0])
+	}
 }
 
-// TestTeacherFindByCustomerRule_FieldMask 覆盖 FieldMask 未设置/仅非前导列场景
-// 注意：MySQL 环境下因命名SQL未注册会先命中 "not found naming sql"，此处对业务结果做容错并记录原因
+// TestTeacherFindByCustomerRule_FieldMask 覆盖 FieldMask 未设置 / 仅非前导列场景（强断言错误路径）
 func TestTeacherFindByCustomerRule_FieldMask(t *testing.T) {
 	ctx := context.Background()
 	teacherDao := GetRepository()
+	cleanup := seedCustomerRuleTeachers(t, ctx, teacherDao)
+	defer cleanup()
 
 	t.Run("场景1:FieldMask未设置任何字段-预期错误", func(t *testing.T) {
 		args := &model.TmTeacherFindByNameNadAddressArg{FieldMask: conditonwhere.NewFieldMask()}
@@ -135,12 +168,8 @@ func TestTeacherFindByCustomerRule_FieldMask(t *testing.T) {
 			SqlName: "FindByNameNadAddress",
 			ReqType: &model.TmTeacherFindByNameNadAddressArg{},
 		}
-		res, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
-		if err != nil {
-			t.Logf("FieldMask 未设置返回错误: %v", err)
-			return
-		}
-		t.Logf("FieldMask 未设置未报错, 结果: %+v", res)
+		_, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
+		assertErrorContains(t, err, "未设置方法FindByNameNadAddress对应的sql条件的参数值")
 	})
 
 	t.Run("场景2:仅设置非前导列Address-预期索引校验失败", func(t *testing.T) {
@@ -151,11 +180,27 @@ func TestTeacherFindByCustomerRule_FieldMask(t *testing.T) {
 			SqlName: "FindByNameNadAddress",
 			ReqType: &model.TmTeacherFindByNameNadAddressArg{},
 		}
+		_, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
+		assertErrorContains(t, err, "query not use any index")
+	})
+
+	t.Run("场景3:FieldMask设置Name(前导列)-索引校验通过", func(t *testing.T) {
+		fieldMask := conditonwhere.NewFieldMask()
+		fieldMask.Set("Name")
+		args := &model.TmTeacherFindByNameNadAddressArg{FieldMask: fieldMask, Name: "CustomerRuleAlice"}
+		namingInfo := &gormdb.NameingSqlArgInfo{
+			SqlName: "FindByNameNadAddress",
+			ReqType: &model.TmTeacherFindByNameNadAddressArg{},
+		}
+		// 仅设置前导列 Name → FieldMask 过滤后的 newwhere 含 name → 索引校验通过不报错；
+		// 注意：实际执行的命名 SQL 固定为 (name = @Name AND address = @Address)，Address 未传为空串，
+		// 因此结果集不保证命中，此处仅验证"索引校验通过、不报 query not use any index"。
 		res, err := teacherDao.FindByCustomerRule(ctx, namingInfo, args)
 		if err != nil {
-			t.Logf("仅非前导列 Address 返回错误: %v", err)
-			return
+			t.Fatalf("仅前导列 Name 不应报索引错误: %v", err)
 		}
-		t.Logf("仅 Address 未报错, 结果: %+v", res)
+		if _, ok := res.([]*model.TmTeacherFindByNameNadAddressRes); !ok {
+			t.Fatalf("返回类型不符, got %T", res)
+		}
 	})
 }

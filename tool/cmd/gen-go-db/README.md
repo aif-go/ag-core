@@ -188,6 +188,19 @@ gendb sheet -i ./data.xlsx -o ./output_dir -k "自定义脚本名字"
   - 其他类型（`int64`/`bool`/`float64`/`time.Time`）数据库列大小固定，不生成 `length`/`type` 相关 tag
 - **JSON 序列化注意**：`decimal.Decimal` 默认序列化为带引号的字符串（如 `"123.45"`）。如需输出数字格式，可在业务服务启动处设置 `decimal.MarshalJSONWithoutQuotes = true`（包级全局，全进程生效）。
 
+### 乐观锁说明（`///@optimisticlock`）
+
+在 YAML 列上加 `tag: ///@optimisticlock`（可与其他 tag 用 `;` 并存）即启用乐观锁：
+
+- 列字段类型固定生成 `optimisticlock.Version`（`gorm.io/plugin/optimisticlock`），**消费方需自行 `go get gorm.io/plugin/optimisticlock`**（生成器只写文件不管理依赖）；未标注该 tag 的表不生成任何乐观锁相关代码
+- 运行时语义（插件 v1.1.3）：
+  - Insert：未装载锁列 → 落库初始版本 **1**；显式装载值则按装载值写入（`0` 也是合法装载值）
+  - Update（`UpdateByPrimaryKey`/`UpdateByPrimaryKeyIgnoreZeroValCols`）：插件以实体装载版本构造 `WHERE jpa_version = ?` 并 `SET jpa_version = jpa_version + 1`
+  - **版本必须先装载**（先查后改）：生成代码对未装载版本（`Valid=false`，即构造实体未赋版本）的更新**直接报错** `when update,optimistic lock version is required`——否则版本 WHERE 静默消失、冲突保护失效
+  - 直接构造实体提交同样支持（不必先查），但必须手动装载版本与全部覆盖字段（含 `create_time` 等时间列，全字段覆盖语义）；"先查后改"仍是接口注释推荐的最佳实践
+- **冲突判定**：版本不匹配时更新 0 行且**不返回错误**；"行不存在"同样 0 行。请检查 `RowsAffected == 0` 判定冲突（如需区分"冲突/记录已删"，可二次回查主键存在性，属调用方增强）
+- 锁列列名/字段名任意（不限于 `jpa_version`），判定基于 `///@optimisticlock` 标记生成；**锁列不要同时标注为主键或索引列**
+
 ## 完整工作流程
 
 ### 典型使用流程

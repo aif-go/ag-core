@@ -1,0 +1,26 @@
+description: 测试简单的括号嵌套条件
+input: (id = 1 OR id = 2) AND name = 'test'
+name: 嵌套条件_简单括号嵌套
+output:
+    operator: AND
+    conditions:
+        - operator: OR
+          conditions:
+            - operator: ""
+              conditions: []
+              expr: id = 1
+              field: ""
+              values: []
+            - operator: ""
+              conditions: []
+              expr: id = 2
+              field: ""
+              values: []
+          expr: ""
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: name = 'test'
+          field: ""
+          values: []

@@ -1,0 +1,21 @@
+package dao
+{{if .NamingInfos}}
+import (
+ db "github.com/aif-go/ag-core/contribute/agdb/gormdb"
+ "{{.ModuleName}}/repository/model"
+)
+
+{{end}}// {{.StructName}}NamingSqlMap 命名SQL映射
+var {{.StructName}}NamingSqlMap = map[string]string{}
+
+// exclude{{.StructName}}ZeroColNames 插入忽略空值时标记哪些字段需要排除在外
+var exclude{{.StructName}}ZeroColNames = map[string]int{{.ExcludeMap}}
+
+{{range .NamingInfos}}
+
+var {{.Name}}NamingInfo = &db.NameingSqlArgInfo{
+	SqlName:  "{{.Name}}",
+	ReqType:  (*model.{{$.StructName}}{{.Name}}Arg)(nil),
+	RespType: {{.RespType}},
+}
+{{end}}

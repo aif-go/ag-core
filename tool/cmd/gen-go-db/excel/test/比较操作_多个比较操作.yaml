@@ -1,0 +1,26 @@
+description: 测试多个比较操作符组合
+input: age >= 18 AND age <= 60 AND score > 60 AND score < 100
+name: 比较操作_多个比较操作
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: age >= 18
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: age <= 60
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: score > 60
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: score < 100
+          field: ""
+          values: []

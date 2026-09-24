@@ -52,8 +52,6 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 		inPrimaryKey := false
 		inConstraints := false
 		inIndexes := false
-		// inSelfQueries := false
-
 		for _, row := range rows {
 			// 跳过空行
 			if len(row) == 0 || strings.TrimSpace(row[0]) == "" {
@@ -71,35 +69,30 @@ func ParseExcel(filePath string) (map[string]*ExcelInfo, error) {
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = false
-				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "主键" {
 				inColumns = false
 				inPrimaryKey = true
 				inConstraints = false
 				inIndexes = false
-				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "约束" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = true
 				inIndexes = false
-				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "索引" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = true
-				// inSelfQueries = false
 				continue
 			} else if strings.TrimSpace(row[0]) == "方法名字" {
 				inColumns = false
 				inPrimaryKey = false
 				inConstraints = false
 				inIndexes = false
-				// inSelfQueries = true
 				continue
 			}
 

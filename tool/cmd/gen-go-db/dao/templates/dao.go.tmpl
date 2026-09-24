@@ -1,0 +1,359 @@
+package dao
+
+import (
+	"github.com/aif-go/ag-core/contribute/agdb/gormdb"
+	"{{.ModuleName}}/repository/model"
+	"context"
+	"reflect"
+	"errors"
+	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+
+	agdao "github.com/aif-go/ag-core/contribute/agdb/agdao"
+	{{.StringsImport}}
+
+	"gorm.io/gorm"
+)
+
+// {{.StructName}}Dao {{.TableName}} DAO
+// DO NOT EDIT
+// DO NOT EDIT
+// DO NOT EDIT
+type {{.StructName}}Dao struct {
+	*gormdb.Repository
+	info    agdao.TableInfo
+	baseDao agdao.BaseDao
+}
+
+// I{{.StructName}}Dao {{.StructName}} DAO接口
+type I{{.StructName}}Dao interface {
+	InsertOne(ctx context.Context, entity *model.{{.StructName}}) (int64, error)
+	InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error)
+	UpdateByPrimaryKey(ctx context.Context, entity *model.{{.StructName}}) (int64, error)
+	UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error) // Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（永久并存，无移除计划）
+	UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error)
+{{.PKInterfaceMethod}}
+	FindByStruct(ctx context.Context, entity *model.{{.StructName}}) ([]*model.{{.StructName}}, error)
+	FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error)
+	FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.{{.StructName}}, *gormdb.PageResult, error)
+	FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.{{.StructName}}, error)
+}
+
+// New{{.StructName}}Dao get dao instance
+func New{{.StructName}}Dao(repository *gormdb.Repository, baseDao agdao.BaseDao) I{{.StructName}}Dao {
+	{{.InitMethodCall}}
+	return &{{.StructName}}Dao{
+		Repository: repository,
+		baseDao:    baseDao,
+		info: agdao.TableInfo{
+			TableName: "{{.TableName}}",
+		},
+	}
+}
+
+// insertOne 插入一条数据库数据
+func (dao *{{.StructName}}Dao) InsertOne(ctx context.Context, entity *model.{{.StructName}}) (int64, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	result := db.Create(entity)
+	return result.RowsAffected, result.Error
+}
+
+// InsertOneIgnoreZeroValCols 插入数据时，自动剔除零值的列
+func (dao *{{.StructName}}Dao) InsertOneIgnoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error) {
+	// 1. 剔除结构体中除主键和索引以及特殊列之外的零值列
+	colnames,_,err:=entity.ListZeroValueCols(true, true, false, true)
+	if err!= nil{
+		return 0, err	
+	}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	result := db.Omit(colnames...).Create(entity)
+	return result.RowsAffected, result.Error
+}
+
+// UpdateByPrimaryKey 根据主键或者唯一键更新，全字段覆盖更新，该操作只适合从数据库查询原实体修改值之后使用
+// 直接构造实体提交同样支持，但必须装载乐观锁版本字段（如有）
+func (dao *{{.StructName}}Dao) UpdateByPrimaryKey(ctx context.Context, entity *model.{{.StructName}}) (int64, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}{{- if .HasLockCol}}
+
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.{{.LockColJsonTag}}.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
+	}
+{{- end}}{{- if .HasPK}}
+
+	// 检查主键是否为空
+	if {{.PKZeroCond}} {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- else}}
+
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- end}}
+	// 5. 全字段更新，gorm 以实体主键为 WHERE 条件
+	result := db.Model(entity).Select("*").Updates(entity)
+
+	return result.RowsAffected, result.Error
+}
+
+// UpdateByPrimaryKeyIgnoreZeroValCols 根据主键或者唯一键更新，自动忽略零值列（乐观锁版本列除外）
+func (dao *{{.StructName}}Dao) UpdateByPrimaryKeyIgnoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error) {
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return 0, err
+	}{{- if .HasLockCol}}
+
+	// 3. 乐观锁版本必须先装载（未装载的 Valid=false 会使版本校验静默失效）
+	if !entity.{{.LockColJsonTag}}.Valid {
+		return 0, errors.New("when update,optimistic lock version is required")
+	}
+{{- end}}{{- if .HasPK}}
+
+	// 检查主键是否为空
+	if {{.PKZeroCond}} {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- else}}
+
+	// 表无主键，更新一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return 0, errors.New("when update,primary key is required")
+	}
+{{- end}}
+	// 使用支持更新的列
+	result := db.Model(entity).Updates(entity)
+
+	return result.RowsAffected, result.Error
+}
+
+// UpdateByPrimaryKeyIngoreZeroValCols 根据主键或者唯一键更新，自动剔除参数中的零值列
+// Deprecated: 历史拼写，使用 UpdateByPrimaryKeyIgnoreZeroValCols（两者永久并存，无移除计划）
+func (dao *{{.StructName}}Dao) UpdateByPrimaryKeyIngoreZeroValCols(ctx context.Context, entity *model.{{.StructName}}) (int64, error) {
+	return dao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
+}
+
+// FindByPrimaryKey 根据主键查询
+func (dao *{{.StructName}}Dao) FindByPrimaryKey(ctx context.Context, {{.PKParamDecl}}) (*model.{{.StructName}}, error) {
+{{- if .HasPK}}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 检查主键是否为空
+	if {{.PKQueryZeroCond}} {
+		return nil, errors.New("when query,primary key is required")
+	}
+
+	var entity model.{{.StructName}}
+	result := db.Where("{{.PKWhereClause}}", {{.PKQueryArgs}}).First(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
+{{- else}}
+
+	// 表无主键，查询一律拦截
+	var pkConditions []string
+	if len(pkConditions) == 0 {
+		return nil, errors.New("when query,primary key is required")
+	}
+
+	return nil, nil
+{{- end}}
+}
+// FindByStruct 根据实体查询
+func (dao *{{.StructName}}Dao) FindByStruct(ctx context.Context, entity *model.{{.StructName}}) ([]*model.{{.StructName}}, error) {
+	var list []*model.{{.StructName}}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 检查是否使用了主键或索引，避免全表扫描
+	keyUsed := false
+{{- if .HasPK}}
+	// 检查主键
+	if {{.GuardPKCond}} {
+		keyUsed = true
+	}
+{{- end}}{{- range .GuardIndexes}}
+	// 检查索引 {{.Name}}
+	if {{.Cond}} {
+		keyUsed = true
+	}
+{{- end}}
+	if !keyUsed {
+		return nil, errors.New("query not use any index")
+	}
+
+	// 全部非零列（含主键、索引列、特殊列）如果有值，也作为查询条件
+	colnames, colvals, err := entity.ListZeroValueCols(false, false, true, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(colnames) > 0 {
+		for i, colname := range colnames {
+			db = db.Where(colname+" = ?", colvals[i])
+		}
+	}
+
+	// 执行查询
+	result := db.Find(&list)
+	return list, result.Error
+}
+
+// FindByCustomerRule 根据自定义规则查询
+func (dao *{{.StructName}}Dao) FindByCustomerRule(ctx context.Context, namingInfo *gormdb.NameingSqlArgInfo, args any) (any, error) {
+
+	if ctx == nil {
+		return nil, errors.New("ctx is nil")
+	}
+
+	if namingInfo == nil {
+		return nil, errors.New("namingInfo is nil")
+	}
+
+	if namingInfo.SqlName == "" {
+		return nil, errors.New("namingInfo.SqlName is empty")
+	}
+
+	// 判断请求参数类型和实际类型是否一致
+	reqType := reflect.TypeOf(namingInfo.ReqType)
+	reqValue := reflect.ValueOf(args)
+	if reqType != reqValue.Type() {
+		return nil, errors.New("req type not match")
+	}
+	switch namingInfo.SqlName {
+{{.SwitchCases}}	default:
+		return nil, errors.New("not found naming sql")
+	}
+}
+
+// FindByCondition 根据条件构建器查询
+func (dao *{{.StructName}}Dao) FindByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder, page *gormdb.Page) ([]*model.{{.StructName}}, *gormdb.PageResult, error) {
+	var list []*model.{{.StructName}}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 主动使用where条件
+	where, args, err := condition.Build()
+	if err != nil {
+		return nil, nil, err
+	}
+	// 主动拼接where条件
+	db = db.Where(where, args...)
+
+	var totalCount int64
+	// 统计总数
+	if err := db.Count(&totalCount).Error; err != nil {
+		return nil, nil, err
+	}
+
+	var pageResult *gormdb.PageResult
+	// 如果需要分页
+	if page != nil {
+		start, _, totalPage, enablePage, err := gormdb.CalcPageStartRecord(page.PageNum, page.PageSize, totalCount, dao.DbType)
+		if err != nil {
+			return nil, nil, err
+		}
+		pageResult = &gormdb.PageResult{
+			CurrentPage: page.PageNum,
+			PageSize:    page.PageSize,
+			TotalCount:  totalCount,
+			TotalPage:   totalPage,
+		}
+		// 总记录数为0或者当前页码超过总页数时，不执行查询，直接返回空结果和分页信息
+		if !enablePage {
+			return nil, pageResult, nil
+		}
+		db = db.Limit(int(page.PageSize)).Offset(int(start))
+	}
+
+	// 主动拼排序条件
+	if orderBuilder != nil {
+		db = db.Order(orderBuilder.Build())
+	}
+
+	result := db.Find(&list)
+	if result.Error != nil {
+		return nil, nil, result.Error
+	}
+
+	return list, pageResult, nil
+}
+
+// FindFirstOneByCondition 根据条件构建器查询第一条记录
+func (dao *{{.StructName}}Dao) FindFirstOneByCondition(ctx context.Context, condition *conditonwhere.WhereClauseBuilder, orderBuilder *gormdb.OrderBuilder) (*model.{{.StructName}}, error) {
+	var entity model.{{.StructName}}
+	db, err := dao.newDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 主动使用where条件
+	where, args, err := condition.Build()
+	if err != nil {
+		return nil, err
+	}
+	// 主动拼接where条件
+	db = db.Where(where, args...)
+
+	// 主动拼排序条件
+	if orderBuilder != nil {
+		db = db.Order(orderBuilder.Build())
+	}
+
+	result := db.Limit(1).Find(&entity)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &entity, result.Error
+}
+
+{{template "doMethods" .}}
+
+// getInfo 获取表信息
+func (dao *{{.StructName}}Dao) getInfo() agdao.TableInfo {
+	return dao.info
+}
+
+// getApplyInfo 获取应用表信息
+func (dao *{{.StructName}}Dao) getApplyInfo(ctx context.Context) agdao.TableInfo {
+	info := dao.getInfo()
+	dao.baseDao.ApplyTbInfoOpts(ctx, &info)
+	return info
+}
+
+// newDB 创建一个新的DB实例
+func (dao *{{.StructName}}Dao) newDB(ctx context.Context) (*gorm.DB, error) {
+	db := dao.DB(ctx)
+	info := dao.getApplyInfo(ctx)
+	tbname := info.TableName
+	if tbname == "" {
+		return nil, errors.New("表名不能为空")
+	}
+
+	db = db.Table(tbname)
+	return db, nil
+}
+
+
+
+

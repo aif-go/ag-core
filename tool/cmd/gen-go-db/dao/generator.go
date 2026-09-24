@@ -13,6 +13,13 @@ import (
 
 // GenerateDAOFromYAML 从YAML文件生成DAO文件
 func GenerateDAOFromYAML(inputFile string, outputDir string, tableName string, moduleName string, dbType string) error {
+	// CHG-05：dbType 合法性校验——非法值不再生成引用缺失常量的产物，改为生成前报错
+	switch strings.ToUpper(dbType) {
+	case "", "MYSQL", "DB2":
+	default:
+		return fmt.Errorf("非法的数据库类型: %q，可选值：mysql, db2", dbType)
+	}
+
 	// 确保输出目录存在，在用户输入的基础上拼接repository/dao和repository/model
 	daoOutputDir := outputDir
 	if daoOutputDir != "" {

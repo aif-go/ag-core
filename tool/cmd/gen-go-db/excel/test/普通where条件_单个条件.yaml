@@ -1,0 +1,11 @@
+description: 测试单个简单的where条件
+input: id = 1
+name: 普通where条件_单个条件
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id = 1
+          field: ""
+          values: []

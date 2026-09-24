@@ -1,0 +1,11 @@
+description: 测试简单的BETWEEN AND条件
+input: age BETWEEN 18 AND 60
+name: BetweenAnd_简单between
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: age BETWEEN 18 AND 60
+          field: ""
+          values: []

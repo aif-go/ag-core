@@ -21,6 +21,9 @@ type TestCase struct {
 func TestParseWhereCondition(t *testing.T) {
 
 	testCases:=getTestCases()
+	// 已知失败用例（预期红，冻结项）：CHG-06 修复后已解冻（2026-09-18），当前无预期红用例。
+	// 后续若发现存量 lexer 缺陷，在此登记并按 S9 模式处理。
+	knownRedCases := map[string]string{}
 	// 执行测试并生成YAML文件
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -28,7 +31,16 @@ func TestParseWhereCondition(t *testing.T) {
 			result := ParseWhereCondition(tc.Input)
 
 			// t.Log(result)
-			
+
+			if reason, isKnownRed := knownRedCases[tc.Name]; isKnownRed {
+				if compareWhereClause(result, tc.Output) {
+					t.Errorf("预期红用例意外通过（%s）：缺陷可能已修复，请评审后解冻并更新本名单", reason)
+				} else {
+					t.Logf("预期红（%s）: 输入: %s", reason, tc.Input)
+				}
+				return
+			}
+
 			// 验证结果
 			if !compareWhereClause(result, tc.Output) {
 				t.Errorf("测试失败: %s\n输入: %s\n期望: %+v\n实际: %+v", tc.Name, tc.Input, tc.Output, result)
@@ -611,19 +623,19 @@ func getTestCases() []TestCase{
 		// },
 
 		// 6. 包含子查询的查询
-		// {
-		// 	Name:        "子查询 - 简单子查询",
-		// 	Description: "测试简单的子查询",
-		// 	Input:       "id IN (SELECT id FROM users WHERE status = 'active')",
-		// 	Output: &WhereClause{
-		// 		Operator: "AND",
-		// 		Conditions: []*Condition{
-		// 			{
-		// 				Expr: "id IN (SELECT id FROM users WHERE status = 'active')",
-		// 			},
-		// 		},
-		// 	},
-		// },
+		{
+			Name:        "子查询 - 简单子查询",
+			Description: "测试简单的子查询",
+			Input:       "id IN (SELECT id FROM users WHERE status = 'active')",
+			Output: &WhereClause{
+				Operator: "AND",
+				Conditions: []*Condition{
+					{
+						Expr: "id IN (SELECT id FROM users WHERE status = 'active')",
+					},
+				},
+			},
+		},
 		{
 			Name:        "子查询 - 复杂子查询",
 			Description: "测试复杂的子查询",
@@ -637,22 +649,22 @@ func getTestCases() []TestCase{
 				},
 			},
 		},
-		// {
-		// 	Name:        "子查询 - 多个子查询",
-		// 	Description: "测试多个子查询组合",
-		// 	Input:       "id IN (SELECT id FROM users WHERE status = 'active') AND order_id IN (SELECT id FROM orders WHERE status = 'completed')",
-		// 	Output: &WhereClause{
-		// 		Operator: "AND",
-		// 		Conditions: []*Condition{
-		// 			{
-		// 				Expr: "id IN (SELECT id FROM users WHERE status = 'active')",
-		// 			},
-		// 			{
-		// 				Expr: "order_id IN (SELECT id FROM orders WHERE status = 'completed')",
-		// 			},
-		// 		},
-		// 	},
-		// },
+		{
+			Name:        "子查询 - 多个子查询",
+			Description: "测试多个子查询组合",
+			Input:       "id IN (SELECT id FROM users WHERE status = 'active') AND order_id IN (SELECT id FROM orders WHERE status = 'completed')",
+			Output: &WhereClause{
+				Operator: "AND",
+				Conditions: []*Condition{
+					{
+						Expr: "id IN (SELECT id FROM users WHERE status = 'active')",
+					},
+					{
+						Expr: "order_id IN (SELECT id FROM orders WHERE status = 'completed')",
+					},
+				},
+			},
+		},
 
 		// // 7. 包含 exists 或者 not exists 操作
 		// {

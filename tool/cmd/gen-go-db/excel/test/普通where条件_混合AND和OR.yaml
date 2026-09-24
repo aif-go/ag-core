@@ -1,0 +1,21 @@
+description: 测试AND和OR混合的where条件
+input: id = 1 AND name = 'test' OR id = 2
+name: 普通where条件_混合AND和OR
+output:
+    operator: OR
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id = 1
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: name = 'test'
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: id = 2
+          field: ""
+          values: []

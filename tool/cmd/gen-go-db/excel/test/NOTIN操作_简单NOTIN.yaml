@@ -1,0 +1,11 @@
+description: 测试简单的NOT IN操作
+input: id NOT IN (1, 2, 3)
+name: NOTIN操作_简单NOTIN
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id NOT IN (1, 2, 3)
+          field: ""
+          values: []

@@ -1,0 +1,16 @@
+description: 测试多个子查询组合
+input: id IN (SELECT id FROM users WHERE status = 'active') AND order_id IN (SELECT id FROM orders WHERE status = 'completed')
+name: 子查询_多个子查询
+output:
+    operator: AND
+    conditions:
+        - operator: ""
+          conditions: []
+          expr: id IN (SELECT id FROM users WHERE status = 'active')
+          field: ""
+          values: []
+        - operator: ""
+          conditions: []
+          expr: order_id IN (SELECT id FROM orders WHERE status = 'completed')
+          field: ""
+          values: []

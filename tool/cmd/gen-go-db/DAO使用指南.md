@@ -125,7 +125,9 @@ if err != nil {
 fmt.Printf("更新成功，影响行数: %d\n", rowsAffected)
 ```
 
-### UpdateByPrimaryKeyIngoreZeroValCols - 根据主键更新，自动剔除零值列
+### UpdateByPrimaryKeyIgnoreZeroValCols - 根据主键更新，自动剔除零值列
+
+> **命名兼容说明（CHG-04）**：历史拼写 `UpdateByPrimaryKeyIngoreZeroValCols`（Ingore）已由生成器以 Deprecated 委托方式永久保留，旧代码无需迁移；新代码请使用修正后的 `UpdateByPrimaryKeyIgnoreZeroValCols`。多主键类型同理：新名 `XxxPrimaryKey`，历史拼写 `XxxPrimarkey` 以类型别名永久保留。
 
 **方法说明**：根据主键更新数据库中的记录，自动忽略零值字段（空字符串、0、nil等），只更新非零值字段。
 
@@ -147,7 +149,7 @@ if err != nil {
 entity.Name = "赵六"
 entity.Phone = ""  // 零值，更新时会被忽略
 
-rowsAffected, err := tmTeacherDao.UpdateByPrimaryKeyIngoreZeroValCols(ctx, entity)
+rowsAffected, err := tmTeacherDao.UpdateByPrimaryKeyIgnoreZeroValCols(ctx, entity)
 if err != nil {
     // 处理错误
 }
@@ -711,7 +713,7 @@ func ComplexQuery(ctx context.Context, tmTeacherDao dao.ITmTeacherDao) error {
 ## 注意事项
 
 1. **索引校验**：自定义查询会自动校验是否使用了索引列，避免全表扫描
-2. **零值处理**：`InsertOneIgnoreZeroValCols` 和 `UpdateByPrimaryKeyIngoreZeroValCols` 会自动忽略零值列
+2. **零值处理**：`InsertOneIgnoreZeroValCols` 和 `UpdateByPrimaryKeyIgnoreZeroValCols` 会自动忽略零值列
 3. **分页查询**：`FindByCondition` 支持分页，返回分页结果信息
 4. **条件构建**：使用 `WhereClauseBuilder` 可以灵活构建复杂的查询条件
 5. **排序构建**：使用 `OrderBuilder` 可以链式构建排序条件
@@ -729,7 +731,8 @@ func ComplexQuery(ctx context.Context, tmTeacherDao dao.ITmTeacherDao) error {
 | `InsertOne` | 插入一条数据 |
 | `InsertOneIgnoreZeroValCols` | 插入数据时自动剔除零值列 |
 | `UpdateByPrimaryKey` | 根据主键更新 |
-| `UpdateByPrimaryKeyIngoreZeroValCols` | 根据主键更新，自动剔除零值列 |
+| `UpdateByPrimaryKeyIgnoreZeroValCols` | 根据主键更新，自动剔除零值列 |
+| `UpdateByPrimaryKeyIngoreZeroValCols` | 同上（历史拼写，Deprecated 委托，永久保留） |
 | `FindByPrimaryKey` | 根据主键查询 |
 | `FindByStruct` | 根据实体查询 |
 | `FindByCustomerRule` | 根据自定义规则查询 |

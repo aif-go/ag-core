@@ -39,7 +39,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 
 	// 提取列信息
 	columns := []table.ColumnData{}
-	primaryKeys := []string{}  // 新增：主键列表
+	primaryKeys := []string{} // 新增：主键列表
 	importPackages := []string{"fmt"}
 
 	// 处理列数据
@@ -90,6 +90,15 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					if strings.Contains(tag, "///@javaVersion") {
 						col.IsJavaVersion = true
 					}
+					if strings.Contains(tag, "///@optimisticlock") {
+						col.IsOptimisticLock = true
+					}
+				}
+
+				// 乐观锁列：GoType 固定为 gorm 乐观锁插件版本类型，注入对应 import
+				if col.IsOptimisticLock {
+					col.GoType = "optimisticlock.Version"
+					importPackages = append(importPackages, "gorm.io/plugin/optimisticlock")
 				}
 
 				// 处理support_update字段
@@ -175,7 +184,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			if pkName, ok := pk.(string); ok {
 				// 添加到主键列表
 				primaryKeys = append(primaryKeys, pkName)
-				
+
 				// 设置 IsPrimaryKey 标志（保留原有逻辑）
 				for i := range columns {
 					if columns[i].Name == pkName {
@@ -202,7 +211,6 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 			if queryMap, ok := query.(map[interface{}]interface{}); ok {
 				q := table.QueryData{
 					Name: name.(string),
-
 				}
 
 				// 如果加模版之后，这部分有问题，如何区分模版和普通的处理
@@ -244,23 +252,23 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					extractWhereFields(q.Where, &q.WhereFields, &q.WhereColFields)
 				}
 				// 提取whereparams
-				if params,ok:=queryMap["Where_params"].([]interface{}); ok{
+				if params, ok := queryMap["Where_params"].([]interface{}); ok {
 					q.DynamicSql = queryMap["dynamic_sql"].(bool)
 					q.SqlTemplate = queryMap["sql_template"].(string)
-					colWhereFields:= make([]table.WhereColField, 0, len(params))
-					fields:= make([]string, 0, len(params))
+					colWhereFields := make([]table.WhereColField, 0, len(params))
+					fields := make([]string, 0, len(params))
 					for _, param := range params {
 						if paramMap, ok := param.(map[interface{}]interface{}); ok {
-							whereColField:=table.WhereColField{
+							whereColField := table.WhereColField{
 								// 这个要补全
-								ColName: paramMap["colname"].(string),
+								ColName:   paramMap["colname"].(string),
 								FieldName: paramMap["paraname"].(string),
-								IsSlice: paramMap["slice"].(bool),
-								GoType: normalizeGoType(paramMap["type"].(string)),
+								IsSlice:   paramMap["slice"].(bool),
+								GoType:    normalizeGoType(paramMap["type"].(string)),
 							}
-							colWhereFields=append(colWhereFields, whereColField)
+							colWhereFields = append(colWhereFields, whereColField)
 
-							fields=append(fields, whereColField.ColName)		
+							fields = append(fields, whereColField.ColName)
 
 							// 补充查询参数类型的 import
 							if whereColField.GoType == "time.Time" || whereColField.GoType == "*time.Time" {
@@ -272,7 +280,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 						}
 					}
 					q.WhereFields = fields
-					q.WhereColFields = colWhereFields					
+					q.WhereColFields = colWhereFields
 				}
 
 				selfQueries = append(selfQueries, q)
@@ -301,7 +309,7 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		TableName:   tableName,
 		StructName:  structName,
 		Columns:     columns,
-		PrimaryKeys: primaryKeys,  // 新增：主键列表
+		PrimaryKeys: primaryKeys, // 新增：主键列表
 		Indexes:     indexes,
 		SelfQueries: selfQueries,
 		ModelTemplateData: &table.ModelTemplateData{
@@ -312,19 +320,6 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		AllowUpdateCols: allowUpdateCols,
 	}, nil
 }
-
-
-// 辅助函数：转换为大驼峰命名
-// func toCamelCase(s string) string {
-// 	parts := strings.Split(s, "_")
-// 	result := ""
-// 	for _, part := range parts {
-// 		if part != "" {
-// 			result += strings.Title(strings.ToLower(part))
-// 		}
-// 	}
-// 	return result
-// }
 
 // 辅助函数：获取Go类型
 func getGoType(sqlType string) string {
@@ -383,51 +378,17 @@ func whereDataToYAML(whereData map[interface{}]interface{}) (string, error) {
 	return string(yamlBytes), nil
 }
 
-// // 解析where条件
-// func parseWhereCondition(whereData map[interface{}]interface{}) *conditonwhere.MaskWhereCondition {
-// 	condition := &conditonwhere.MaskWhereCondition{}
-
-// 	// 解析operator
-// 	if operator, ok := whereData["operator"].(string); ok {
-// 		condition.Operator = operator
-// 	} else {
-// 		condition.Operator = "AND" // 默认使用AND
-// 	}
-
-// 	// 解析conditions
-// 	if conditionsData, ok := whereData["conditions"].([]interface{}); ok {
-// 		condition.Conditions = make([]conditonwhere.MaskWhereCondition, 0, len(conditionsData))
-// 		for _, condData := range conditionsData {
-// 			if condMap, ok := condData.(map[interface{}]interface{}); ok {
-// 				// 检查是嵌套条件还是表达式
-// 				if _, hasExpr := condMap["expr"]; hasExpr {
-// 					// 是表达式
-// 					subCond := conditonwhere.MaskWhereCondition{
-// 						Expr: condMap["expr"].(string),
-// 					}
-// 					condition.Conditions = append(condition.Conditions, subCond)
-// 				} else {
-// 					// 是嵌套条件
-// 					subCond := parseWhereCondition(condMap)
-// 					condition.Conditions = append(condition.Conditions, *subCond)
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return condition
-// }
-
 // 提取where条件中的所有字段信息
 func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]string, whereColFields *[]table.WhereColField) {
 	if condition.Expr != "" {
-		// 解析表达式，提取列名、操作符和字段名
-		colField := parseWhereExpr(condition.Expr)
-		if colField.ColName != "" && colField.FieldName != "" {
-			// 添加到WhereFields
-			*fields = append(*fields, colField.ColName)
-			// 添加到WhereColFields
-			*whereColFields = append(*whereColFields, colField)
+		// 解析表达式，提取列名、操作符和字段名（between 返回双参数两条目）
+		for _, colField := range parseWhereExpr(condition.Expr) {
+			if colField.ColName != "" && colField.FieldName != "" {
+				// 添加到WhereFields
+				*fields = append(*fields, colField.ColName)
+				// 添加到WhereColFields
+				*whereColFields = append(*whereColFields, colField)
+			}
 		}
 	} else {
 		for i := range condition.Conditions {
@@ -436,47 +397,114 @@ func extractWhereFields(condition *conditonwhere.MaskWhereCondition, fields *[]s
 	}
 }
 
-// parseWhereExpr 解析where表达式，提取列名、操作符和字段名
-func parseWhereExpr(expr string) table.WhereColField {
-	colField := table.WhereColField{}
+// whereOperators 支持的操作符，按最长优先排列（CHG-08：词边界匹配，
+// 替代裸子串匹配——修复参数/列名含操作符子串（如 @Min、PRINT_DATE）时的误判）
+var whereOperators = []string{
+	"is not null", "is null",
+	"not like", "not in",
+	">=", "<=", "!=", "<>",
+	"between", "like", "in",
+	"=", ">", "<",
+}
 
-	// 支持的操作符，按长度降序排列，确保长操作符优先匹配
-	operators := []string{"!=", "not in", "not like", "like", "in", "=", ">", "<", ">=", "<=", "between"}
+// isWhereBoundaryChar 操作符词边界字符
+func isWhereBoundaryChar(c byte) bool {
+	return c == ' ' || c == '\t' || c == '(' || c == ')'
+}
 
-	for _, op := range operators {
-		if idx := strings.Index(strings.ToLower(expr), strings.ToLower(op)); idx != -1 {
-			// 提取列名
-			colName := strings.TrimSpace(expr[:idx])
+// indexOfWhereOperator 在小写表达式中查找第一个满足词边界的操作符位置，无则返回 -1
+func indexOfWhereOperator(lower string, op string) int {
+	start := 0
+	for {
+		idx := strings.Index(lower[start:], op)
+		if idx < 0 {
+			return -1
+		}
+		idx += start
+		leftOk := idx == 0 || isWhereBoundaryChar(lower[idx-1])
+		j := idx + len(op)
+		rightOk := j == len(lower) || isWhereBoundaryChar(lower[j])
+		if leftOk && rightOk {
+			return idx
+		}
+		start = idx + 1
+	}
+}
 
-			// 提取字段名
-			fieldPart := strings.TrimSpace(expr[idx+len(op):])
-			fieldName := ""
-			isSlice := false
+// extractWhereParam 从操作符右侧提取 @Param 字段名（支持前导/尾随通配符 %_ 与一层括号）。
+// ok=false 表示无可绑定参数（字面量条件），由调用方按无参数处理。
+func extractWhereParam(rest string, op string) (fieldName string, isSlice bool, ok bool) {
+	isSlice = op == "in" || op == "not in"
+	rest = strings.TrimSpace(rest)
+	if strings.HasPrefix(rest, "(") && strings.HasSuffix(rest, ")") && len(rest) >= 2 {
+		rest = strings.TrimSpace(rest[1 : len(rest)-1])
+	}
+	// 处理@Field格式（先剥掉前导通配符 %_）
+	rest = strings.TrimLeft(rest, "%_")
+	if !strings.HasPrefix(rest, "@") {
+		return "", isSlice, false
+	}
+	fieldName = strings.TrimSpace(rest[1:])
+	fieldName = strings.TrimRight(fieldName, "%_")
+	if fieldName == "" {
+		return "", isSlice, false
+	}
+	return fieldName, isSlice, true
+}
 
-			// 处理@Field格式（先剥掉前导通配符 %_）
-			fieldPart = strings.TrimLeft(fieldPart, "%_")
-			if strings.HasPrefix(fieldPart, "@") {
-				fieldName = strings.TrimSpace(fieldPart[1:])
-				fieldName = strings.TrimRight(fieldName, "%_")
-			}
+// parseBetweenFields 解析 between 双参数（between @Min AND @Max），返回两条目；
+// 任一侧无 @Param（字面量）或缺少 AND 分隔则视为无可绑定参数。
+func parseBetweenFields(colName string, rest string) []table.WhereColField {
+	lowerRest := strings.ToLower(rest)
+	idx := strings.Index(lowerRest, " and ")
+	if idx < 0 {
+		return nil
+	}
+	f1, _, ok1 := extractWhereParam(strings.TrimSpace(rest[:idx]), "between")
+	f2, _, ok2 := extractWhereParam(strings.TrimSpace(rest[idx+len(" and "):]), "between")
+	if !ok1 || !ok2 || f1 == f2 {
+		return nil
+	}
+	return []table.WhereColField{
+		{ColName: colName, FieldName: f1, Operator: "between"},
+		{ColName: colName, FieldName: f2, Operator: "between"},
+	}
+}
 
-			// 判断是否为切片类型
-			lowerOp := strings.ToLower(op)
-			if lowerOp == "in" || lowerOp == "not in" {
-				isSlice = true
-			}
+// parseWhereExpr 解析where表达式，提取列名、操作符和字段名。
+// CHG-08：操作符词边界 + 最长优先匹配；between 返回双参数两条目；
+// IS [NOT] NULL 及纯字面量表达式无可绑定参数，条件由 conditonwhere 原样透传。
+func parseWhereExpr(expr string) []table.WhereColField {
+	lower := strings.ToLower(expr)
+	for _, op := range whereOperators {
+		idx := indexOfWhereOperator(lower, op)
+		if idx < 0 {
+			continue
+		}
+		colName := strings.TrimSpace(expr[:idx])
+		rest := strings.TrimSpace(expr[idx+len(op):])
 
-			colField = table.WhereColField{
+		if op == "is null" || op == "is not null" {
+			return nil
+		}
+		if op == "between" {
+			return parseBetweenFields(colName, rest)
+		}
+
+		fieldName, isSlice, ok := extractWhereParam(rest, op)
+		if !ok {
+			return nil
+		}
+		return []table.WhereColField{
+			{
 				ColName:   colName,
 				FieldName: fieldName,
 				IsSlice:   isSlice,
 				Operator:  op,
-			}
-			break
+			},
 		}
 	}
-
-	return colField
+	return nil
 }
 
 // 辅助函数：生成GORM标签
@@ -534,23 +562,6 @@ func generateGormTag(col *table.ColumnData, indexes []table.IndexData) string {
 	}
 
 	return strings.Join(tags, ";")
-}
-
-// 辅助函数：生成索引列变量
-func generateIndexColumns(indexes []table.IndexData) string {
-	columnsMap := make(map[string]bool)
-	for _, idx := range indexes {
-		for _, col := range idx.Columns {
-			columnsMap[col] = true
-		}
-	}
-
-	columns := []string{}
-	for col := range columnsMap {
-		columns = append(columns, `"`+col+`"`)
-	}
-
-	return `[]string{` + strings.Join(columns, `, `) + `}`
 }
 
 // 辅助函数：去重

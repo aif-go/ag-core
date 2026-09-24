@@ -33,6 +33,7 @@ type ColumnData struct {
 	IsAutoCreate    bool
 	IsAutoUpdate    bool
 	IsJavaVersion   bool
+	IsOptimisticLock bool          // ///@optimisticlock 乐观锁列
 	SupportUpdate   bool           // 是否支持更新
 	IndexPriorities map[string]int // 索引优先级映射
 }
