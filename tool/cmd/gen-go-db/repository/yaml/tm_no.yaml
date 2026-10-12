@@ -48,7 +48,7 @@ columns:
   auto_increment: false
   support_update: false
 - name: enroll_date
-  type: '*time.Time'
+  type: '*time'
   not_null: false
   auto_increment: false
   support_update: false

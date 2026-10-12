@@ -42,6 +42,9 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	primaryKeys := []string{} // 新增：主键列表
 	importPackages := []string{"fmt"}
 
+	// 类型词汇归一化过程中收集的问题，最终按表聚合一次性报出
+	issues := []TypeIssue{}
+
 	// 处理列数据
 	if columnsData, ok := yamlData["columns"].([]interface{}); ok {
 		for _, colData := range columnsData {
@@ -66,16 +69,22 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 				if colType, ok := colMap["type"].(string); ok {
 					col.Type = colType
 
-					// 归一化为 Go 类型（* 前缀原样透传，其余走 getGoType 映射）
-					col.GoType = normalizeGoType(colType)
+					// 归一化为 Go 类型：* 前缀表示可空指针，其余走 getGoType 逻辑词表映射
+					goType, err := normalizeGoType(colType)
+					if err != nil {
+						// 记录问题，继续收集本表其它列的类型错误，最后一次性报出
+						issues = append(issues, TypeIssue{Column: col.Name, RawType: colType})
+					} else {
+						col.GoType = goType
 
-					// 检查是否需要导入额外的包
-					if col.GoType == "time.Time" || col.GoType == "*time.Time" {
-						importPackages = append(importPackages, "time")
-					}
-					// 添加decimal类型的支持（含指针形式）
-					if col.GoType == "decimal.Decimal" || col.GoType == "*decimal.Decimal" {
-						importPackages = append(importPackages, "github.com/shopspring/decimal")
+						// 检查是否需要导入额外的包
+						if col.GoType == "time.Time" || col.GoType == "*time.Time" {
+							importPackages = append(importPackages, "time")
+						}
+						// 添加decimal类型的支持（含指针形式）
+						if col.GoType == "decimal.Decimal" || col.GoType == "*decimal.Decimal" {
+							importPackages = append(importPackages, "github.com/shopspring/decimal")
+						}
 					}
 				}
 
@@ -259,12 +268,20 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 					fields := make([]string, 0, len(params))
 					for _, param := range params {
 						if paramMap, ok := param.(map[interface{}]interface{}); ok {
+							paramName := paramMap["paraname"].(string)
+							rawType := paramMap["type"].(string)
+							goType, err := normalizeGoType(rawType)
+							if err != nil {
+								// 查询参数同样按表聚合类型问题
+								issues = append(issues, TypeIssue{Column: q.Name + "/" + paramName, RawType: rawType})
+								continue
+							}
 							whereColField := table.WhereColField{
 								// 这个要补全
 								ColName:   paramMap["colname"].(string),
-								FieldName: paramMap["paraname"].(string),
+								FieldName: paramName,
 								IsSlice:   paramMap["slice"].(bool),
-								GoType:    normalizeGoType(paramMap["type"].(string)),
+								GoType:    goType,
 							}
 							colWhereFields = append(colWhereFields, whereColField)
 
@@ -304,6 +321,11 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 		}
 	}
 
+	// 类型词汇校验失败：按表聚合所有问题，一次性报出（整轮终止由上层负责）
+	if len(issues) > 0 {
+		return nil, &ValidationError{File: yamlPath, Table: tableName, Issues: issues}
+	}
+
 	return &table.TableData{
 		ModuleName:  moduleName,
 		TableName:   tableName,
@@ -321,41 +343,70 @@ func ParseYAML(yamlPath string, moduleName string) (*table.TableData, error) {
 	}, nil
 }
 
-// 辅助函数：获取Go类型
-func getGoType(sqlType string) string {
+// TypeIssue 单条类型词汇归一化失败。
+type TypeIssue struct {
+	Column  string // 列名；查询参数场景为 "查询名/参数名"
+	RawType string // 原始类型写法
+}
+
+// ValidationError 一次解析中聚合的全部类型问题。
+// 供 CLI 层提取结构化字段用于 JSON 输出。
+type ValidationError struct {
+	File   string
+	Table  string
+	Issues []TypeIssue
+}
+
+// Error 生成聚合错误文本（表 + 逐条问题）。
+func (e *ValidationError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "解析 %s 失败（表 %s）：", e.File, e.Table)
+	for _, it := range e.Issues {
+		fmt.Fprintf(&b, "\n  - %s: 未识别的类型 %q", it.Column, it.RawType)
+	}
+	return b.String()
+}
+
+// getGoType 将逻辑类型词表归一化为 Go 类型。
+// 未识别的类型返回错误，不再静默降级为 string。
+func getGoType(sqlType string) (string, error) {
 	switch sqlType {
 	// 整数类型
 	case "int", "int32", "tinyint", "smallint":
-		return "int"
+		return "int", nil
 	case "int64", "bigint":
-		return "int64"
+		return "int64", nil
 	// 浮点类型（非精确，保持 float64）
 	case "float", "float32", "double", "float64":
-		return "float64"
+		return "float64", nil
 	// 精确小数类型，映射为 decimal.Decimal 以支持精确计算
 	case "decimal":
-		return "decimal.Decimal"
+		return "decimal.Decimal", nil
 	// 字符串类型
 	case "string", "varchar", "char", "text":
-		return "string"
+		return "string", nil
 	// 布尔类型
 	case "bool", "boolean":
-		return "bool"
+		return "bool", nil
 	// 时间类型
 	case "time", "datetime", "timestamp", "date":
-		return "time.Time"
-	// 默认情况
+		return "time.Time", nil
+	// 未识别
 	default:
-		return "string"
+		return "", fmt.Errorf("未识别的类型 %q", sqlType)
 	}
 }
 
 // normalizeGoType 将原始类型词汇归一化为 Go 类型：
-// 以 * 前缀开头的类型原样透传，其余走 getGoType 映射。
+// * 前缀表示可空指针标记——先对基类型做词表映射，再补回 *。
 // 供列解析与查询参数（Where_params）解析共用，保证生成的字段类型一致。
-func normalizeGoType(sqlType string) string {
+func normalizeGoType(sqlType string) (string, error) {
 	if strings.HasPrefix(sqlType, "*") {
-		return sqlType
+		base, err := getGoType(strings.TrimPrefix(sqlType, "*"))
+		if err != nil {
+			return "", err
+		}
+		return "*" + base, nil
 	}
 	return getGoType(sqlType)
 }

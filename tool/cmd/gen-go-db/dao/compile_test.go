@@ -72,7 +72,7 @@ func generateCompileSet(t *testing.T, genRoot string, cases []struct {
 				if err := model.GenerateModel(tableData, modelPath); err != nil {
 					t.Fatalf("生成 %s 模型失败: %v", tableData.TableName, err)
 				}
-				if err := GenerateDAO(tableData, daoDir, "compilegen/"+caseName, dc.dbType); err != nil {
+				if _, err := GenerateDAO(tableData, daoDir, "compilegen/"+caseName, dc.dbType); err != nil {
 					t.Fatalf("生成 %s DAO 失败: %v", tableData.TableName, err)
 				}
 			}
