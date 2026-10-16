@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -81,6 +82,21 @@ func runGendb(t *testing.T, bin string, args ...string) (int, string) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
 	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return 0, string(out)
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return exitErr.ExitCode(), string(out)
+	}
+	t.Fatalf("执行 gendb 失败: %v\n%s", err, string(out))
+	return -1, string(out)
+}
+
+// runGendbStdout 执行子命令，仅取 stdout（--json 契约验证用）；stderr 被忽略。
+func runGendbStdout(t *testing.T, bin string, args ...string) (int, string) {
+	t.Helper()
+	cmd := exec.Command(bin, args...)
+	out, err := cmd.Output()
 	if err == nil {
 		return 0, string(out)
 	}
@@ -267,5 +283,91 @@ func TestE2E_Sheet_Split(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("输出目录缺少 in_<日期>.xlsx，实际: %v", entries)
+	}
+}
+
+// TestE2E_Db_JSONSuccess db --json 成功契约：stdout 为单一 JSON、ok=true、产物落盘、退出码 0。
+func TestE2E_Db_JSONSuccess(t *testing.T) {
+	bin, moduleRoot := buildGendbBinary(t)
+	outDir := t.TempDir()
+	code, stdout := runGendbStdout(t, bin, "db", "-i", filepath.Join(moduleRoot, "repository", "yaml", "tm_no.yaml"), "-o", outDir, "-m", "example.com/demo", "--json")
+	if code != 0 {
+		t.Fatalf("db --json 应成功，退出码 %d，stdout:\n%s", code, stdout)
+	}
+	var got struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("stdout 不是单一合法 JSON: %v\n%s", err, stdout)
+	}
+	if !got.OK {
+		t.Errorf("ok 应为 true, stdout: %s", stdout)
+	}
+	for _, want := range []string{
+		filepath.Join("repository", "dao", "tm_no_dao.go"),
+		filepath.Join("repository", "dao", "tm_no_constant.go"),
+		filepath.Join("repository", "model", "tm_no_model.go"),
+	} {
+		if _, err := os.Stat(filepath.Join(outDir, want)); err != nil {
+			t.Errorf("缺少生成文件 %s", want)
+		}
+	}
+}
+
+// TestE2E_Db_JSONUnknownType db --json 失败契约：未识别类型 → 退出码 1、ok=false、
+// error.phase=parse、issues 含列与原始类型。
+func TestE2E_Db_JSONUnknownType(t *testing.T) {
+	bin, _ := buildGendbBinary(t)
+	bad := filepath.Join(t.TempDir(), "bad.yaml")
+	content := `table_name: tm_bad
+columns:
+- name: a
+  type: bytea
+`
+	if err := os.WriteFile(bad, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout := runGendbStdout(t, bin, "db", "-i", bad, "-o", t.TempDir(), "-m", "example.com/demo", "--json")
+	if code != 1 {
+		t.Fatalf("db --json 类型非法应退出码 1，实际 %d，stdout:\n%s", code, stdout)
+	}
+	var got struct {
+		OK    bool `json:"ok"`
+		Error struct {
+			Phase  string `json:"phase"`
+			Table  string `json:"table"`
+			Issues []struct {
+				Column string `json:"column"`
+				Type   string `json:"type"`
+			} `json:"issues"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("stdout 不是单一合法 JSON: %v\n%s", err, stdout)
+	}
+	if got.OK {
+		t.Errorf("ok 应为 false, stdout: %s", stdout)
+	}
+	if got.Error.Phase != "parse" {
+		t.Errorf("phase = %q; want parse", got.Error.Phase)
+	}
+	if len(got.Error.Issues) != 1 || got.Error.Issues[0].Type != "bytea" || got.Error.Issues[0].Column != "a" {
+		t.Errorf("issues 不符: %+v", got.Error.Issues)
+	}
+}
+
+// TestE2E_Db_DryRun db --dry-run 契约：退出码 0、输出目录零产物、摘要列出计划文件。
+func TestE2E_Db_DryRun(t *testing.T) {
+	bin, moduleRoot := buildGendbBinary(t)
+	outDir := t.TempDir()
+	code, out := runGendb(t, bin, "db", "-i", filepath.Join(moduleRoot, "repository", "yaml", "tm_no.yaml"), "-o", outDir, "-m", "example.com/demo", "--dry-run")
+	if code != 0 {
+		t.Fatalf("db --dry-run 应成功，退出码 %d，输出:\n%s", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "repository")); !os.IsNotExist(err) {
+		t.Error("dry-run 不应在输出目录产生任何产物")
+	}
+	if !strings.Contains(out, "repository/model/tm_no_model.go") {
+		t.Errorf("dry-run 应列出计划文件，输出:\n%s", out)
 	}
 }

@@ -42,7 +42,7 @@ columns:
   auto_increment: false
   support_update: false
 - name: time_pointer
-  type: '*time.Time'
+  type: '*time'
   not_null: false
   auto_increment: false
   support_update: false

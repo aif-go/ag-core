@@ -9,7 +9,7 @@ import (
 	"github.com/aif-go/ag-core/tool/cmd/gen-go-db/table"
 )
 
-// TestParseYAML_PointerTime 验证以 * 前缀开头的 type 列原样透传为 GoType。
+// TestParseYAML_PointerTime 验证以 * 前缀开头的逻辑词表类型映射为对应 Go 指针类型。
 func TestParseYAML_PointerTime(t *testing.T) {
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "pointer_type.yaml")
@@ -17,7 +17,7 @@ func TestParseYAML_PointerTime(t *testing.T) {
 	yamlContent := `table_name: tm_pointer_type
 columns:
 - name: created_at
-  type: "*time.Time"
+  type: "*time"
 - name: count
   type: "*int64"
 `
@@ -38,8 +38,8 @@ columns:
 	if timeCol.GoType != "*time.Time" {
 		t.Errorf("GoType = %q; want %q", timeCol.GoType, "*time.Time")
 	}
-	if timeCol.Type != "*time.Time" {
-		t.Errorf("Type = %q; want %q", timeCol.Type, "*time.Time")
+	if timeCol.Type != "*time" {
+		t.Errorf("Type = %q; want %q", timeCol.Type, "*time")
 	}
 
 	intCol := data.Columns[1]
@@ -86,7 +86,7 @@ func TestParseYAML_Import(t *testing.T) {
 		yamlContent := `table_name: tm_pointer_time_import
 columns:
 - name: created_at
-  type: "*time.Time"
+  type: "*time"
 `
 		if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
 			t.Fatalf("写入YAML文件失败: %v", err)
@@ -193,10 +193,10 @@ func TestGenerateGormTag_IndexPriority(t *testing.T) {
 // TestGetZeroCheck 验证指针类型列生成 == nil 零值判断，非指针列保持原有判断形式。
 func TestGetZeroCheck(t *testing.T) {
 	tests := []struct {
-		name       string
-		goType     string
-		jsonTag    string
-		want       string
+		name    string
+		goType  string
+		jsonTag string
+		want    string
 	}{
 		{"指针时间列", "*time.Time", "createdAt", "xxx.createdAt == nil"},
 		{"时间列", "time.Time", "createdAt", "xxx.createdAt.IsZero()"},
@@ -236,7 +236,11 @@ func TestGetGoType_Decimal(t *testing.T) {
 		{"datetime", "time.Time"},
 	}
 	for _, tt := range tests {
-		if got := getGoType(tt.sqlType); got != tt.want {
+		got, err := getGoType(tt.sqlType)
+		if err != nil {
+			t.Errorf("getGoType(%q) 返回错误: %v", tt.sqlType, err)
+		}
+		if got != tt.want {
 			t.Errorf("getGoType(%q) = %q; want %q", tt.sqlType, got, tt.want)
 		}
 	}
@@ -291,7 +295,7 @@ columns:
 	}
 }
 
-// TestParseYAML_DecimalPointer 验证 *decimal.Decimal 指针类型也会自动导入 decimal 包。
+// TestParseYAML_DecimalPointer 验证 *decimal 指针类型也会自动导入 decimal 包。
 func TestParseYAML_DecimalPointer(t *testing.T) {
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "decimal_pointer.yaml")
@@ -299,7 +303,7 @@ func TestParseYAML_DecimalPointer(t *testing.T) {
 	yamlContent := `table_name: tm_decimal_pointer
 columns:
 - name: salary
-  type: "*decimal.Decimal"
+  type: "*decimal"
 `
 	if err := os.WriteFile(yamlPath, []byte(yamlContent), 0644); err != nil {
 		t.Fatalf("写入YAML文件失败: %v", err)
@@ -419,9 +423,9 @@ func TestGetZeroCheck_Decimal(t *testing.T) {
 	}
 }
 
-// TestNormalizeGoType 验证原始类型词汇到 Go 类型的归一化（* 前缀透传，其余走 getGoType 映射）。
+// TestNormalizeGoType 验证逻辑类型词表到 Go 类型的归一化（* 前缀映射后加指针；Go 类型词一律报错）。
 func TestNormalizeGoType(t *testing.T) {
-	tests := []struct {
+	okCases := []struct {
 		in   string
 		want string
 	}{
@@ -429,13 +433,149 @@ func TestNormalizeGoType(t *testing.T) {
 		{"time", "time.Time"},
 		{"int64", "int64"},
 		{"string", "string"},
-		{"*time.Time", "*time.Time"},
-		{"*decimal.Decimal", "*decimal.Decimal"},
+		{"*time", "*time.Time"},
+		{"*decimal", "*decimal.Decimal"},
+		{"*int64", "*int64"},
 	}
-	for _, tt := range tests {
-		if got := normalizeGoType(tt.in); got != tt.want {
+	for _, tt := range okCases {
+		got, err := normalizeGoType(tt.in)
+		if err != nil {
+			t.Errorf("normalizeGoType(%q) 返回错误: %v", tt.in, err)
+			continue
+		}
+		if got != tt.want {
 			t.Errorf("normalizeGoType(%q) = %q; want %q", tt.in, got, tt.want)
 		}
+	}
+
+	badCases := []string{"*time.Time", "*decimal.Decimal", "time.Time", "decimal.Decimal", "MyType", "*", "bytea"}
+	for _, in := range badCases {
+		if got, err := normalizeGoType(in); err == nil {
+			t.Errorf("normalizeGoType(%q) 应返回错误，got %q", in, got)
+		}
+	}
+}
+
+// TestParseYAML_UnknownType 验证未识别类型终止解析并按表聚合报出（含表/列/原始类型）。
+func TestParseYAML_UnknownType(t *testing.T) {
+	tmpDir := t.TempDir()
+	bad := filepath.Join(tmpDir, "bad_type.yaml")
+
+	badContent := `table_name: tm_bad_type
+columns:
+- name: a
+  type: bytea
+- name: b
+  type: time.Time
+`
+	if err := os.WriteFile(bad, []byte(badContent), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+
+	_, err := ParseYAML(bad, "test-module")
+	if err == nil {
+		t.Fatal("ParseYAML 应返回错误")
+	}
+	ve, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("错误类型 = %T; want *ValidationError", err)
+	}
+	if ve.Table != "tm_bad_type" {
+		t.Errorf("Table = %q; want %q", ve.Table, "tm_bad_type")
+	}
+	if len(ve.Issues) != 2 {
+		t.Fatalf("Issues 数量 = %d; want 2（多列聚合）", len(ve.Issues))
+	}
+	byCol := map[string]string{}
+	for _, it := range ve.Issues {
+		byCol[it.Column] = it.RawType
+	}
+	if byCol["a"] != "bytea" || byCol["b"] != "time.Time" {
+		t.Errorf("Issues = %v; want a=bytea, b=time.Time 同时报出", ve.Issues)
+	}
+}
+
+// TestParseYAML_PointerEmptyBase 验证 * 紧接空类型时返回错误。
+func TestParseYAML_PointerEmptyBase(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := filepath.Join(tmpDir, "empty_pointer.yaml")
+	content := `table_name: tm_empty_ptr
+columns:
+- name: a
+  type: "*"
+`
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+	_, err := ParseYAML(p, "test-module")
+	if err == nil {
+		t.Fatal("ParseYAML 应返回错误")
+	}
+	ve, ok := err.(*ValidationError)
+	if !ok || len(ve.Issues) != 1 {
+		t.Fatalf("应为仅含 1 条 issue 的 ValidationError, got %v", err)
+	}
+}
+
+// TestParseYAML_WhereParamsUnknownType 验证查询参数未识别类型按 "查询名/参数名" 聚合报出。
+func TestParseYAML_WhereParamsUnknownType(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := filepath.Join(tmpDir, "where_param_bad.yaml")
+	content := `table_name: tm_wp_bad
+columns:
+- name: id
+  type: int64
+self_query_rules:
+  FindByX:
+    select_fields: '*'
+    page: false
+    dynamic_sql: true
+    sql_template: "SELECT * FROM tm_wp_bad WHERE id = @Id"
+    Where_params:
+    - colname: id
+      paraname: Id
+      slice: false
+      type: bigint2
+`
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+	_, err := ParseYAML(p, "test-module")
+	if err == nil {
+		t.Fatal("ParseYAML 应返回错误")
+	}
+	ve, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("错误类型 = %T; want *ValidationError", err)
+	}
+	if len(ve.Issues) != 1 || ve.Issues[0].Column != "FindByX/Id" {
+		t.Fatalf("应报 查询名/参数名 问题, issues=%v", ve.Issues)
+	}
+	if ve.Issues[0].RawType != "bigint2" {
+		t.Errorf("RawType = %q; want bigint2", ve.Issues[0].RawType)
+	}
+}
+
+// TestParseYAML_OptimisticLockBadBase 验证乐观锁列基类型非法也会被拦截（不跳过基类型检查）。
+func TestParseYAML_OptimisticLockBadBase(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := filepath.Join(tmpDir, "ol_bad_base.yaml")
+	content := `table_name: tm_ol_bad
+columns:
+- name: version_no
+  type: unknownjoy
+  tag: "///@optimisticlock"
+`
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatalf("写入YAML文件失败: %v", err)
+	}
+	_, err := ParseYAML(p, "test-module")
+	if err == nil {
+		t.Fatal("乐观锁列非法基类型也应返回错误")
+	}
+	ve, ok := err.(*ValidationError)
+	if !ok || len(ve.Issues) != 1 || ve.Issues[0].Column != "version_no" {
+		t.Fatalf("应拦截乐观锁列基类型, got %v", err)
 	}
 }
 

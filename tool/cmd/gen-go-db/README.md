@@ -165,18 +165,20 @@ gendb sheet -i ./data.xlsx -o ./output_dir -k "自定义脚本名字"
 
 ## 类型映射
 
-`gen-go-db` 会将 Excel/YAML 中的字段类型映射为对应的 Go 类型，常见映射如下：
+`gen-go-db` 会将 Excel/YAML 中的字段类型映射为对应的 Go 类型。`type` 字段只能填写下列**逻辑类型词表**（禁止直接写 Go 类型），常见映射如下：
 
-| SQL 类型 | Go 类型 | 说明 |
+| 逻辑类型（Excel/YAML `type`） | 生成 Go 类型 | 说明 |
 |---|---|---|
 | `int` / `int32` / `tinyint` / `smallint` | `int` | |
 | `int64` / `bigint` | `int64` | |
 | `float` / `float32` / `double` / `float64` | `float64` | 非精确浮点，普通场景使用 |
-| `decimal` | `decimal.Decimal` | 精确小数，支持精确计算（金额等场景） |
+| `decimal` | `decimal.Decimal` | 精确小数，`length` 支持 `10,2` 形式 |
 | `varchar` / `char` / `text` | `string` | |
 | `bool` / `boolean` | `bool` | |
 | `time` / `datetime` / `timestamp` / `date` | `time.Time` | |
-| `*` 前缀类型 | 原样透传 | 如 `*time.Time`、`*decimal.Decimal` |
+| `*<逻辑类型>` | 对应 Go 类型加指针 | 如 `*time`→`*time.Time`、`*decimal`→`*decimal.Decimal`、`*int64`→`*int64` |
+
+> **禁止写 Go 类型**：`type` 不允许直接写 Go 类型（如 `time.Time`、`decimal.Decimal`、`*time.Time`）。遇到未识别的类型，命令将**整轮终止**并报错，聚合列出表/列/原始类型（见「命令产出契约」）。
 
 ### decimal 类型说明
 
@@ -184,7 +186,7 @@ gendb sheet -i ./data.xlsx -o ./output_dir -k "自定义脚本名字"
 - 生成的 Model 会自动导入 `github.com/shopspring/decimal` 依赖。
 - 列 `length` 的处理遵循 GORM 官方标准方案：
   - `string` 列 → `size:<length>`（如 `size:20`）
-  - `decimal` 列（`decimal.Decimal`/`*decimal.Decimal`）→ `type:decimal(p,s);precision:p;scale:s`（如 `type:decimal(10,2);precision:10;scale:2`）；`length` 为空也会生成 `type:decimal`，避免 GORM 将 decimal 误判为 string 建文本列
+  - `decimal` 列（输入 `decimal`/`*decimal`，生成 `decimal.Decimal`/`*decimal.Decimal`）→ `type:decimal(p,s);precision:p;scale:s`（如 `type:decimal(10,2);precision:10;scale:2`）；`length` 为空也会生成 `type:decimal`，避免 GORM 将 decimal 误判为 string 建文本列
   - 其他类型（`int64`/`bool`/`float64`/`time.Time`）数据库列大小固定，不生成 `length`/`type` 相关 tag
 - **JSON 序列化注意**：`decimal.Decimal` 默认序列化为带引号的字符串（如 `"123.45"`）。如需输出数字格式，可在业务服务启动处设置 `decimal.MarshalJSONWithoutQuotes = true`（包级全局，全进程生效）。
 
@@ -302,6 +304,18 @@ Excel 文件需要按照特定的格式定义表结构，包括字段名、类�
 ### Q: sheet 命令的输出文件名如何生成？
 
 如果 `--output` 参数是目录或没有扩展名，则使用默认文件名：`原文件名_日期`（日期格式：20060102）。如果指定了完整文件路径，则使用指定的文件名。
+
+## 命令产出契约
+
+`gen-go-db db` 命令面向人类与 AI/脚本两种消费方，遵循以下可校验契约：
+
+- **退出码**：`0` = 本次请求的全部表完整生成；非 `0` = 失败（无部分成功语义，任一表失败即整轮终止）。
+- **输出通道**：stdout 为进度与结果；错误文本走 stderr（含 `生成DAO文件失败:` 前缀）；JSON 模式下 stdout 仅一个 JSON 对象。
+- **`--json`**：
+  - 成功：`{"ok":true,"command":"db","dry_run":false,"tables":[{"name":"tm_no","files":["repository/model/tm_no_model.go","repository/dao/tm_no_dao.go",...]}]}`
+  - 失败：`{"ok":false,"command":"db","error":{"phase":"parse","file":...,"table":...,"issues":[{"column":"enroll_date","type":"*time.Time"}],"message":...}}`
+- **`--dry-run`**：只校验并枚举将生成的文件（生成到临时目录后丢弃），不写真实输出目录、不改产物。
+- **未识别类型**：整轮终止，错误聚合列出本表全部坏列（查询参数问题标注为 `查询名/参数名`）。
 
 ## 技术支持
 
