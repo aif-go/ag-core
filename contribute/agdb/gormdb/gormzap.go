@@ -26,6 +26,11 @@ type Logger struct {
 	LogLevel                  gormlog.LogLevel
 }
 
+// NewZapGormLog 创建基于 zap 的 GORM logger。
+//
+// Deprecated: 请改用 FindGormLoggerFromAgslog（基于 agslog/slog）获取 logger。
+// 该实现已不在 FxAicGromdbModule 中装配，且 ParameterizedQueries 硬编码为 true、
+// 无法通过配置控制，后续版本可能移除。
 func NewZapGormLog(zapLogger *zap.Logger) gormlog.Interface {
 	zapLogger.Level()
 	return &Logger{
@@ -34,7 +39,7 @@ func NewZapGormLog(zapLogger *zap.Logger) gormlog.Interface {
 		SlowThreshold:             100 * time.Millisecond,
 		Colorful:                  false,
 		IgnoreRecordNotFoundError: false,
-		ParameterizedQueries:      false,
+		ParameterizedQueries:      true,
 	}
 }
 
@@ -97,6 +102,13 @@ func (l Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, i
 			logger.Info("trace", zap.String("elapsed", elapsedStr), zap.Int64("rows", rows), zap.String("sql", sql))
 		}
 	}
+}
+
+func (l Logger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
+	if l.ParameterizedQueries {
+		return sql, nil // 剥掉参数值，Explain 后只剩 ? 占位符
+	}
+	return sql, params
 }
 
 var (
