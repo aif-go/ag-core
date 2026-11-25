@@ -1,8 +1,9 @@
 package ag_conf
 
 import (
-	"github.com/aif-go/ag-core/ag/ag_crypto"
 	"fmt"
+	"github.com/aif-go/ag-core/ag/ag_crypto"
+	"github.com/aif-go/ag-core/ag/ag_crypto/protocol"
 	"log/slog"
 	"strings"
 )
@@ -72,23 +73,40 @@ func BuildDecryptForPropertySource(ps IPropertySource) (*MapPropertySource, erro
 	decryptSource := make(map[string]any)
 	source := ps.GetSource()
 
-	encryptor := ag_crypto.GetEncrytorPrimary()
-	// encname := encryptor.Name()
-
 	for key, value := range source {
 		ciphertext, ok := value.(string)
-		if ok && strings.HasPrefix(ciphertext, ConstEncryptKeyWords) {
-			// plaintext, err := ag_ext.GetEncrytorPrimary().Decrypt(ciphertext)
-			// 此处先临时使用base64解密,后续需重构调整
-			// plaintext, err := ag_crypto.Base64Encryptor.Decrypt(ciphertext)
-			ciphertext = ciphertext[len(ConstEncryptKeyWords):]
-			plaintext, err := encryptor.Decrypt(ciphertext)
-			if err != nil {
-				err = fmt.Errorf("decrypt config err source:%s, key:%s, err:%w", psname, key, err)
-				return nil, err
-			}
-			decryptSource[key] = plaintext
+		if !ok {
+			continue
 		}
+
+		ref, isCipher, err := protocol.Parse(ciphertext)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt config err source:%s, key:%s: %w", psname, key, err)
+		}
+		if !isCipher {
+			continue
+		}
+		var enc ag_crypto.ITextEncryptor
+		if ref.Name == "" {
+			// 兼容旧 API：默认加密器仍以 DefaultEncryptorPrimary 为准
+			enc = ag_crypto.GetEncrytorPrimary()
+			if enc == nil {
+				return nil, fmt.Errorf("decrypt config err source:%s, key:%s: no default encryptor", psname, key)
+			}
+		} else {
+			resolved, rerr := ag_crypto.DefaultRegistry().Resolve(ref.Name, ref.KeyID)
+			if rerr != nil {
+				return nil, fmt.Errorf("decrypt config err source:%s, key:%s, encryptor:%s/%s: %w",
+					psname, key, ref.Name, ref.KeyID, rerr)
+			}
+			enc = resolved
+		}
+		plaintext, err := enc.Decrypt(ref.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt config err source:%s, key:%s, encryptor:%s/%s: %w",
+				psname, key, ref.Name, ref.KeyID, err)
+		}
+		decryptSource[key] = plaintext
 	}
 
 	dsource := &MapPropertySource{
