@@ -90,6 +90,7 @@ func (r *EncryptorRegistry) Resolve(name, keyID string) (ITextEncryptor, error) 
 }
 
 // SetDefault 设置 name 为空时使用的默认加密器。
+// 建议在启动期调用；运行期调用时，已在执行的解密不受影响，之后开始的解密使用新值。
 func (r *EncryptorRegistry) SetDefault(enc ITextEncryptor) error {
 	if enc == nil {
 		return errors.New("nil encryptor")

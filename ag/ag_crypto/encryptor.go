@@ -1,9 +1,10 @@
 package ag_crypto
 
-// DefaultEncryptorPrimary 是历史上的全局单例。
-//
-// Deprecated: 直接赋值不会同步到注册表，请改用 SetEncryptorPrimary 或 DefaultRegistry().SetDefault()。
-var DefaultEncryptorPrimary ITextEncryptor = Base64Encryptor
+import "sync"
+
+// registryMu 保护 defaultRegistry 指针。当前指针初始化后不再替换，
+// 这把锁为将来可能的替换预留；注册表内容由各实例自己的 mu 保护。
+var registryMu sync.RWMutex
 
 // ITextEncryptor 是文本加解密接口。
 type ITextEncryptor interface {
@@ -26,21 +27,24 @@ func init() {
 }
 
 // DefaultRegistry 返回进程级加密器注册表。
+// 除 init 外，所有对全局注册表的访问都应通过本方法。
+// registryMu 为将来可能的指针替换预留；当前指针初始化后不再变更。
 func DefaultRegistry() *EncryptorRegistry {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	return defaultRegistry
 }
 
-// GetEncrytorPrimary 返回默认加密器。
+// GetEncrytorPrimary 返回默认加密器，等价于 DefaultRegistry().Default()。
 //
 // Deprecated: use DefaultRegistry().Default().
 func GetEncrytorPrimary() ITextEncryptor {
-	return DefaultEncryptorPrimary
+	return DefaultRegistry().Default()
 }
 
-// SetEncryptorPrimary 设置默认加密器。
+// SetEncryptorPrimary 设置默认加密器；nil 会被忽略。
 //
 // Deprecated: use DefaultRegistry().SetDefault().
 func SetEncryptorPrimary(encryptor ITextEncryptor) {
-	DefaultEncryptorPrimary = encryptor
-	_ = defaultRegistry.SetDefault(encryptor)
+	_ = DefaultRegistry().SetDefault(encryptor)
 }

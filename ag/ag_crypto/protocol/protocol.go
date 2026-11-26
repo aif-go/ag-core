@@ -4,8 +4,8 @@
 // 只负责字符串解析/格式化与语法校验，不依赖任何加解密实现。
 //
 // payload 对协议层不透明，但有两条边界：
-//   - 只识别 {name:...} 和 {key:...} 两个 header；拼错的 header（如 {nam:...}）
-//     会被当作 payload 的一部分，不会报“未知 header”；
+//   - 只识别 {name:...} 和 {key:...} 两个 header（键名严格匹配，两侧不能有空格）；
+//     拼错的 header（如 {nam:...}）会被当作 payload 的一部分，不会报“未知 header”；
 //   - payload 不能以 {name: 或 {key: 开头，也不能是“以 { 开头且没有 }”的串，
 //     否则会被当成 header / 未闭合 header。Base64 编码天然满足这两条。
 package protocol
@@ -47,12 +47,6 @@ func IsCipherText(s string) bool {
 // 保证 payload 对协议层不透明。payload 的边界见包注释。
 func Parse(s string) (ref Ref, ok bool, err error) {
 	if !strings.HasPrefix(s, Prefix) {
-		// 旧文档的冒号形式：明确报错，而不是当普通字符串静默跳过
-		if strings.HasPrefix(s, "{cipher:") {
-			return Ref{}, true, fmt.Errorf(
-				"old cipher protocol form %q, use %s{name:...}{key:...}",
-				preview(s, 32), Prefix)
-		}
 		return Ref{}, false, nil
 	}
 
@@ -64,14 +58,14 @@ parse:
 	for strings.HasPrefix(rest, "{") {
 		end := strings.IndexByte(rest, '}')
 		if end < 0 {
-			return Ref{}, true, fmt.Errorf("unterminated cipher header in %q", preview(s, 32))
+			return Ref{}, true, errors.New("unterminated cipher header")
 		}
 		body := rest[1:end]
 		k, v, hasColon := strings.Cut(body, ":")
 		if !hasColon {
 			break parse
 		}
-		switch strings.ToLower(strings.TrimSpace(k)) {
+		switch strings.ToLower(k) {
 		case headerName:
 			if seenName {
 				return Ref{}, true, errors.New("duplicate {name:...} header")
@@ -97,11 +91,11 @@ parse:
 		rest = rest[end+1:]
 	}
 
-	if rest == "" {
-		return Ref{}, true, errors.New("empty cipher payload")
-	}
 	if keyID != "" && name == "" {
 		return Ref{}, true, errors.New("{key:...} requires {name:...}")
+	}
+	if rest == "" {
+		return Ref{}, true, errors.New("empty cipher payload")
 	}
 	return Ref{Name: name, KeyID: keyID, Payload: rest}, true, nil
 }
@@ -110,6 +104,15 @@ parse:
 func Format(name, keyID, payload string) (string, error) {
 	if payload == "" {
 		return "", errors.New("empty cipher payload")
+	}
+	// 与 Parse 保持一致：以 {name: 或 {key: 开头的 payload 会被当成 header，
+	// 以 { 开头但没有 } 的会被当成未闭合 header，两种都无法原样解析回来。
+	lowerPayload := strings.ToLower(payload)
+	if strings.HasPrefix(lowerPayload, "{name:") || strings.HasPrefix(lowerPayload, "{key:") {
+		return "", errors.New("payload must not start with {name: or {key:")
+	}
+	if strings.HasPrefix(payload, "{") && !strings.Contains(payload, "}") {
+		return "", errors.New("payload starts with '{' but has no closing '}'")
 	}
 	name = strings.ToLower(strings.TrimSpace(name))
 	keyID = strings.TrimSpace(keyID)
