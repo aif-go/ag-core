@@ -2,10 +2,11 @@ package ag_conf
 
 import (
 	"fmt"
-	"github.com/aif-go/ag-core/ag/ag_crypto"
-	"github.com/aif-go/ag-core/ag/ag_crypto/protocol"
 	"log/slog"
 	"strings"
+
+	"github.com/aif-go/ag-core/ag/ag_crypto"
+	"github.com/aif-go/ag-core/ag/ag_crypto/protocol"
 )
 
 // DecryptLocalConfig 遍历local配置,做解密处理
@@ -88,8 +89,8 @@ func BuildDecryptForPropertySource(ps IPropertySource) (*MapPropertySource, erro
 		}
 		var enc ag_crypto.ITextEncryptor
 		if ref.Name == "" {
-			// 兼容旧 API：默认加密器仍以 DefaultEncryptorPrimary 为准
-			enc = ag_crypto.GetEncrytorPrimary()
+			// 未指定 name：使用注册表的默认加密器
+			enc = ag_crypto.DefaultRegistry().Default()
 			if enc == nil {
 				return nil, fmt.Errorf("decrypt config err source:%s, key:%s: no default encryptor", psname, key)
 			}

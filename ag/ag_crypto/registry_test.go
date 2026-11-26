@@ -89,3 +89,35 @@ func TestRegistryConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestConcurrentDefaultAccess 验证 DefaultRegistry / GetEncrytorPrimary / SetDefault
+// 三路并发访问不会产生数据竞争（配合 -race 运行）。
+func TestConcurrentDefaultAccess(t *testing.T) {
+	old := DefaultRegistry().Default()
+	if old == nil {
+		old = Base64Encryptor
+	}
+	t.Cleanup(func() { _ = DefaultRegistry().SetDefault(old) })
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			_ = DefaultRegistry()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			_ = GetEncrytorPrimary()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			_ = DefaultRegistry().SetDefault(old)
+		}
+	}()
+	wg.Wait()
+}

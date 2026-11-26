@@ -81,19 +81,23 @@ func (fakeEncryptor) Name() string                     { return "fake" }
 func (fakeEncryptor) Encrypt(s string) (string, error) { return s, nil }
 func (fakeEncryptor) Decrypt(s string) (string, error) { return s, nil }
 
-// TestBuildDecryptHonorsLegacyDefaultVar 验证下游直接赋值 DefaultEncryptorPrimary
-// （旧 API 的公开变量）仍然生效，不会被静默忽略。
-func TestBuildDecryptHonorsLegacyDefaultVar(t *testing.T) {
-	old := ag_crypto.DefaultEncryptorPrimary
-	ag_crypto.DefaultEncryptorPrimary = fakeEncryptor{}
-	t.Cleanup(func() { ag_crypto.DefaultEncryptorPrimary = old })
+// TestBuildDecryptHonorsRegistryDefault 验证用 SetDefault 设置默认加密器后，
+// legacy {cipher} 也会走新的默认值，而不只是注册表解析。
+func TestBuildDecryptHonorsRegistryDefault(t *testing.T) {
+	oldDef := ag_crypto.DefaultRegistry().Default()
+	t.Cleanup(func() {
+		_ = ag_crypto.DefaultRegistry().SetDefault(oldDef)
+	})
 
-	ps := newTestSource("[LOCAL]-legacy-var", map[string]any{"pwd": "{cipher}whatever"})
+	if err := ag_crypto.DefaultRegistry().SetDefault(fakeEncryptor{}); err != nil {
+		t.Fatal(err)
+	}
+	ps := newTestSource("[LOCAL]-registry-default", map[string]any{"pwd": "{cipher}@@@"})
 	got, err := BuildDecryptForPropertySource(ps)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if got.Source["pwd"] != "whatever" {
-		t.Fatalf("pwd=%v, want whatever（直接赋值 DefaultEncryptorPrimary 应生效）", got.Source["pwd"])
+	if got.Source["pwd"] != "@@@" {
+		t.Fatalf("pwd=%v, want @@@（SetDefault 应影响 legacy {cipher}）", got.Source["pwd"])
 	}
 }
