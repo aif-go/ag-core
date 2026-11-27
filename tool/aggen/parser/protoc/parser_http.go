@@ -146,6 +146,10 @@ func buildMethodDesc(
 	path string) (*types.MethodHttpDesc, error) {
 	defer func() { methodSets[m.GoName]++ }()
 
+	// Google API 规范用 {name} 表示路径参数，Hertz 路由需要 :name。
+	// 必须在 buildPathVars 之前转换，否则 vars / PathVars / HasVars 都会漏掉该参数。
+	path = toHertzPath(path)
+
 	vars := buildPathVars(path)
 
 	for v, s := range vars {
@@ -219,6 +223,26 @@ func buildPathVars(path string) (res map[string]*string) {
 		}
 	}
 	return
+}
+
+// toHertzPath 把 Google API 风格的路径参数 {name} / {name=pattern} 转成 Hertz 的
+// :name / :name=pattern；已经是 :name 的写法原样保留。
+// 例：/api/systems/{id} -> /api/systems/:id
+func toHertzPath(path string) string {
+	if !strings.Contains(path, "{") {
+		return path
+	}
+	re := regexp.MustCompile(`\{([\w.-]+)(?:[:=]([^}]+))?\}`)
+	return re.ReplaceAllStringFunc(path, func(m string) string {
+		sub := re.FindStringSubmatch(m)
+		if sub == nil {
+			return m
+		}
+		if len(sub) > 2 && strings.TrimSpace(sub[2]) != "" {
+			return ":" + sub[1] + "=" + strings.TrimSpace(sub[2])
+		}
+		return ":" + sub[1]
+	})
 }
 
 func replacePath(name string, value string, path string) string {
