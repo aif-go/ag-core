@@ -4,7 +4,7 @@ go 1.24.8
 
 require (
 	gitee.com/Trisia/gotlcp v1.4.4
-	github.com/emmansun/gmsm v0.40.1
+	github.com/emmansun/gmsm v0.41.1
 	github.com/panjf2000/ants/v2 v2.11.6
 	github.com/petermattis/goid v0.0.0-20260226131333-17d1149c6ac6
 	// github.com/smallnest/ringbuffer v0.1.1
@@ -20,7 +20,7 @@ require (
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
-	golang.org/x/crypto v0.47.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

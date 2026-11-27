@@ -1,6 +1,10 @@
 package gormdb
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/aif-go/ag-core/contribute/agdb/conditonwhere"
+)
 
 // 分页结构体
 type Page struct {
@@ -18,6 +22,7 @@ type PageResult struct {
 
 // 定义Order结构体，用于分页查询时指定排序列和排序方式
 type OrderSort string
+
 const (
 	ASC  OrderSort = "ASC"
 	DESC OrderSort = "DESC"
@@ -25,17 +30,27 @@ const (
 
 type Order struct {
 	ColName string
-	Sort   OrderSort
+	Sort    OrderSort
 }
 
 func (o Order) String() string {
-	return o.ColName + " " + string(o.Sort)
+	// 列名与排序方向都不接受外部输入：非法时返回空串，由 ToSqlOrder 丢弃
+	if !conditonwhere.IsSafeIdentifier(o.ColName) {
+		return ""
+	}
+	sort := strings.ToUpper(string(o.Sort))
+	if sort != string(ASC) && sort != string(DESC) {
+		return ""
+	}
+	return o.ColName + " " + sort
 }
 
 func ToSqlOrder(orderSlice []Order) string {
-	var orderStrings []string
+	orderStrings := make([]string, 0, len(orderSlice))
 	for _, order := range orderSlice {
-		orderStrings = append(orderStrings, order.String())
+		if s := order.String(); s != "" {
+			orderStrings = append(orderStrings, s)
+		}
 	}
 	return strings.Join(orderStrings, ", ")
 }
@@ -58,7 +73,7 @@ func NewOrderBuilder() *OrderBuilder {
 func (b *OrderBuilder) Asc(colName string) *OrderBuilder {
 	b.orders = append(b.orders, Order{
 		ColName: colName,
-		Sort:   ASC,
+		Sort:    ASC,
 	})
 	return b
 }
@@ -67,7 +82,7 @@ func (b *OrderBuilder) Asc(colName string) *OrderBuilder {
 func (b *OrderBuilder) Desc(colName string) *OrderBuilder {
 	b.orders = append(b.orders, Order{
 		ColName: colName,
-		Sort:   DESC,
+		Sort:    DESC,
 	})
 	return b
 }
@@ -76,7 +91,7 @@ func (b *OrderBuilder) Desc(colName string) *OrderBuilder {
 func (b *OrderBuilder) Order(colName string, sort OrderSort) *OrderBuilder {
 	b.orders = append(b.orders, Order{
 		ColName: colName,
-		Sort:   sort,
+		Sort:    sort,
 	})
 	return b
 }

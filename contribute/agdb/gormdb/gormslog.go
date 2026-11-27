@@ -20,13 +20,20 @@ type GormSlogLogger struct {
 	LogLevel                  logger.LogLevel
 }
 
-func NewSLogGormLog(slogLogger *slog.Logger) logger.Interface {
+func NewSLogGormLog(slogLogger *slog.Logger, conf *LoggerConfig) logger.Interface {
+	// 默认脱敏。conf 允许为 nil，此时不能退化成明文日志——配置缺失时应选择安全的
+	// 一侧（fail-closed），所以 nil 也保持 ParameterizedQueries=true，而不是取零值 false。
+	parameterized := true
+	if conf != nil {
+		parameterized = conf.ParameterizedQueries
+	}
+
 	return &GormSlogLogger{
 		SlogLogger:                slogLogger,
 		LogLevel:                  logger.Warn,
 		SlowThreshold:             100 * time.Millisecond,
 		IgnoreRecordNotFoundError: true,
-		ParameterizedQueries:      false,
+		ParameterizedQueries:      parameterized,
 	}
 }
 
@@ -96,6 +103,13 @@ func (l GormSlogLogger) Trace(ctx context.Context, begin time.Time, fc func() (s
 			"rows", rows,
 			"sql", sql)
 	}
+}
+
+func (l GormSlogLogger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
+	if l.ParameterizedQueries {
+		return sql, nil // 剥掉参数值，Explain 后只剩 ? 占位符
+	}
+	return sql, params
 }
 
 // var (

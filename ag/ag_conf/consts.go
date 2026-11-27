@@ -1,6 +1,10 @@
 package ag_conf
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aif-go/ag-core/ag/ag_crypto/protocol"
+)
 
 // CommandArgsPrefix 命令行参数前缀取值key
 const CommandArgsPrefix = "GS_ARGS_PREFIX"
@@ -13,7 +17,8 @@ const (
 	//ConstValueSeparator Value separator for system property placeholders: ":".
 	ConstValueSeparator = ":"
 	// ConstEncryptKeyWords value start with keywords means has been encrypt
-	ConstEncryptKeyWords = "{cipher}"
+	// Deprecated: use protocol.Prefix.
+	ConstEncryptKeyWords = protocol.Prefix
 
 	SourceKeySysPrefix     string = "[SYS]"
 	SourceKeyLocalPrefix   string = "[LOCAL]"

@@ -25,8 +25,9 @@ type PoolConfig struct {
 }
 
 type LoggerConfig struct {
-	Name  string
-	Debug bool
+	Name                 string
+	Debug                bool
+	ParameterizedQueries bool // 是否参数化查询，默认true，false 表示不参数化查询
 }
 
 func NewDefaultConfig() *Config {
@@ -34,8 +35,9 @@ func NewDefaultConfig() *Config {
 
 	return &Config{
 		Logger: LoggerConfig{
-			Name:  "agdb",
-			Debug: false,
+			Name:                 "agdb",
+			Debug:                false,
+			ParameterizedQueries: true,
 		},
 		Pool: PoolConfig{
 			MaxIdleConns: numP,

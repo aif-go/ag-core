@@ -23,7 +23,7 @@ func FindGormLoggerFromAgslog(conf *Config) logger.Interface {
 		name = "agdb"
 	}
 	slogLogger := agslog.GetSlogByName(name)
-	log := NewSLogGormLog(slogLogger)
+	log := NewSLogGormLog(slogLogger, &conf.Logger)
 
 	// 调试模式
 	if conf.Logger.Debug {

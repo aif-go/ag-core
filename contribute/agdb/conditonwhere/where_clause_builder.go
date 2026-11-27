@@ -342,6 +342,19 @@ func (b *WhereClauseBuilder) Build() (string, []interface{}, error) {
 	return sql, args, nil
 }
 
+// normalizeLogic 归一化并校验逻辑连接符：只允许 AND/OR。
+// Logic 会被直接拼进 SQL，非法值同样构成注入，不能只校验字段名。
+func normalizeLogic(logic SQLLogicOperator) (string, error) {
+	s := strings.ToUpper(string(logic))
+	if s == "" {
+		return string(SQLLogicAnd), nil
+	}
+	if s != string(SQLLogicAnd) && s != string(SQLLogicOr) {
+		return "", fmt.Errorf("unsafe logic operator %q", logic)
+	}
+	return s, nil
+}
+
 // buildWhereCondition 递归构建条件
 func buildWhereCondition(cond *WhereCondition) (string, []interface{}, error) {
 	if cond == nil {
@@ -379,9 +392,9 @@ func buildWhereCondition(cond *WhereCondition) (string, []interface{}, error) {
 			if childSQL != "" {
 				// 如果已有条件，用当前 child 的 Logic 连接
 				if len(sqlParts) > 0 {
-					logic := string(child.Logic)
-					if logic == "" {
-						logic = string(SQLLogicAnd)
+					logic, err := normalizeLogic(child.Logic)
+					if err != nil {
+						return "", nil, err
 					}
 					sqlParts = append(sqlParts, logic)
 				}
@@ -424,9 +437,9 @@ func buildNestedGroup(cond *WhereCondition) (string, []interface{}, error) {
 			// 如果已有条件，添加逻辑连接符
 			// 使用当前子条件自身的 Logic（表示它与前一个条件的连接方式）
 			if len(sqlParts) > 0 {
-				logic := string(child.Logic)
-				if logic == "" {
-					logic = string(SQLLogicAnd)
+				logic, err := normalizeLogic(child.Logic)
+				if err != nil {
+					return "", nil, err
 				}
 				sqlParts = append(sqlParts, logic)
 			}
@@ -467,6 +480,10 @@ func needParentheses(parts []string) bool {
 func buildSingleCondition(cond *WhereCondition) (string, []interface{}, error) {
 	if cond.Field == "" {
 		return "", nil, nil
+	}
+	// 标识符无法参数化，只能白名单校验：阻止外部输入被当作列名拼进 SQL
+	if !IsSafeIdentifier(cond.Field) {
+		return "", nil, fmt.Errorf("unsafe field name %q", cond.Field)
 	}
 
 	switch cond.Operator {
