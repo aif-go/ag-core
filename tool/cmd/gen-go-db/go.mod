@@ -4,7 +4,7 @@ go 1.24.8
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1
-	github.com/aif-go/ag-core/contribute/agdb v0.0.1-alpha.6
+	github.com/aif-go/ag-core/contribute/agdb v0.0.1-alpha.9
 	github.com/ibmdb/go_ibm_db v0.5.4
 	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/cobra v1.10.2
@@ -17,7 +17,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/ZhengweiHou/gorm_ibmdb v0.0.1 // indirect
-	github.com/aif-go/ag-core v0.0.1-alpha.6 // indirect
+	github.com/aif-go/ag-core v0.0.1-alpha.9 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.1 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
